@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ALTTP Map</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src * ws://*:*; img-src 'self' data:; style-src 'self' 'unsafe-inline';">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: #000;
+  font-family: Arial, sans-serif;
+  color: #ccc;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Topbar ── */
+#topbar {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  padding: 4px 10px; background: #111; border-bottom: 1px solid #222;
+  font-size: 11px;
+}
+.tb-label { color: #888; }
+.tb-select {
+  background: #1a1a1a; color: #ccc; border: 1px solid #333;
+  border-radius: 3px; padding: 2px 5px; font-size: 11px; cursor: pointer;
+}
+.tb-sep { color: #333; margin: 0 2px; }
+.zoom-btn {
+  background: #1a1a1a; color: #ccc; border: 1px solid #333;
+  border-radius: 3px; padding: 0 7px; font-size: 15px; line-height: 1.6;
+  cursor: pointer; font-weight: bold;
+}
+.zoom-btn:hover { background: #333; color: #fff; }
+#zoom-label { color: #fff; min-width: 40px; text-align: center; font-size: 11px; font-weight: bold; }
+
+/* ── Scroll area ── */
+#maps-outer {
+  flex: 1;
+  overflow: auto;
+  background: #000;
+  min-height: 0;
+}
+#maps { display: inline-flex; flex-direction: row; gap: 12px; }
+#maps.vertical { flex-direction: column; }
+
+.map-wrap {
+  position: relative;
+  width: 512px; height: 512px;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  flex-shrink: 0;
+}
+#lw { background-image: url('map/map_lw.png'); }
+#dw { background-image: url('map/map_dw.png'); }
+
+/* ── Check dots ── */
+.dot {
+  position: absolute;
+  width: 18px; height: 18px;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 2;
+  transition: transform 0.08s;
+}
+.dot:hover { transform: translate(-50%,-50%) scale(1.5); z-index: 20; }
+.dot.available { background: #4dff88; border: 2px solid #000; }
+.dot.possible  { background: #ffd700; border: 2px solid #000; }
+.dot.visible   { background: #ff8c00; border: 2px solid #000; }
+.dot.unavail   { background: #ff4444; border: 2px solid #000; }
+.dot.cleared   { background: rgba(10,10,10,0.82); border: 1.5px solid #3a3a3a; }
+
+/* ── Dungeon markers ── */
+.dng {
+  position: absolute;
+  width: 28px; height: 28px;
+  border-radius: 3px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 5;
+  border: 2px solid #000;
+  background: #ff4444;
+  overflow: hidden;
+  transition: transform 0.08s;
+}
+.dng:hover { transform: translate(-50%,-50%) scale(1.2); z-index: 25; }
+.dng.available { background: #4dff88; border-color: #000; }
+.dng.possible  { background: #ffd700; border-color: #000; }
+.dng.visible   { background: #ff8c00; border-color: #000; }
+.dng.unavail   { background: #ff4444; border-color: #000; }
+.dng.cleared   { background: rgba(10,10,10,0.82); border-color: #3a3a3a; opacity: 0.6; }
+.dng img       { width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated; }
+.dng.no-prize  { font-size: 8px; font-weight: bold; color: #fff; }
+
+/* ── Bottom bar ── */
+#bottombar {
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  padding: 3px 10px; background: #0a0a0a; border-top: 1px solid #1a1a1a;
+  font-size: 10px;
+}
+#legend { display: flex; align-items: center; gap: 10px; }
+.leg    { display: flex; align-items: center; gap: 3px; }
+.lb     { width: 10px; height: 10px; border-radius: 2px; }
+.lb.available { background: #4dff88; border: 1.5px solid #000; }
+.lb.possible  { background: #ffd700; border: 1.5px solid #000; }
+.lb.visible   { background: #ff8c00; border: 1.5px solid #000; }
+.lb.unavail   { background: #ff4444; border: 1.5px solid #000; }
+.lb.cleared   { background: rgba(10,10,10,0.82); border: 1px solid #555; }
+#conn-status  { color: #555; font-weight: bold; letter-spacing: 0.3px; }
+#conn-status.connected    { color: #4dff88; }
+#conn-status.connecting   { color: #ffd700; }
+#conn-status.disconnected { color: #555; }
+#conn-status.error        { color: #ff4444; }
+
+#reconnect-btn {
+  width: 20px; height: 20px;
+  font-size: 14px; line-height: 20px; text-align: center; padding: 0;
+  background: rgba(0,0,0,0.7); color: #7ab8f5;
+  border: 1px solid #3a6ea8; border-radius: 4px;
+  cursor: pointer; transition: color 0.2s, background 0.2s;
+}
+#reconnect-btn:hover { background: #2a5a9c; color: #fff; }
+#reconnect-btn:active { transform: scale(0.9); }
+#reconnect-btn.spinning {
+  color: #ffd700; border-color: #ffd700; cursor: default;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ── Tooltip ── */
+#tip {
+  position: fixed; pointer-events: none; z-index: 9999;
+  background: rgba(0,0,0,0.92); color: #eee;
+  font-size: 11px; padding: 4px 9px;
+  border-radius: 3px; border: 1px solid #333;
+  white-space: nowrap; display: none;
+}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <span class="tb-label">Layout:</span>
+  <select id="layout-sel" class="tb-select" onchange="setLayout(this.value)">
+    <option value="horizontal">Horizontal</option>
+    <option value="vertical">Vertical</option>
+  </select>
+  <span class="tb-sep">|</span>
+  <button class="zoom-btn" onclick="changeZoom(-1)">&#8722;</button>
+  <span id="zoom-label">100%</span>
+  <button class="zoom-btn" onclick="changeZoom(+1)">+</button>
+</div>
+
+<div id="maps-outer">
+  <div id="maps">
+    <div class="map-wrap" id="lw"></div>
+    <div class="map-wrap" id="dw"></div>
+  </div>
+</div>
+
+<div id="bottombar">
+  <div id="legend">
+    <div class="leg"><div class="lb available"></div><span>Available</span></div>
+    <div class="leg"><div class="lb possible"></div><span>Possible</span></div>
+    <div class="leg"><div class="lb visible"></div><span>Visible</span></div>
+    <div class="leg"><div class="lb unavail"></div><span>Unavail</span></div>
+    <div class="leg"><div class="lb cleared"></div><span>Cleared</span></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <span id="conn-status" class="disconnected">● No device</span>
+    <button id="reconnect-btn" title="Reconnect to QUsb2Snes" onclick="mapReconnect()">↻</button>
+    <button id="reset-btn" title="Reset all checks (new game)" onclick="resetChecks()" style="background:#1a0808;color:#ff6666;border:1px solid #5a2020;border-radius:3px;padding:0 7px;font-size:11px;line-height:1.7;cursor:pointer;" onmouseover="this.style.background='#2a1010'" onmouseout="this.style.background='#1a0808'">⟳ New Game</button>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<script>
+/**
+ * maplogic.js — check locations and dungeon availability logic
+ * Colors: 'green'=available, 'red'=unavailable, 'orange'=visible only, 'yellow'=possible
+ */
+
+'use strict';
+
+// ── SRAM check flags (from autot.js updatechest calls) ──────────────────────
+// Single: [offset, mask]   Group: [[offset,mask],...]  All must be set to clear
+window.SRAM_FLAGS = {
+  0:  [0x226,0x10],
+  1:  [[0x2bb,0x40],[0x216,0x10]],
+  2:  [0x208,0x10],
+  3:  [0x1fc,0x10],
+  4:  [0x218,0x10],
+  5:  [0x206,0x10],
+  6:  [0x210,0x10],
+  7:  [0x20c,0x10],
+  8:  [0x238,0x10],
+  9:  [0x214,0x10],
+  10: [[0x21a,0x10],[0x21a,0x20]],
+  11: [[0x1f0,0x10],[0x1f0,0x20]],
+  12: [[0x20a,0x10],[0x20a,0x20],[0x20a,0x40]],
+  13: [0x22e,0x10],
+  14: [[0x05e,0x10],[0x05e,0x20],[0x05e,0x40],[0x05e,0x80],[0x05f,0x01]],
+  15: [[0x23a,0x10],[0x23a,0x20],[0x23a,0x40],[0x23a,0x80],[0x23b,0x01]],
+  16: [[0x23c,0x10],[0x23c,0x20],[0x23c,0x40],[0x23c,0x80],[0x23d,0x04]],
+  17: [[0x1de,0x10],[0x1de,0x20],[0x1de,0x40],[0x1de,0x80],[0x1df,0x01],[0x1fe,0x10],[0x1fe,0x20]],
+  18: [0x248,0x10],
+  19: [[0x246,0x10],[0x246,0x20],[0x246,0x40],[0x246,0x80],[0x247,0x04]],
+  20: [0x240,0x10],
+  21: [0x078,0x80],
+  22: [[0x078,0x10],[0x078,0x20],[0x078,0x40]],
+  23: [0x280,0x10],
+  24: [0x285,0x10],
+  25: [0x28a,0x10],
+  26: [0x28a,0x08],
+  27: [0x290,0x10],
+  28: [0x290,0x08],
+  29: [0x291,0x10],
+  30: [0x292,0x10],
+  31: [0x293,0x10],
+  32: [0x293,0x08],
+  33: [0x295,0x10],
+  34: [0x295,0x08],
+  35: [0x298,0x10],
+  36: [0x298,0x08],
+  37: [0x29a,0x10],
+  38: [0x29a,0x08],
+  39: [0x29b,0x10],
+  40: [0x29d,0x10],
+  41: [0x29e,0x10],
+  42: [0x2aa,0x10],
+  43: [0x2aa,0x08],
+  44: [0x2ab,0x10],
+  45: [0x2ae,0x14],
+  46: [0x2ae,0x08],
+  47: [0x2b2,0x10],
+  48: [0x2b2,0x08],
+  49: [0x2c2,0x10],
+  50: [0x2d1,0x18],
+  51: [0x2d4,0x10],
+  52: [0x2d4,0x08],
+  53: [0x2d4,0x04],
+  54: [0x2d5,0x10],
+  55: [0x2d5,0x08],
+  56: [0x2d6,0x10],
+  57: [0x2db,0x10],
+  58: [0x2de,0x10],
+  59: [0x2ee,0x10],
+  60: [0x2ee,0x08],
+  61: [0x2ee,0x04],
+  62: [0x2f4,0x10],
+  63: [0x241,0x02],
+  64: [0x20d,0x04],
+  65: [0x3c9,0x02],
+  66: [0x410,0x10],
+  67: [0x410,0x08],
+  68: [0x410,0x04],
+  69: [0x3c9,0x10],
+  70: [0x3c9,0x01],
+  71: [0x411,0x01],
+  72: [0x411,0x02],
+  73: [0x410,0x20],
+  74: [0x410,0x02],
+  75: [0x410,0x01],
+  76: [0x411,0x20],
+  77: [0x1c3,0x02],
+  78: [0x1c5,0x02],
+  79: [0x1d5,0x04],
+  80: [0x237,0x04],
+  81: [0x237,0x02],
+  82: [0x24d,0x02],
+  83: [0x24f,0x04],
+  84: [0x410,0x80],
+  85: [0x411,0x10],
+  86: [0x283,0x40],
+  87: [0x285,0x40],
+  88: [0x2a8,0x40],
+  89: [0x2b0,0x40],
+  90: [0x2b5,0x40],
+  91: [0x2ca,0x40],
+  92: [0x2db,0x40],
+  93: [0x2e8,0x40],
+  94: [0x301,0x40],
+  95: [0x2aa,0x40],
+  96: [[0x022,0x10],[0x022,0x20],[0x022,0x40]],
+  97: [[0x3c6,0x01],[0x0aa,0x10]],
+  98: [[0x0e4,0x10],[0x0e2,0x10],[0x100,0x10]],
+  99: [0x024,0x10],
+  100:[0x411,0x80],
+  101:[0x411,0x04],
+  102:[[0x22c,0x10],[0x22c,0x20]],
+  103:[0x300,0x40],
+  104:[0x064,0x10],
+  105:[[0x228,0x10],[0x228,0x20]],
+  106:[0x1c0,0x10],
+  107:[0x1a0,0x10],
+};
+
+function sramCleared(data, flag) {
+  if (!data || !data.length) return false;
+  if (Array.isArray(flag[0])) {
+    // Group flag: ALL sub-flags must be set
+    for (var i = 0; i < flag.length; i++) {
+      var off = flag[i][0], mask = flag[i][1];
+      if (off >= data.length) return false;
+      if ((data[off] & mask) === 0) return false;
+    }
+    return true;
+  }
+  // Single flag
+  var off = flag[0], mask = flag[1];
+  if (off >= data.length) return false;
+  return (data[off] & mask) !== 0;
+}
+window.sramCleared = sramCleared;
+
+// ── Dungeon map positions [left%, top%] ──────────────────────────────────────
+// LW dungeons on map_lw, DW dungeons on map_dw
+window.DUNGEON_POSITIONS = {
+  ep:  { world: 'lw', left: 92.0, top: 38.8, label: 'EP'  },
+  dp:  { world: 'lw', left:  7.6, top: 78.4, label: 'DP'  },
+  toh: { world: 'lw', left: 57.0, top:  3.0, label: 'ToH' },
+  ct:  { world: 'lw', left: 50.0, top: 52.6, label: 'AT'  },
+  pod: { world: 'dw', left: 92.8, top: 40.0, label: 'POD' },
+  sp:  { world: 'dw', left: 47.0, top: 91.0, label: 'SP'  },
+  sw:  { world: 'dw', left:  8.0, top:  7.2, label: 'SW'  },
+  tt:  { world: 'dw', left: 12.8, top: 47.9, label: 'TT'  },
+  ip:  { world: 'dw', left: 79.6, top: 85.8, label: 'IP'  },
+  mm:  { world: 'dw', left: 11.5, top: 84.5, label: 'MM'  },
+  tr:  { world: 'dw', left: 92.8, top:  7.2, label: 'TR'  },
+  gt:  { world: 'dw', left: 57.0, top:  2.0, label: 'GT'  },
+};
+
+// ── Dungeon logic ─────────────────────────────────────────────────────────────
+// Returns 'green','yellow','orange','red'
+function dungeonColor(key) {
+  var it = window.trackerItems;
+  var hasMedallion = function(dungeonKey) {
+    if (it.mmMedallion > 0 && dungeonKey === 'mm') {
+      var med = it.mmMedallion; // 1=bombos,2=ether,3=quake
+      return (med === 1 && it.bombos) || (med === 2 && it.ether) || (med === 3 && it.quake);
+    }
+    if (it.trMedallion > 0 && dungeonKey === 'tr') {
+      var med = it.trMedallion;
+      return (med === 1 && it.bombos) || (med === 2 && it.ether) || (med === 3 && it.quake);
+    }
+    // If unset, any medallion works as possibility
+    return it.bombos || it.ether || it.quake;
+  };
+
+  switch (key) {
+    case 'ep':
+      // Yellow until lamp found; green with lamp
+      return it.lamp ? 'green' : 'yellow';
+
+    case 'dp':
+      // Red until (Book or (Mirror + Flute + TitansMitt))
+      // Yellow if those but missing Boots; green with boots
+      var hasAccess = it.book || (it.mirror && it.flute && it.gloves >= 2);
+      if (!hasAccess) return 'red';
+      return it.boots ? 'green' : 'yellow';
+
+    case 'toh':
+      // Red until (PowerGloves or Flute+Mirror or PowerGloves or Flute) AND (Hammer+Hookshot for alt)
+      // Simplified: need gloves>=1 OR (flute AND mirror) OR (flute AND hammer AND hookshot)
+      var hasAccess = (it.gloves >= 1) || (it.flute && it.mirror) || (it.flute && it.hammer && it.hookshot);
+      if (!hasAccess) return 'red';
+      // Yellow if missing lamp or firerod
+      return (it.lamp || it.firerod) ? 'green' : 'yellow';
+
+    case 'hc':
+      // Hyrule Castle - always accessible in standard
+      return it.lamp ? 'green' : 'yellow';
+
+    case 'ct':
+      // Castle Tower - need agahnim fight, sword required
+      return (it.sword >= 1) ? 'green' : 'red';
+
+    case 'pod':
+      // Red until moonpearl + (hammer+bow OR bow+hammer+hookshot OR flippers)
+      if (!it.moonpearl) return 'red';
+      var canEnter = (it.hammer && it.bow) || (it.bow && it.hammer && it.hookshot) || it.flippers;
+      if (!canEnter) return 'red';
+      return (it.lamp || it.firerod) ? 'green' : 'yellow';
+
+    case 'sp':
+      // Red until moonpearl + mirror + flippers
+      if (!it.moonpearl || !it.mirror || !it.flippers) return 'red';
+      return it.hookshot ? 'green' : 'yellow';
+
+    case 'sw':
+      // Red until moonpearl + gloves>=1 + hammer
+      if (!it.moonpearl || !(it.gloves >= 1) || !it.hammer) return 'red';
+      return it.firerod ? 'green' : 'yellow';
+
+    case 'tt':
+      // Red until moonpearl
+      if (!it.moonpearl) return 'red';
+      return it.hammer ? 'green' : 'yellow';
+
+    case 'ip':
+      // Red until moonpearl + flippers + titansMitt + (bombos or firerod)
+      if (!it.moonpearl || !it.flippers || it.gloves < 2) return 'red';
+      if (!it.bombos && !it.firerod) return 'red';
+      return 'green';
+
+    case 'mm':
+      // Red until moonpearl + flute + medallion + (hookshot or boots)
+      if (!it.moonpearl || !it.flute) return 'red';
+      if (!hasMedallion('mm')) return 'red';
+      if (!it.hookshot && !it.boots) return 'red';
+      return (it.somaria && it.lamp) ? 'green' : 'yellow';
+
+    case 'tr':
+      // Red until moonpearl + medallion + hammer + titansMitt + somaria
+      if (!it.moonpearl) return 'red';
+      if (!hasMedallion('tr')) return 'red';
+      if (!it.hammer || it.gloves < 2 || !it.somaria) return 'red';
+      return (it.firerod && it.lamp) ? 'green' : 'yellow';
+
+    case 'gt':
+      // Red until 7 crystals
+      return it.crystals >= 7 ? 'green' : 'red';
+
+    default:
+      return 'green';
+  }
+}
+window.dungeonColor = dungeonColor;
+
+</script>
+<script>
+// ── Check logic ───────────────────────────────────────────────────────────────
+(function() {
+function checkLogic(it) {
+  var pearl    = it.moonpearl >= 1;
+  var glove    = it.gloves >= 1;
+  var titan    = it.gloves >= 2;
+  var boots    = it.boots >= 1;
+  var hookshot = it.hookshot >= 1;
+  var hammer   = it.hammer >= 1;
+  var mirror   = it.mirror >= 1;
+  var lamp     = it.lamp >= 1;
+  var flute    = it.flute >= 1;
+  var firerod  = it.firerod >= 1;
+  var somaria  = it.somaria >= 1;
+  var byrna    = it.byrna >= 1;
+  var cape     = it.cape >= 1;
+  var book     = it.book >= 1;
+  var bombos   = it.bombos >= 1;
+  var ether    = it.ether >= 1;
+  var quake    = it.quake >= 1;
+  var powder   = it.powder >= 1;
+  var shovel   = it.shovel >= 1;
+  var flippers = it.flippers >= 1;
+  var sword1   = it.sword >= 1;
+  var sword2   = it.sword >= 2;
+  var aga      = it.agahnim >= 1;
+  var bottle1  = it.bottle >= 1;
+  var mushroom = it.mushroom >= 1;
+
+  var climbDM = glove || flute;
+  var eastDM  = climbDM && (hookshot || (mirror && hammer));
+  var DMlight = lamp || flute;
+  var dwNW    = pearl && (titan || (glove && hammer) || (aga && hookshot && (hammer || glove || flippers)));
+  var dwEast  = pearl && (aga || (hammer && glove) || (titan && flippers));
+  var dwSouth = dwNW || (aga && pearl && hammer);
+
+  function medColor(dkey) {
+    if (!sword1) return 'red';
+    var req = (dkey === 'mm') ? it.mmMedallion : it.trMedallion;
+    if (req === 0) {
+      if (bombos && ether && quake) return 'green';
+      if (bombos || ether || quake) return 'yellow';
+      return 'red';
+    }
+    if (req === 1 && bombos) return 'green';
+    if (req === 2 && ether)  return 'green';
+    if (req === 3 && quake)  return 'green';
+    return 'red';
+  }
+
+  var ORD = { red:0, orange:1, yellow:2, green:3 };
+  function worst(a,b) { return ORD[a] < ORD[b] ? a : b; }
+
+  return {
+    0:   function() { if (!boots) return 'red'; return (titan||(dwNW&&mirror)) ? 'green' : 'red'; },
+    1:   function() { return 'green'; },
+    2:   function() { return 'green'; },
+    3:   function() { if (!climbDM) return 'red'; return DMlight ? 'green' : 'yellow'; },
+    4:   function() {
+           if (!pearl||!hammer||!titan||!somaria||!mirror) return 'red';
+           var m=medColor('tr'); if(m==='red') return 'red';
+           return (!firerod||!DMlight) ? worst(m,'yellow') : worst(m,'green');
+         },
+    5:   function() { return 'green'; },
+    6:   function() { return 'green'; },
+    7:   function() { return dwNW ? 'green' : 'red'; },
+    8:   function() { return dwNW ? 'green' : 'red'; },
+    9:   function() { return 'green'; },
+    10:  function() { return (pearl&&flute&&titan) ? 'green' : 'red'; },
+    11:  function() { if (!pearl||!titan||!eastDM) return 'red'; return DMlight ? 'green' : 'yellow'; },
+    12:  function() { return 'green'; },
+    13:  function() { if (!pearl||!glove||!hammer||(!byrna&&!cape)) return 'red'; return DMlight ? 'green' : 'yellow'; },
+    14:  function() { return 'green'; },
+    15:  function() { return 'green'; },
+    16:  function() { return dwSouth ? 'green' : 'red'; },
+    17:  function() { if (!eastDM) return 'red'; return DMlight ? 'green' : 'yellow'; },
+    18:  function() { return boots ? 'green' : 'red'; },
+    19:  function() { return 'green'; },
+    20:  function() { return 'green'; },
+    21:  function() {
+           if (!pearl||!titan) return 'red';
+           if (hookshot||(mirror&&hammer&&boots)) return DMlight ? 'green' : 'yellow';
+           return 'red';
+         },
+    22:  function() { if (!pearl||!titan||!hookshot) return 'red'; return DMlight ? 'green' : 'yellow'; },
+    63:  function() { return 'green'; },
+    64:  function() { return dwNW ? 'green' : 'red'; },
+    65:  function() { return 'green'; },
+    66:  function() { var gp=window.trackerItems?(window.trackerItems.greenPendant||0):0; return gp>=1?'green':'red'; },
+    67:  function() { return dwSouth ? 'green' : 'red'; },
+    68:  function() { return bottle1 ? 'green' : 'red'; },
+    69:  function() { return (pearl&&titan) ? 'green' : 'red'; },
+    70:  function() { return flippers ? 'green' : 'red'; },
+    71:  function() {
+           if (!book||!climbDM||!(mirror||(hookshot&&hammer))) return 'red';
+           return sword2 ? (DMlight?'green':'yellow') : 'orange';
+         },
+    72:  function() { if (!book||!mirror||!dwSouth) return 'red'; return sword2?'green':'orange'; },
+    73:  function() { return (dwEast&&glove) ? 'green' : 'red'; },
+    74:  function() { return (flippers||glove) ? 'green' : 'red'; },
+    75:  function() { if (!climbDM) return 'red'; return lamp ? 'green' : 'yellow'; },
+    76:  function() { return mushroom ? 'green' : 'red'; },
+    77:  function() { return 'green'; },
+    78:  function() { return (aga&&boots) ? 'green' : 'orange'; },
+    79:  function() { if (!climbDM) return 'red'; return DMlight ? 'green' : 'yellow'; },
+    80:  function() { if (!mirror) return 'red'; return (dwNW||(aga&&pearl&&hammer))?'green':'red'; },
+    81:  function() { return (dwNW&&mirror) ? 'green' : 'red'; },
+    82:  function() { return (flute&&titan&&mirror) ? 'green' : 'red'; },
+    83:  function() { return (pearl&&titan&&hammer) ? 'green' : 'red'; },
+    84:  function() { return boots ? 'green' : 'orange'; },
+    85:  function() { return 'green'; },
+    86:  function() { if (!climbDM) return 'red'; return mirror?(DMlight?'green':'yellow'):'orange'; },
+    87:  function() {
+           if (!eastDM) return 'red';
+           return (mirror&&pearl&&titan) ? (DMlight?'green':'yellow') : 'orange';
+         },
+    88:  function() { return 'green'; },
+    89:  function() { return (book||(titan&&flute&&mirror)) ? 'green' : 'orange'; },
+    90:  function() {
+           if (!flippers) return 'orange';
+           return (pearl&&mirror&&(aga||titan||(glove&&hammer))) ? 'green' : 'orange';
+         },
+    91:  function() { if (!dwNW) return 'red'; return (cape&&glove)?'green':'orange'; },
+    92:  function() { return (aga||dwEast) ? 'green' : 'red'; },
+    93:  function() { return dwSouth ? 'green' : 'red'; },
+    94:  function() { return flippers ? 'green' : 'red'; },
+    95:  function() { return shovel ? 'green' : 'red'; },
+    96:  function() { return 'green'; },
+    97:  function() { return 'green'; },
+    98:  function() { return 'green'; },
+    99:  function() { return 'green'; },
+    100: function() { if (!powder) return 'red'; return (hammer||(dwNW&&mirror))?'green':'red'; },
+    101: function() { return (pearl&&titan) ? 'green' : 'red'; },
+    102: function() {
+           var rc=window.trackerItems?(window.trackerItems.redCrystal||0):0;
+           if (rc<2) return 'red';
+           return (aga||dwEast) ? 'green' : 'red';
+         },
+    103: function() {
+           var p=window.trackerItems?(window.trackerItems.pendants||0):0;
+           return p>=3 ? 'green' : (book?'orange':'red');
+         },
+    104: function() { return 'green'; },
+    105: function() { return flippers ? 'green' : 'red'; },
+  };
+}
+window.checkColor = function(id) {
+  var it = window.trackerItems;
+  if (!it) return 'red';
+  var fn = checkLogic(it)[id];
+  return fn ? fn() : 'green';
+};
+})();
+</script>
+<script>
+'use strict';
+
+// ── Connection status ─────────────────────────────────────────────────────────
+// Defined below with the WebSocket section; referenced here by BroadcastChannel
+
+// ── Check locations — exact positions from original smallmap.css ──────────────
+// [sramId, left%, top%, label, world]
+var CHECKS = [
+  // Light World
+  [0,   61.60, 29.60, "King's Tomb",           "lw"],
+  [1,   46.80, 93.40, "Swamp Ruins (2)",        "lw"],
+  [2,   54.80, 67.90, "Link's House",           "lw"],
+  [3,   76.80,  9.30, "Spiral Cave",            "lw"],
+  [5,   16.20, 57.80, "Tavern",                 "lw"],
+  [6,    8.80, 54.20, "Chicken House",          "lw"],
+  [9,   20.00, 83.60, "Aginah's Cave",          "lw"],
+  [12,  81.40, 41.40, "Sahasrahla's Hut (3)",   "lw"],
+  [13,  57.20, 10.50, "Spike Cave",             "dw"],
+  [14,   3.40, 41.00, "Kakariko Well (5)",      "lw"],
+  [15,  13.40, 41.00, "Blind's Hut (5)",        "lw"],
+  [17,  82.80, 17.10, "Paradox Cave (7)",       "lw"],
+  [18,  39.00, 29.30, "Bonk Rock Cave",         "lw"],
+  [19,  65.20, 93.40, "Mini Moldorm Cave (5)",  "lw"],
+  [20,  88.40, 76.90, "Ice Rod Cave",           "lw"],
+  [21,  83.20,  9.60, "Hookshot Cave Bot. R",   "dw"],
+  [22,  83.20, 10.50, "Hookshot Cave (3)",      "dw"],
+  [65,   9.00, 47.30, "Bottle Merchant",        "lw"],
+  [66,  81.40, 45.00, "Sahasrahla NPC",         "lw"],
+  [68,  16.20, 51.10, "Sick Kid",               "lw"],
+  [70,  70.80, 69.70, "Hobo",                   "lw"],
+  [71,  42.00,  3.40, "Ether Tablet",           "lw"],
+  [74,  96.00, 16.50, "King Zora",              "lw"],
+  [75,  41.60, 20.40, "Old Man",                "lw"],
+  [76,  81.60, 32.50, "Potion Shop",            "lw"],
+  [77,  18.80, 13.00, "Lost Woods Hideout",     "lw"],
+  [78,  30.20,  7.60, "Lumberjack Tree",        "lw"],
+  [79,  48.60, 14.80, "Spectacle Rock Cave",    "lw"],
+  [80,  28.20, 84.10, "Cave 45",                "lw"],
+  [81,  56.20, 27.00, "Graveyard Ledge",        "lw"],
+  [82,  18.60, 77.30, "Checkerboard Cave",      "lw"],
+  [84,  15.40, 65.90, "Library",                "lw"],
+  [85,  12.40,  8.60, "Mushroom",               "lw"],
+  [86,  50.80,  8.50, "Spectacle Rock",         "lw"],
+  [87,  80.40,  3.40, "Floating Island",        "lw"],
+  [88,   3.60, 67.00, "Race Minigame",          "lw"],
+  [89,   3.60, 91.00, "Desert West Ledge",      "lw"],
+  [90,  72.20, 82.90, "Lake Hylia Island",      "lw"],
+  [94,  95.40, 17.30, "Zora's Ledge",           "lw"],
+  [95,  28.80, 66.20, "Flute Boy Spot",         "lw"],
+  [96,  53.60, 32.40, "Escape Sewers (3)",      "lw"],
+  [97,  59.60, 41.80, "Uncle + Passage (2)",    "lw"],
+  [98,  50.00, 44.10, "Hyrule Castle (3)",      "lw"],
+  [99,  45.40, 27.00, "Sanctuary",              "lw"],
+  [100, 32.00, 58.00, "Magic Bat",              "lw"],
+  [103,  5.00,  3.40, "Master Sword Pedestal",  "lw"],
+  [104, 51.20, 38.20, "Dark Cross",             "lw"],
+  [105, 89.80, 15.20, "Waterfall Fairy (2)",    "lw"],
+  // Dark World
+  [4,   85.20,  9.30, "Mimic Cave",             "lw"],
+  [7,   10.80, 57.80, "Brewery",                "dw"],
+  [8,   17.20, 47.90, "C-Shaped House",         "dw"],
+  [10,   3.40, 79.50, "Mire Shed (2)",          "dw"],
+  [11,  83.60, 15.70, "Super Bunny Cave (2)",   "dw"],
+  [16,  60.00, 77.10, "Hype Cave (5)",          "dw"],
+  [67,  31.00, 68.60, "Stumpy",                 "dw"],
+  [69,  30.40, 52.20, "Purple Chest",           "dw"],
+  [72,  22.00, 92.20, "Bombos Tablet",          "lw"],
+  [64,   4.20, 46.40, "Chest Game",             "dw"],
+  [73,  92.00, 17.20, "Catfish",                "dw"],
+  [83,  31.60, 59.10, "Hammer Pegs",            "dw"],
+  [91,  34.20, 15.20, "Bumper Cave Ledge",      "dw"],
+  [92,  58.00, 43.50, "Pyramid",                "dw"],
+  [93,   5.80, 69.20, "Digging Game",           "dw"],
+  [101, 30.40, 51.80, "Blacksmith",             "lw"],
+  [102, 47.00, 48.50, "Pyramid Fairy (2)",      "dw"],
+];
+
+// ── Dungeon definitions ───────────────────────────────────────────────────────
+// img: image shown when NOT cleared (dim/uncollected = 1.png)
+// imgCleared: image shown when boss defeated (bright = 0.png)
+// GT uses boss10.png, CT uses agahnim0/1.png
+var DUNGEONS = {
+  ep:  { world:'lw', left:95.00, top:38.8, label:'EP',  bossOffset:0x191, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  dp:  { world:'lw', left: 7.60, top:78.4, label:'DP',  bossOffset:0x067, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  toh: { world:'lw', left:57.00, top: 3.0, label:'ToH', bossOffset:0x00f, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  ct:  { world:'lw', left:50.00, top:52.6, label:'AT',  bossOffset:0x020, prize:-2, cleared:false,
+         img:'map/agahnim0.png',        imgCleared:'map/agahnim1.png' },
+  pod: { world:'dw', left:96.00, top:40.0, label:'POD', bossOffset:0x0b5, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  sp:  { world:'dw', left:47.00, top:91.0, label:'SP',  bossOffset:0x00d, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  sw:  { world:'dw', left: 8.00, top: 7.2, label:'SW',  bossOffset:0x053, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  tt:  { world:'dw', left:12.80, top:47.9, label:'TT',  bossOffset:0x159, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  ip:  { world:'dw', left:79.60, top:85.8, label:'IP',  bossOffset:0x1bd, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  mm:  { world:'dw', left: 9.50, top:82.5, label:'MM',  bossOffset:0x121, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  tr:  { world:'dw', left:92.80, top: 7.2, label:'TR',  bossOffset:0x149, prize:0, cleared:false,
+         img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
+  gt:  { world:'dw', left:57.00, top: 2.0, label:'GT',  bossOffset:0x01b, prize:-2, cleared:false,
+         img:'map/boss10.png',          imgCleared:'map/boss10.png' },
+};
+
+// Prize image arrays for cycling (when prize>=0)
+var PRIZE_CYCLE = [
+  { img:'items/crystal1.png',      imgCleared:'items/crystal0.png'      },
+  { img:'items/redcrystal1.png',   imgCleared:'items/redcrystal0.png'   },
+  { img:'items/pendant1.png',      imgCleared:'items/pendant0.png'      },
+  { img:'items/greenpendant1.png', imgCleared:'items/greenpendant0.png' },
+];
+
+// ── Persistent check state ────────────────────────────────────────────────────
+// Always start fresh — checks are cleared on each page load (new game).
+var checkState = {};
+try { localStorage.removeItem('alttp-checks'); } catch(e) {}
+function saveCheckState() { try { localStorage.setItem('alttp-checks', JSON.stringify(checkState)); } catch(e) {} }
+
+function resetChecks() {
+  checkState = {};
+  saveCheckState();
+  // Redraw all dots
+  Object.keys(dotById).forEach(function(id) {
+    dotById[id].className = dotClass(parseInt(id));
+  });
+  // Reset dungeon cleared state
+  Object.keys(DUNGEONS).forEach(function(key) {
+    DUNGEONS[key].cleared = false;
+    refreshDungeonImg(key);
+  });
+  window.refreshMapLogic();
+}
+
+// ── trackerItems default (no items) ──────────────────────────────────────────
+window.trackerItems = window.trackerItems || {
+  bow:0, boomerang:0, hookshot:false, bomb:false, mushroom:0, powder:false,
+  firerod:false, icerod:false, bombos:false, ether:false, quake:false,
+  lamp:false, hammer:false, shovel:false, flute:0, net:false, book:false,
+  bottle:0, somaria:false, byrna:false, cape:false, mirror:false,
+  boots:false, gloves:0, flippers:false, moonpearl:false,
+  sword:0, shield:0, tunic:1, agahnim:false, crystals:0,
+  mmMedallion:0, trMedallion:0
+};
+
+var lwEl = document.getElementById('lw');
+var dwEl = document.getElementById('dw');
+var dotById = {};
+
+// ── Dot logic color ───────────────────────────────────────────────────────────
+function dotClass(id) {
+  if (checkState[id]) return 'dot cleared';
+  var color = window.checkColor ? window.checkColor(id) : 'green';
+  var cls = { green:'available', yellow:'possible', orange:'visible', red:'unavail' };
+  return 'dot ' + (cls[color] || 'available');
+}
+
+// ── Build dots ────────────────────────────────────────────────────────────────
+CHECKS.forEach(function(c) {
+  var id = c[0], lft = c[1], top = c[2], name = c[3], world = c[4];
+  var d = document.createElement('div');
+  d.className = dotClass(id);
+  d.style.left = lft + '%';
+  d.style.top  = top + '%';
+  d.title = name;
+  d.addEventListener('click', function() {
+    checkState[id] = !checkState[id];
+    d.className = dotClass(id);
+    saveCheckState();
+  });
+  d.addEventListener('mouseenter', function(e) { showTip(name, e); });
+  d.addEventListener('mousemove',  moveTip);
+  d.addEventListener('mouseleave', hideTip);
+  (world === 'lw' ? lwEl : dwEl).appendChild(d);
+  dotById[id] = d;
+});
+
+// ── Build dungeon markers ─────────────────────────────────────────────────────
+var dngEls = {};
+Object.keys(DUNGEONS).forEach(function(key) {
+  var def = DUNGEONS[key];
+  var el  = document.createElement('div');
+  el.className = 'dng unavail';
+  el.style.left = def.left + '%';
+  el.style.top  = def.top  + '%';
+
+  var img = document.createElement('img');
+  // Start with uncollected (dim) image
+  img.src = def.img;
+  img.alt = def.label;
+  el.appendChild(img);
+
+  // Only cycle prize for dungeons with a prize (prize >= 0)
+  el.addEventListener('click', function() {
+    if (def.prize >= 0) cyclePrize(key);
+  });
+  el.addEventListener('mouseenter', function(e) { showTip(def.label + ' — ' + dngStatusText(key), e); });
+  el.addEventListener('mousemove',  moveTip);
+  el.addEventListener('mouseleave', hideTip);
+  (def.world === 'lw' ? lwEl : dwEl).appendChild(el);
+  dngEls[key] = el;
+});
+
+// Cycle through crystal/pendant types on click
+function cyclePrize(key) {
+  var def = DUNGEONS[key];
+  def.prize = (def.prize + 1) % PRIZE_CYCLE.length;
+  def.img        = PRIZE_CYCLE[def.prize].img;
+  def.imgCleared = PRIZE_CYCLE[def.prize].imgCleared;
+  refreshDungeonImg(key);
+}
+
+// Show dim (1.png) when not cleared, bright (0.png) when boss beaten
+function refreshDungeonImg(key) {
+  var def = DUNGEONS[key];
+  var img = dngEls[key].querySelector('img');
+  if (!img) return;
+  img.src = def.cleared ? def.imgCleared : def.img;
+}
+
+// ── Logic refresh ─────────────────────────────────────────────────────────────
+var COLOR_CLASS = { green:'available', yellow:'possible', orange:'visible', red:'unavail' };
+
+window.refreshMapLogic = function() {
+  Object.keys(DUNGEONS).forEach(function(key) {
+    var def = DUNGEONS[key];
+    var el  = dngEls[key];
+    // Fully cleared = boss beaten + all items collected (from item tracker)
+    // Boss cleared alone = def.cleared (from SRAM boss bit)
+    if (def.fullyCleared || def.cleared) {
+      el.className = 'dng cleared';
+    } else {
+      var c = COLOR_CLASS[window.dungeonColor(key)] || 'unavail';
+      el.className = 'dng ' + c;
+    }
+    refreshDungeonImg(key);
+  });
+  // Refresh dot cleared state
+  Object.keys(dotById).forEach(function(id) {
+    dotById[id].className = dotClass(id);
+  });
+};
+
+function dngStatusText(key) {
+  var t = { green:'Available', yellow:'Possible', orange:'Visible only', red:'Unavailable' };
+  return t[window.dungeonColor(key)] || '';
+}
+
+// ── SRAM autotracking via BroadcastChannel ────────────────────────────────────
+window.onRoomsUpdated = function(data) {
+  // Auto-clear check dots
+  var dirty = false;
+  CHECKS.forEach(function(c) {
+    var id = c[0];
+    if (!checkState[id] && window.SRAM_FLAGS[id] && window.sramCleared(data, window.SRAM_FLAGS[id])) {
+      checkState[id] = true;
+      if (dotById[id]) dotById[id].className = dotClass(id);
+      dirty = true;
+    }
+  });
+  if (dirty) saveCheckState();
+
+  // Boss defeat → clear dungeon
+  Object.keys(DUNGEONS).forEach(function(key) {
+    var def = DUNGEONS[key];
+    if (def.bossOffset === null || def.bossOffset === undefined || def.bossOffset >= data.length) return;
+    if ((data[def.bossOffset] & 0x08) !== 0 && !def.cleared) {
+      def.cleared = true;
+      refreshDungeonImg(key);
+      window.refreshMapLogic();
+    }
+  });
+};
+
+// Track last time rooms data arrived via BroadcastChannel
+var _lastBcRooms = 0;
+
+try {
+  var _bc = new BroadcastChannel('alttp-tracker');
+  _bc.onmessage = function(e) {
+    if (!e.data) return;
+    switch (e.data.type) {
+      case 'items':
+        window.trackerItems = e.data.data;
+        window.refreshMapLogic();
+        break;
+      case 'rooms':
+        _lastBcRooms = Date.now();
+        window.onRoomsUpdated(e.data.data);
+        // If map's own WS isn't connected, show that BC is feeding data
+        if (!_mapWs || _mapWs.readyState !== WebSocket.OPEN) {
+          setConnStatus('Tracking via Item Tracker', 'connected');
+        }
+        break;
+      case 'prizes':
+        var pz = e.data.data;
+        Object.keys(pz).forEach(function(key) {
+          if (!DUNGEONS[key]) return;
+          // Map prize index to the PRIZE_CYCLE images
+          var idx = pz[key].state;
+          if (idx >= 0 && idx < PRIZE_CYCLE.length) {
+            DUNGEONS[key].prize        = idx;
+            DUNGEONS[key].img          = PRIZE_CYCLE[idx].img;
+            DUNGEONS[key].imgCleared   = PRIZE_CYCLE[idx].imgCleared;
+          }
+          DUNGEONS[key].cleared = pz[key].cleared;
+          refreshDungeonImg(key);
+        });
+        // Recompute prize counts for check logic (Sahasrahla, Pedestal, Pyramid Fairy)
+        if (window.trackerItems) {
+          var pc=0, gpc=0, cc=0, rc=0;
+          Object.keys(DUNGEONS).forEach(function(k) {
+            var p = DUNGEONS[k].prize;
+            if (p===0){cc++;}
+            else if(p===1){cc++;rc++;}
+            else if(p===2){pc++;}
+            else if(p===3){pc++;gpc++;}
+          });
+          window.trackerItems.pendants    = pc;
+          window.trackerItems.greenPendant= gpc;
+          window.trackerItems.redCrystal  = rc;
+        }
+        window.refreshMapLogic();
+        break;
+      case 'dungeonComplete':
+        var dc = e.data.data;
+        Object.keys(dc).forEach(function(key) {
+          if (!DUNGEONS[key]) return;
+          var prev = DUNGEONS[key].fullyCleared;
+          DUNGEONS[key].fullyCleared = dc[key].allItems && dc[key].prizeCollected;
+          if (DUNGEONS[key].fullyCleared !== prev) {
+            window.refreshMapLogic();
+          }
+        });
+        break;
+      case 'status':
+        setConnStatus(e.data.text, e.data.cls);
+        break;
+    }
+  };
+} catch(ex) {}
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+function showTip(text, e) { var t = document.getElementById('tip'); t.textContent = text; t.style.display = 'block'; moveTip(e); }
+function hideTip()        { document.getElementById('tip').style.display = 'none'; }
+function moveTip(e) {
+  var t = document.getElementById('tip');
+  var x = e.clientX + 14, y = e.clientY - 30;
+  if (x + 200 > window.innerWidth)  x = e.clientX - 210;
+  if (y < 4) y = e.clientY + 14;
+  t.style.left = x + 'px';
+  t.style.top  = y + 'px';
+}
+
+// ── Zoom + Layout ─────────────────────────────────────────────────────────────
+// Declare zoom state first so resizeWindowToMap can reference it
+var ZOOM_STEPS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
+var zoomIdx = 1;
+
+// Non-map chrome: topbar (~28px) + bottombar (~24px) + OS window chrome (~40px)
+var CHROME_H = 92;
+
+function resizeWindowToMap() {
+  var pct    = ZOOM_STEPS[zoomIdx];
+  var size   = Math.round(512 * pct / 100);
+  var maps   = document.getElementById('maps');
+  var isVert = maps ? maps.classList.contains('vertical') : false;
+  var w = isVert ? size + 20 : size * 2 + 32;
+  var h = size + CHROME_H;
+  try { window.resizeTo(w, h); } catch(e) {}
+}
+
+function setLayout(val) {
+  var maps = document.getElementById('maps');
+  if (val === 'vertical') maps.classList.add('vertical');
+  else maps.classList.remove('vertical');
+  try { localStorage.setItem('alttp-map-layout', val); } catch(ex) {}
+  resizeWindowToMap();
+}
+
+function applyZoom() {
+  var pct  = ZOOM_STEPS[zoomIdx];
+  var size = Math.round(512 * pct / 100);
+  document.querySelectorAll('.map-wrap').forEach(function(el) {
+    el.style.width  = size + 'px';
+    el.style.height = size + 'px';
+  });
+  document.getElementById('zoom-label').textContent = pct + '%';
+  try { localStorage.setItem('alttp-map-zoom', String(pct)); } catch(ex) {}
+  resizeWindowToMap();
+}
+function changeZoom(dir) {
+  zoomIdx = Math.max(0, Math.min(ZOOM_STEPS.length - 1, zoomIdx + dir));
+  applyZoom();
+}
+
+// ── Init layout + zoom from URL params / localStorage ────────────────────────
+(function() {
+  var p = new URLSearchParams(window.location.search);
+
+  // Restore zoom index
+  var pct  = parseInt(p.get('scale') || p.get('zoom') || '0') ||
+             parseInt(localStorage.getItem('alttp-map-zoom') || '0') || 100;
+  var best = 1, bestD = 9999;
+  ZOOM_STEPS.forEach(function(z, i) { var d = Math.abs(z - pct); if (d < bestD) { bestD = d; best = i; } });
+  zoomIdx = best;
+
+  // Apply zoom (sets map-wrap sizes + resizes window)
+  applyZoom();
+
+  // Apply layout (also resizes window, which is fine — same size if horizontal default)
+  var val = p.get('layout') || localStorage.getItem('alttp-map-layout') || 'horizontal';
+  var sel = document.getElementById('layout-sel');
+  if (sel) sel.value = val;
+  setLayout(val);
+})();
+
+window.refreshMapLogic();
+
+// ── Map's own WebSocket connection ────────────────────────────────────────────
+// The map connects independently so it works even without the item tracker open.
+var _mapWs = null;
+var _mapReconnectTimer = null;
+var _mapPollTimer = null;
+
+function setConnStatus(text, cls) {
+  var el = document.getElementById('conn-status');
+  el.textContent = '● ' + text;
+  el.className = cls || 'disconnected';
+}
+
+function mapConnect() {
+  var host = localStorage.getItem('alttp-ws-host') || 'localhost';
+  var port = localStorage.getItem('alttp-ws-port') || '23074';
+
+  if (_mapWs) { _mapWs.onclose = null; _mapWs.onerror = null; _mapWs.close(); _mapWs = null; }
+  clearTimeout(_mapReconnectTimer); clearInterval(_mapPollTimer);
+
+  setConnStatus('Connecting…', 'connecting');
+  try { _mapWs = new WebSocket('ws://' + host + ':' + port); }
+  catch(e) { setConnStatus('Error', 'error'); _scheduleReconnect(); return; }
+  _mapWs.binaryType = 'arraybuffer';
+
+  var _attached = false;
+
+  _mapWs.onopen = function() {
+    _mapWs.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
+  };
+
+  var _mapRoomChunk1 = null;
+  var _mapRoomChunk1Time = 0;
+  _mapWs.onmessage = function(evt) {
+    if (evt.data instanceof ArrayBuffer) {
+      var data = new Uint8Array(evt.data);
+      if (data.length === 0x280) {
+        var now = Date.now();
+        if (_mapRoomChunk1 === null || (now - _mapRoomChunk1Time) > 1500) {
+          _mapRoomChunk1 = data;
+          _mapRoomChunk1Time = now;
+        } else {
+          var merged = new Uint8Array(0x500);
+          merged.set(_mapRoomChunk1, 0);
+          merged.set(data, 0x280);
+          _mapRoomChunk1 = null;
+          _mapRoomChunk1Time = 0;
+          window.onRoomsUpdated(merged);
+        }
+      } else if (data.length === 0x420 || data.length === 0x500) {
+        window.onRoomsUpdated(data);
+      }
+      return;
+    }
+    var r; try { r = JSON.parse(evt.data); } catch(e) { return; }
+    if (!r.Results) return;
+    if (!_attached) {
+      if (!r.Results.length) { setConnStatus('No device', 'disconnected'); _scheduleReconnect(); return; }
+      var dev = r.Results[0];
+      _mapWs.send(JSON.stringify({ Opcode: 'Attach', Space: 'SNES', Operands: [dev] }));
+      _mapWs.send(JSON.stringify({ Opcode: 'Name',   Space: 'SNES', Operands: ['ALTTP Map'] }));
+      _attached = true;
+      setConnStatus('Connected · ' + dev, 'connected');
+      // Poll room data in two chunks — skip if BroadcastChannel is feeding fresh data
+      _mapPollTimer = setInterval(function() {
+        var bcFresh = (Date.now() - _lastBcRooms) < 3000;
+        if (!bcFresh && _mapWs && _mapWs.readyState === WebSocket.OPEN) {
+          _mapWs.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: ['F5F000', '280'] }));
+          _mapWs.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: ['F5F280', '280'] }));
+        }
+      }, 1000);
+    }
+  };
+
+  _mapWs.onerror = function() {
+    // Don't show error if item tracker BC is feeding us data
+    if ((Date.now() - _lastBcRooms) > 5000) {
+      setConnStatus('Error — retrying…', 'error');
+    }
+  };
+  _mapWs.onclose = function() {
+    clearInterval(_mapPollTimer);
+    _attached = false;
+    if ((Date.now() - _lastBcRooms) > 5000) {
+      setConnStatus('Disconnected — retrying…', 'disconnected');
+    }
+    _scheduleReconnect();
+  };
+}
+
+function _scheduleReconnect() {
+  clearTimeout(_mapReconnectTimer);
+  _mapReconnectTimer = setTimeout(mapConnect, 3000);
+}
+
+function mapReconnect() {
+  var btn = document.getElementById('reconnect-btn');
+  btn.classList.add('spinning'); btn.disabled = true;
+  clearTimeout(_mapReconnectTimer);
+  mapConnect();
+  setTimeout(function() { btn.classList.remove('spinning'); btn.disabled = false; }, 3000);
+}
+
+// Auto-connect on load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mapConnect);
+} else {
+  mapConnect();
+}
+</script>
+</body>
+</html>

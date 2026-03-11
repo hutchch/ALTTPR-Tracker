@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ALTTP Item Tracker</title>
+<meta http-equiv="Content-Security-Policy" content="connect-src * ws://*:*;">
+<link rel="stylesheet" href="items.css">
+</head>
+<body>
+
+<div class="tracker-container"></div>
+
+<script src="items.js"></script>
+<script>
+// ── Set up BroadcastChannel so items.js can broadcast to map ──────────────────
+try { window._itemsBc = new BroadcastChannel('alttp-tracker'); } catch(e) {}
+
+// ── Load host/port from launcher settings before items.js connectWebSocket ────
+(function() {
+  var host = localStorage.getItem('alttp-ws-host') || 'localhost';
+  var port = parseInt(localStorage.getItem('alttp-ws-port') || '23074');
+  wsHost = host;   // items.js `let wsHost`
+  wsPort = port;   // items.js `let wsPort`
+})();
+
+// ── Scale from URL param ──────────────────────────────────────────────────────
+(function() {
+  var p = new URLSearchParams(window.location.search);
+  var s = parseFloat(p.get('scale')) || 1;
+  if (s !== 1) document.body.style.zoom = s;
+})();
+
+// ── Hook: broadcast prizes whenever a dungeon prize changes ───────────────────
+function broadcastPrizes() {
+  if (!window._itemsBc) return;
+  try {
+    var prizes = {};
+    Object.keys(dungeons).forEach(function(key) {
+      if (dungeons[key].bigkeyOnly) return;
+      var prizeImg = document.querySelector('[data-dungeon-key="' + key + '"] .prize-img');
+      if (!prizeImg) return;
+      var src = prizeImg.src || '';
+      prizes[key] = {
+        state:   src.includes('greenpendant') ? 3 : src.includes('pendant') ? 2 : src.includes('redcrystal') ? 1 : 0,
+        cleared: src.includes('1.png')
+      };
+    });
+    window._itemsBc.postMessage({ type: 'prizes', data: prizes });
+  } catch(e) {}
+}
+
+window.onPrizeCycled = function() { setTimeout(broadcastPrizes, 30); };
+
+// ── Medallion label cycling → broadcast items ─────────────────────────────────
+var _origCycleLabel = window.cycleMedallionLabel;
+window.cycleMedallionLabel = function(itemKey, slot) {
+  if (_origCycleLabel) _origCycleLabel(itemKey, slot);
+  var label = items[itemKey] ? items[itemKey].medallionLabel : '';
+  var medIdx = {bombos:1, ether:2, quake:3}[itemKey] || 0;
+  if (!window.trackerItems) window.trackerItems = {};
+  if      (label === 'MM')   { window.trackerItems.mmMedallion = medIdx; window.trackerItems.trMedallion = 0; }
+  else if (label === 'TR')   { window.trackerItems.mmMedallion = 0;      window.trackerItems.trMedallion = medIdx; }
+  else if (label === 'BOTH') { window.trackerItems.mmMedallion = medIdx; window.trackerItems.trMedallion = medIdx; }
+  else                       { window.trackerItems.mmMedallion = 0;      window.trackerItems.trMedallion = 0; }
+};
+
+// ── DOMContentLoaded: init tracker then connect via items.js stack ────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // createTracker() was already called by items.js DOMContentLoaded handler.
+  // Start WS using items.js's own connectWebSocket (already has UI hooks).
+  connectWebSocket();
+  // Broadcast initial (empty) prizes once DOM is ready
+  setTimeout(broadcastPrizes, 500);
+});
+</script>
+</body>
+</html>
