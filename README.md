@@ -36,7 +36,7 @@ Usage
 4. Click dungeon prize icons to cycle prize type (Crystal → Red Crystal → Pendant → Green Pendant)
 5. Map dots and dungeon boxes update automatically based on your items
 
-For full instructions see ALTTP_Tracker_Guide.pdf.
+For full instructions see [ALTTP_Tracker_Guide.pdf](https://github.com/hutchch/ALTTPR-Tracker/blob/main/ALTTP_Tracker_Guide.pdf).
 
 Autotracking
 Start QUsb2Snes or SNI before launching the tracker. The connection status bar at the bottom of each window shows the current state. Click Reconnect if the connection drops.
