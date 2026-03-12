@@ -383,11 +383,11 @@ function dungeonColor(key) {
       return (it.sword >= 1 || it.cape) ? 'green' : 'red';
 
     case 'pod':
-      // Red until moonpearl + (hammer+bow OR bow+hammer+hookshot OR flippers)
-      if (!it.moonpearl) return 'red';
-      var canEnter = (it.hammer && it.bow) || (it.bow && it.hammer && it.hookshot) || it.flippers;
+      // Red until moonpearl + (hammer+gloves OR flippers+gloves)
+      if (!it.moonpearl || it.gloves < 1) return 'red';
+      var canEnter = it.hammer || it.flippers;
       if (!canEnter) return 'red';
-      return (it.lamp || it.firerod) ? 'green' : 'yellow';
+      return it.lamp ? 'green' : 'yellow';
 
     case 'sp':
       // Red until moonpearl + mirror + flippers
@@ -456,6 +456,7 @@ function checkLogic(it) {
   var cape     = it.cape >= 1;
   var book     = it.book >= 1;
   var bombos   = it.bombos >= 1;
+  var bomb     = it.bomb >= 1;
   var ether    = it.ether >= 1;
   var quake    = it.quake >= 1;
   var powder   = it.powder >= 1;
@@ -506,21 +507,21 @@ function checkLogic(it) {
            return (!firerod||!DMlight) ? worst(m,'yellow') : worst(m,'green');
          },
     5:   function() { return 'green'; },
-    6:   function() { return 'green'; },
+    6:   function() { return bomb ? 'green' : 'red'; },
     7:   function() { return dwNW ? 'green' : 'red'; },
     8:   function() { return dwNW ? 'green' : 'red'; },
-    9:   function() { return 'green'; },
+    9:   function() { return bomb ? 'green' : 'red'; },
     10:  function() { return (pearl&&flute&&titan) ? 'green' : 'red'; },
     11:  function() { if (!pearl||!titan||!eastDM) return 'red'; return DMlight ? 'green' : 'yellow'; },
-    12:  function() { return 'green'; },
+    12:  function() { return bomb ? 'green' : 'red'; },
     13:  function() { if (!pearl||!glove||!hammer||(!byrna&&!cape)) return 'red'; return DMlight ? 'green' : 'yellow'; },
-    14:  function() { return 'green'; },
-    15:  function() { return 'green'; },
+    14:  function() { return bomb ? 'green' : 'red'; },
+    15:  function() { return bomb ? 'green' : 'red'; },
     16:  function() { return dwSouth ? 'green' : 'red'; },
     17:  function() { if (!eastDM) return 'red'; return DMlight ? 'green' : 'yellow'; },
     18:  function() { return boots ? 'green' : 'red'; },
-    19:  function() { return 'green'; },
-    20:  function() { return 'green'; },
+    19:  function() { return bomb ? 'green' : 'red'; },
+    20:  function() { return bomb ? 'green' : 'red'; },
     21:  function() {
            if (!pearl||!titan) return 'red';
            if (hookshot||(mirror&&hammer&&boots)) return DMlight ? 'green' : 'yellow';
@@ -558,7 +559,7 @@ function checkLogic(it) {
            if (!eastDM) return 'red';
            return (mirror&&pearl&&titan) ? (DMlight?'green':'yellow') : 'orange';
          },
-    88:  function() { return 'green'; },
+    88:  function() { return (bomb || boots) ? 'green' : 'red'; },
     89:  function() { return (book||(titan&&flute&&mirror)) ? 'green' : 'orange'; },
     90:  function() {
            if (!flippers) return 'orange';
@@ -1139,7 +1140,7 @@ function mapConnect() {
       _mapWs.send(JSON.stringify({ Opcode: 'Attach', Space: 'SNES', Operands: [dev] }));
       _mapWs.send(JSON.stringify({ Opcode: 'Name',   Space: 'SNES', Operands: ['ALTTP Map'] }));
       _attached = true;
-      setConnStatus('Connected · ' + dev, 'connected');
+      setConnStatus('Connected', 'connected');
       // Poll room data in two chunks — skip if BroadcastChannel is feeding fresh data
       _mapPollTimer = setInterval(function() {
         var bcFresh = (Date.now() - _lastBcRooms) < 3000;
