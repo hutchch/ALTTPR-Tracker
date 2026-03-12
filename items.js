@@ -480,7 +480,7 @@ function updateDungeonCountDisplay(dungeonKey) {
         // Check completion status
         const allItemsCollected = dungeon.itemCount >= dungeon.maxItems;
         
-        // Check if prize is collected (prize image has 1.png instead of 0.png)
+        // Check if prize is collected (1.png = obtained/bright)
         const prizeImg = slot.querySelector('.prize-img');
         const prizeCollected = prizeImg && prizeImg.src.includes('1.png');
         
@@ -948,17 +948,27 @@ function processInventoryData(data) {
         snap.mmMedallion = (window.trackerItems && window.trackerItems.mmMedallion) || 0;
         snap.trMedallion = (window.trackerItems && window.trackerItems.trMedallion) || 0;
 
-        // Count prizes from dungeon prizeStates for check logic
-        // prizeState: 0=crystal, 1=redcrystal, 2=pendant(non-green), 3=greenpendant
+        // Count obtained prizes from dungeon slots for check logic
+        // prizeState tells us the TYPE (0=crystal,1=redcrystal,2=pendant,3=greenpendant)
+        // The image src tells us if it's OBTAINED: 0.png=unset/dim, 1.png=obtained/bright
         var crystalCount = 0, redCrystalCount = 0, pendantCount = 0, greenPendantCount = 0;
-        Object.values(dungeons).forEach(function(d) {
+        Object.keys(dungeons).forEach(function(key) {
+            var d = dungeons[key];
+            var slot = document.querySelector('[data-dungeon-key="' + key + '"]');
+            var obtained = false;
+            if (slot) {
+                var prizeImg = slot.querySelector('.prize-img');
+                obtained = prizeImg && prizeImg.src.includes('1.png');
+            }
+            if (!obtained) return; // only count if boss cleared/prize collected
             if (d.prizeState === 0) crystalCount++;
             else if (d.prizeState === 1) { crystalCount++; redCrystalCount++; }
             else if (d.prizeState === 2) pendantCount++;
             else if (d.prizeState === 3) { pendantCount++; greenPendantCount++; }
         });
-        snap.redCrystal = redCrystalCount;
-        snap.pendants   = pendantCount;
+        snap.redCrystal   = redCrystalCount;
+        snap.crystals     = crystalCount;
+        snap.pendants     = pendantCount;
         snap.greenPendant = greenPendantCount;
         window._itemsBc.postMessage({ type: 'items', data: snap });
 

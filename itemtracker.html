@@ -40,12 +40,17 @@ function broadcastPrizes() {
       var prizeImg = document.querySelector('[data-dungeon-key="' + key + '"] .prize-img');
       if (!prizeImg) return;
       var src = prizeImg.src || '';
+      // state = prize type (0=crystal,1=redcrystal,2=pendant,3=greenpendant)
+      // obtained = boss beaten = prize image changed to 0.png (bright) by SRAM auto-clear
       prizes[key] = {
-        state:   src.includes('greenpendant') ? 3 : src.includes('pendant') ? 2 : src.includes('redcrystal') ? 1 : 0,
-        cleared: src.includes('1.png')
+        state:    src.includes('greenpendant') ? 3 : src.includes('pendant') ? 2 : src.includes('redcrystal') ? 1 : 0,
+        obtained: src.includes('0.png')
       };
     });
-    window._itemsBc.postMessage({ type: 'prizes', data: prizes });
+    // Include medallion assignments so map always has current values
+    var mm = window.trackerItems ? (window.trackerItems.mmMedallion || 0) : 0;
+    var tr = window.trackerItems ? (window.trackerItems.trMedallion || 0) : 0;
+    window._itemsBc.postMessage({ type: 'prizes', data: prizes, mmMedallion: mm, trMedallion: tr });
   } catch(e) {}
 }
 
@@ -62,6 +67,13 @@ window.cycleMedallionLabel = function(itemKey, slot) {
   else if (label === 'TR')   { window.trackerItems.mmMedallion = 0;      window.trackerItems.trMedallion = medIdx; }
   else if (label === 'BOTH') { window.trackerItems.mmMedallion = medIdx; window.trackerItems.trMedallion = medIdx; }
   else                       { window.trackerItems.mmMedallion = 0;      window.trackerItems.trMedallion = 0; }
+  // Broadcast immediately so map updates without needing SRAM
+  if (window._itemsBc) {
+    window._itemsBc.postMessage({ type: 'medallions', data: {
+      mmMedallion: window.trackerItems.mmMedallion,
+      trMedallion: window.trackerItems.trMedallion
+    }});
+  }
 };
 
 // ── DOMContentLoaded: init tracker then connect via items.js stack ────────────

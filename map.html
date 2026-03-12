@@ -73,7 +73,7 @@ body {
 .dot.possible  { background: #ffd700; border: 2px solid #000; }
 .dot.visible   { background: #ff8c00; border: 2px solid #000; }
 .dot.unavail   { background: #ff4444; border: 2px solid #000; }
-.dot.cleared   { background: rgba(10,10,10,0.82); border: 1.5px solid #3a3a3a; }
+.dot.cleared   { background: rgba(40,40,40,0.85); border: 1.5px solid #555; }
 
 /* ── Dungeon markers ── */
 .dng {
@@ -90,11 +90,12 @@ body {
   transition: transform 0.08s;
 }
 .dng:hover { transform: translate(-50%,-50%) scale(1.2); z-index: 25; }
-.dng.available { background: #4dff88; border-color: #000; }
+.dng.available   { background: #4dff88; border-color: #000; }
+.dng.boss-cleared { background: #9bd0f5; border-color: #000; opacity: 0.75; } /* boss beaten, items remain */
 .dng.possible  { background: #ffd700; border-color: #000; }
 .dng.visible   { background: #ff8c00; border-color: #000; }
 .dng.unavail   { background: #ff4444; border-color: #000; }
-.dng.cleared   { background: rgba(10,10,10,0.82); border-color: #3a3a3a; opacity: 0.6; }
+.dng.cleared   { background: rgba(70,70,70,0.85); border-color: #666; opacity: 0.75; }
 .dng img       { width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated; }
 .dng.no-prize  { font-size: 8px; font-weight: bold; color: #fff; }
 
@@ -111,7 +112,7 @@ body {
 .lb.possible  { background: #ffd700; border: 1.5px solid #000; }
 .lb.visible   { background: #ff8c00; border: 1.5px solid #000; }
 .lb.unavail   { background: #ff4444; border: 1.5px solid #000; }
-.lb.cleared   { background: rgba(10,10,10,0.82); border: 1px solid #555; }
+.lb.cleared   { background: rgba(40,40,40,0.85); border: 1px solid #555; }
 #conn-status  { color: #555; font-weight: bold; letter-spacing: 0.3px; }
 #conn-status.connected    { color: #4dff88; }
 #conn-status.connecting   { color: #ffd700; }
@@ -367,20 +368,19 @@ function dungeonColor(key) {
       return it.boots ? 'green' : 'yellow';
 
     case 'toh':
-      // Red until (PowerGloves or Flute+Mirror or PowerGloves or Flute) AND (Hammer+Hookshot for alt)
-      // Simplified: need gloves>=1 OR (flute AND mirror) OR (flute AND hammer AND hookshot)
-      var hasAccess = (it.gloves >= 1) || (it.flute && it.mirror) || (it.flute && it.hammer && it.hookshot);
+      // (gloves or flute) AND (mirror or hammer) to reach; lamp to see
+      var hasAccess = (it.gloves >= 1 || it.flute >= 1) && (it.mirror >= 1 || it.hammer >= 1);
       if (!hasAccess) return 'red';
-      // Yellow if missing lamp or firerod
-      return (it.lamp || it.firerod) ? 'green' : 'yellow';
+      return it.lamp ? 'green' : 'yellow';
 
     case 'hc':
       // Hyrule Castle - always accessible in standard
       return it.lamp ? 'green' : 'yellow';
 
     case 'ct':
-      // Castle Tower - need agahnim fight, sword required
-      return (it.sword >= 1) ? 'green' : 'red';
+      // Red until lamp AND (sword>=1 OR cape)
+      if (!it.lamp) return 'red';
+      return (it.sword >= 1 || it.cape) ? 'green' : 'red';
 
     case 'pod':
       // Red until moonpearl + (hammer+bow OR bow+hammer+hookshot OR flippers)
@@ -411,17 +411,17 @@ function dungeonColor(key) {
       return 'green';
 
     case 'mm':
-      // Red until moonpearl + flute + medallion + (hookshot or boots)
-      if (!it.moonpearl || !it.flute) return 'red';
-      if (!hasMedallion('mm')) return 'red';
-      if (!it.hookshot && !it.boots) return 'red';
+      // Red until flute + titans mitt + medallion known and obtained
+      if (!it.flute || it.gloves < 2) return 'red';
+      if (it.mmMedallion === 0) return 'red'; // unknown medallion = can't enter
+      if (!hasMedallion('mm')) return 'red';  // wrong medallion marked
       return (it.somaria && it.lamp) ? 'green' : 'yellow';
 
     case 'tr':
-      // Red until moonpearl + medallion + hammer + titansMitt + somaria
-      if (!it.moonpearl) return 'red';
-      if (!hasMedallion('tr')) return 'red';
-      if (!it.hammer || it.gloves < 2 || !it.somaria) return 'red';
+      // Red until moonpearl + hammer + titansMitt + somaria + medallion known and obtained
+      if (!it.moonpearl || !it.hammer || it.gloves < 2 || !it.somaria) return 'red';
+      if (it.trMedallion === 0) return 'red'; // unknown medallion = can't enter
+      if (!hasMedallion('tr')) return 'red';  // wrong medallion marked
       return (it.firerod && it.lamp) ? 'green' : 'yellow';
 
     case 'gt':
@@ -493,7 +493,11 @@ function checkLogic(it) {
     0:   function() { if (!boots) return 'red'; return (titan||(dwNW&&mirror)) ? 'green' : 'red'; },
     1:   function() { return 'green'; },
     2:   function() { return 'green'; },
-    3:   function() { if (!climbDM) return 'red'; return DMlight ? 'green' : 'yellow'; },
+    3:   function() { // Spiral Cave: (gloves or flute) AND (mirror or hammer), lamp to see
+           var canReach = (glove || flute) && (mirror || hammer);
+           if (!canReach) return 'red';
+           return lamp ? 'green' : 'yellow';
+         },
     4:   function() {
            if (!pearl||!hammer||!titan||!somaria||!mirror) return 'red';
            var m=medColor('tr'); if(m==='red') return 'red';
@@ -524,7 +528,7 @@ function checkLogic(it) {
     63:  function() { return 'green'; },
     64:  function() { return dwNW ? 'green' : 'red'; },
     65:  function() { return 'green'; },
-    66:  function() { var gp=window.trackerItems?(window.trackerItems.greenPendant||0):0; return gp>=1?'green':'red'; },
+    66:  function() { return (it.greenPendant >= 1) ? 'green' : 'red'; },
     67:  function() { return dwSouth ? 'green' : 'red'; },
     68:  function() { return bottle1 ? 'green' : 'red'; },
     69:  function() { return (pearl&&titan) ? 'green' : 'red'; },
@@ -575,8 +579,7 @@ function checkLogic(it) {
            return (aga||dwEast) ? 'green' : 'red';
          },
     103: function() {
-           var p=window.trackerItems?(window.trackerItems.pendants||0):0;
-           return p>=3 ? 'green' : (book?'orange':'red');
+           return (it.pendants >= 3) ? 'green' : (book ? 'orange' : 'red');
          },
     104: function() { return 'green'; },
     105: function() { return flippers ? 'green' : 'red'; },
@@ -736,7 +739,8 @@ window.trackerItems = window.trackerItems || {
   bottle:0, somaria:false, byrna:false, cape:false, mirror:false,
   boots:false, gloves:0, flippers:false, moonpearl:false,
   sword:0, shield:0, tunic:1, agahnim:false, crystals:0,
-  mmMedallion:0, trMedallion:0
+  mmMedallion:0, trMedallion:0,
+  crystals:0, pendants:0, greenPendant:0, redCrystal:0
 };
 
 var lwEl = document.getElementById('lw');
@@ -806,7 +810,7 @@ function cyclePrize(key) {
   refreshDungeonImg(key);
 }
 
-// Show dim (1.png) when not cleared, bright (0.png) when boss beaten
+// Prize image: bright (1.png = img) until obtained, then dim (0.png = imgCleared)
 function refreshDungeonImg(key) {
   var def = DUNGEONS[key];
   var img = dngEls[key].querySelector('img');
@@ -821,15 +825,21 @@ window.refreshMapLogic = function() {
   Object.keys(DUNGEONS).forEach(function(key) {
     var def = DUNGEONS[key];
     var el  = dngEls[key];
-    // Fully cleared = boss beaten + all items collected (from item tracker)
-    // Boss cleared alone = def.cleared (from SRAM boss bit)
-    if (def.fullyCleared || def.cleared) {
+    if (def.fullyCleared) {
+      // All items + boss done — go dark
       el.className = 'dng cleared';
+    } else if (def.cleared) {
+      // Boss beaten but items remain — light green box
+      el.className = 'dng boss-cleared';
     } else {
       var c = COLOR_CLASS[window.dungeonColor(key)] || 'unavail';
       el.className = 'dng ' + c;
     }
-    refreshDungeonImg(key);
+    // Prize image: bright (1.png) until obtained, then dim (0.png)
+    var img = dngEls[key].querySelector('img');
+    if (img) {
+      img.src = def.cleared ? def.imgCleared : def.img;
+    }
   });
   // Refresh dot cleared state
   Object.keys(dotById).forEach(function(id) {
@@ -876,8 +886,27 @@ try {
   _bc.onmessage = function(e) {
     if (!e.data) return;
     switch (e.data.type) {
+      case 'medallions':
+        window.trackerItems.mmMedallion = e.data.data.mmMedallion || 0;
+        window.trackerItems.trMedallion = e.data.data.trMedallion || 0;
+        window.refreshMapLogic();
+        break;
       case 'items':
-        window.trackerItems = e.data.data;
+        // Merge snap into trackerItems, preserving prize-derived and medallion fields
+        var snap = e.data.data;
+        var savedCrystals     = window.trackerItems.crystals     || 0;
+        var savedPendants     = window.trackerItems.pendants     || 0;
+        var savedGreenPendant = window.trackerItems.greenPendant || 0;
+        var savedRedCrystal   = window.trackerItems.redCrystal   || 0;
+        var savedMmMed        = window.trackerItems.mmMedallion  || 0;
+        var savedTrMed        = window.trackerItems.trMedallion  || 0;
+        window.trackerItems = snap;
+        window.trackerItems.crystals     = snap.crystals     || savedCrystals;
+        window.trackerItems.pendants     = snap.pendants     || savedPendants;
+        window.trackerItems.greenPendant = snap.greenPendant || savedGreenPendant;
+        window.trackerItems.redCrystal   = snap.redCrystal   || savedRedCrystal;
+        window.trackerItems.mmMedallion  = snap.mmMedallion  || savedMmMed;
+        window.trackerItems.trMedallion  = snap.trMedallion  || savedTrMed;
         window.refreshMapLogic();
         break;
       case 'rooms':
@@ -890,31 +919,39 @@ try {
         break;
       case 'prizes':
         var pz = e.data.data;
+        // Update medallion assignments if included in message
+        if (window.trackerItems) {
+          if (e.data.mmMedallion !== undefined) window.trackerItems.mmMedallion = e.data.mmMedallion;
+          if (e.data.trMedallion !== undefined) window.trackerItems.trMedallion = e.data.trMedallion;
+        }
         Object.keys(pz).forEach(function(key) {
           if (!DUNGEONS[key]) return;
-          // Map prize index to the PRIZE_CYCLE images
           var idx = pz[key].state;
           if (idx >= 0 && idx < PRIZE_CYCLE.length) {
-            DUNGEONS[key].prize        = idx;
-            DUNGEONS[key].img          = PRIZE_CYCLE[idx].img;
-            DUNGEONS[key].imgCleared   = PRIZE_CYCLE[idx].imgCleared;
+            DUNGEONS[key].prize      = idx;
+            DUNGEONS[key].img        = PRIZE_CYCLE[idx].img;
+            DUNGEONS[key].imgCleared = PRIZE_CYCLE[idx].imgCleared;
           }
-          DUNGEONS[key].cleared = pz[key].cleared;
+          // obtained = prize actually collected (0.png = bright in tracker convention)
+          DUNGEONS[key].prizeObtained = pz[key].obtained || false;
           refreshDungeonImg(key);
         });
-        // Recompute prize counts for check logic (Sahasrahla, Pedestal, Pyramid Fairy)
+        // Pendant/crystal counts from obtained prizes only
         if (window.trackerItems) {
-          var pc=0, gpc=0, cc=0, rc=0;
+          var pc=0, gpc=0, rc=0, cc=0;
           Object.keys(DUNGEONS).forEach(function(k) {
-            var p = DUNGEONS[k].prize;
-            if (p===0){cc++;}
-            else if(p===1){cc++;rc++;}
-            else if(p===2){pc++;}
-            else if(p===3){pc++;gpc++;}
+            var def = DUNGEONS[k];
+            if (!def.prizeObtained) return;
+            var p = def.prize;
+            if      (p===0){cc++;}
+            else if (p===1){cc++;rc++;}
+            else if (p===2){pc++;}
+            else if (p===3){pc++;gpc++;}
           });
-          window.trackerItems.pendants    = pc;
-          window.trackerItems.greenPendant= gpc;
-          window.trackerItems.redCrystal  = rc;
+          window.trackerItems.crystals     = cc;
+          window.trackerItems.pendants     = pc;
+          window.trackerItems.greenPendant = gpc;
+          window.trackerItems.redCrystal   = rc;
         }
         window.refreshMapLogic();
         break;
@@ -1009,6 +1046,24 @@ function changeZoom(dir) {
   var sel = document.getElementById('layout-sel');
   if (sel) sel.value = val;
   setLayout(val);
+})();
+
+// ── Initialise prize counts in trackerItems from DUNGEONS defaults ────────────
+(function() {
+  var pc=0, gpc=0, rc=0, cc=0;
+  Object.keys(DUNGEONS).forEach(function(k) {
+    var def = DUNGEONS[k];
+    if (!def.prizeObtained) return;
+    var p = def.prize;
+    if      (p===0){cc++;}
+    else if (p===1){cc++;rc++;}
+    else if (p===2){pc++;}
+    else if (p===3){pc++;gpc++;}
+  });
+  window.trackerItems.crystals     = cc;
+  window.trackerItems.pendants     = pc;
+  window.trackerItems.greenPendant = gpc;
+  window.trackerItems.redCrystal   = rc;
 })();
 
 window.refreshMapLogic();
