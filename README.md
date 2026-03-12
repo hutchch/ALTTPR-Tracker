@@ -1,4 +1,4 @@
-<h1>ALTTPR Tracker (v0.0.a Alpha release)</h1>
+<h1>ALTTPR Tracker (v0.0.1a Alpha release)</h1>
 <p>
 <i><strong>This is still being tested, but works for use. </strong> </i>
 
