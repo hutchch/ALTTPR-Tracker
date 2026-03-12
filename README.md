@@ -1,4 +1,4 @@
-ALTTPR Tracker
+ALTTPR Tracker - This is still being tested, but works for use (Alpha release)
 
 A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
 
