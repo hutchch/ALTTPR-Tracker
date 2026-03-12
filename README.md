@@ -1,6 +1,6 @@
 <h1>ALTTPR Tracker (v0.0.1a Alpha release)</h1>
 <p>
-<i><strong>This is still being tested, but works for use. </strong> </i>
+<i><strong>This is still being tested, and logic adjusted, but works for use. </strong> </i>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them.
 </p>
@@ -112,4 +112,4 @@ Vertical:
 <img width="1229" height="1140" alt="image" src="https://github.com/user-attachments/assets/7c946064-12bd-4ca7-9f38-caeae051ada6" />
 
 Item Tracking with Map:
-<img width="1067" height="1019" alt="image" src="https://github.com/user-attachments/assets/0a0339d1-de56-40f5-abe7-ba54afcf71b5" />
+<img width="1319" height="1209" alt="image" src="https://github.com/user-attachments/assets/f86c5a8a-ea50-4a29-a3f2-25d5f95317df" />
