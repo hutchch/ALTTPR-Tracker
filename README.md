@@ -1,4 +1,7 @@
-ALTTPR Tracker - This is still being tested, but works for use (Alpha release)
+<h1>ALTTPR Tracker (Alpha release)</h1>
+<p>
+<i><strong>This is still being tested, but works for use. </strong> </i>
+</p>
 
 A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
 
@@ -16,18 +19,20 @@ Option 1 — Open directly in Chrome or Edge
 Launch Chrome or Edge with the --allow-file-access-from-files flag, then open index.html.
 
 Windows — add the flag to your browser shortcut's Target field:
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --allow-file-access-from-files
+
+<code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --allow-file-access-from-files</code>
 
 macOS — run from Terminal:
 
-open -a "Google Chrome" --args --allow-file-access-from-files
+<code>open -a "Google Chrome" --args --allow-file-access-from-files</code>
 
-Option 2 — Python local server
+Option 2 — Python local server - Python needs to be installed.
 
-bashcd alttpr-tracker
+<code>bashcd alttpr-tracker
 python -m http.server 8080
+</code>
 
-Then open http://localhost:8080 in any browser.
+Then open <code>http://localhost:8080</code> in any browser.
 Usage
 
 1. Open index.html and click Launch Both to open the Item Tracker and Map windows
