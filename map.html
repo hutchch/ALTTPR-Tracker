@@ -413,17 +413,25 @@ function dungeonColor(key) {
       return 'green';
 
     case 'mm':
-      // Red until flute + titans mitt + medallion known and obtained
+      // Red until flute + titans mitt + medallion accessible
       if (!it.flute || it.gloves < 2) return 'red';
-      if (it.mmMedallion === 0) return 'red'; // unknown medallion = can't enter
-      if (!hasMedallion('mm')) return 'red';  // wrong medallion marked
+      // All 3 medallions = can always enter regardless of assignment
+      var hasAllMeds = it.bombos && it.ether && it.quake;
+      if (!hasAllMeds) {
+        if (it.mmMedallion === 0) return 'red'; // unknown and don't have all 3
+        if (!hasMedallion('mm')) return 'red';  // wrong one marked
+      }
       return (it.somaria && it.lamp) ? 'green' : 'yellow';
 
     case 'tr':
-      // Red until moonpearl + hammer + titansMitt + somaria + medallion known and obtained
+      // Red until moonpearl + hammer + titansMitt + somaria + medallion accessible
       if (!it.moonpearl || !it.hammer || it.gloves < 2 || !it.somaria) return 'red';
-      if (it.trMedallion === 0) return 'red'; // unknown medallion = can't enter
-      if (!hasMedallion('tr')) return 'red';  // wrong medallion marked
+      // All 3 medallions = can always enter regardless of assignment
+      var hasAllMeds = it.bombos && it.ether && it.quake;
+      if (!hasAllMeds) {
+        if (it.trMedallion === 0) return 'red'; // unknown and don't have all 3
+        if (!hasMedallion('tr')) return 'red';  // wrong one marked
+      }
       return (it.firerod && it.lamp) ? 'green' : 'yellow';
 
     case 'gt':
@@ -825,6 +833,12 @@ function refreshDungeonImg(key) {
   var def = DUNGEONS[key];
   var img = dngEls[key].querySelector('img');
   if (!img) return;
+  // CT (Agahnim): hide image entirely when cleared — box matches standard cleared style
+  if (key === 'ct' && def.fullyCleared) {
+    img.style.display = 'none';
+    return;
+  }
+  img.style.display = '';
   img.src = def.cleared ? def.imgCleared : def.img;
 }
 
@@ -879,6 +893,16 @@ window.onRoomsUpdated = function(data) {
   // Boss defeat → clear dungeon
   Object.keys(DUNGEONS).forEach(function(key) {
     var def = DUNGEONS[key];
+    // CT (Agahnim) uses a different SRAM flag — offset 0x3c5 >= 3
+    if (key === 'ct') {
+      if (0x3c5 < data.length && data[0x3c5] >= 3 && !def.cleared) {
+        def.cleared = true;
+        def.fullyCleared = true;
+        refreshDungeonImg(key);
+        window.refreshMapLogic();
+      }
+      return;
+    }
     if (def.bossOffset === null || def.bossOffset === undefined || def.bossOffset >= data.length) return;
     if ((data[def.bossOffset] & 0x08) !== 0 && !def.cleared) {
       def.cleared = true;
@@ -918,6 +942,12 @@ try {
         window.trackerItems.redCrystal   = snap.redCrystal   !== undefined ? snap.redCrystal   : savedRedCrystal;
         window.trackerItems.mmMedallion  = snap.mmMedallion  !== undefined ? snap.mmMedallion  : savedMmMed;
         window.trackerItems.trMedallion  = snap.trMedallion  !== undefined ? snap.trMedallion  : savedTrMed;
+        // Agahnim defeated → mark CT fully cleared (no items remain after boss)
+        if (snap.agahnim && !DUNGEONS.ct.cleared) {
+          DUNGEONS.ct.cleared = true;
+          DUNGEONS.ct.fullyCleared = true;
+          refreshDungeonImg('ct');
+        }
         window.refreshMapLogic();
         break;
       case 'rooms':
