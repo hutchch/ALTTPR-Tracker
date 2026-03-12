@@ -1,3 +1,52 @@
+ALTTPR Tracker
+
+A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
+
+Features
+- Item Tracker — click to cycle all items, weapons, and equipment through their states
+- Dual overworld maps — Light World and Dark World with color-coded logic dots for every check
+- Dungeon markers — shows accessibility, boss status, and prize state for all 12 dungeons
+- Medallion assignment — right-click Bombos/Ether/Quake to mark MM, TR, or BOTH requirements
+- Autotracking — connects to QUsb2Snes / SNI (ws://localhost:23074) to update items and dungeon state automatically
+- No install required — runs entirely in the browser, locally
+
+Quick Start
+
+Option 1 — Open directly in Chrome or Edge
+Launch Chrome or Edge with the --allow-file-access-from-files flag, then open index.html.
+
+Windows — add the flag to your browser shortcut's Target field:
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --allow-file-access-from-files
+
+macOS — run from Terminal:
+
+open -a "Google Chrome" --args --allow-file-access-from-files
+
+Option 2 — Python local server
+
+bashcd alttpr-tracker
+python -m http.server 8080
+
+Then open http://localhost:8080 in any browser.
+Usage
+
+1. Open index.html and click Launch Both to open the Item Tracker and Map windows
+2. Left-click items to mark them obtained; right-click to cycle backward
+3. Right-click Bombos, Ether, or Quake to assign dungeon medallion requirements (MM / TR / BOTH)
+4. Click dungeon prize icons to cycle prize type (Crystal → Red Crystal → Pendant → Green Pendant)
+5. Map dots and dungeon boxes update automatically based on your items
+
+For full instructions see ALTTP_Tracker_Guide.pdf.
+
+Autotracking
+Start QUsb2Snes or SNI before launching the tracker. The connection status bar at the bottom of each window shows the current state. Click Reconnect if the connection drops.
+Color Reference
+<img width="660" height="297" alt="image" src="https://github.com/user-attachments/assets/c321533d-26ff-45df-a7fb-d18acc79f840" />
+
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+
 ALTTP Randomizer Tracker 
 Architecture
 
