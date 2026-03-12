@@ -227,17 +227,25 @@ function dungeonColor(key) {
       return 'green';
 
     case 'mm':
-      // Red until moonpearl + flute + medallion + (hookshot or boots)
-      if (!it.moonpearl || !it.flute) return 'red';
-      if (!hasMedallion('mm')) return 'red';
-      if (!it.hookshot && !it.boots) return 'red';
+      // Red until flute + titans mitt + medallion accessible
+      if (!it.flute || it.gloves < 2) return 'red';
+      // All 3 medallions = can always enter regardless of assignment
+      var hasAllMeds = it.bombos && it.ether && it.quake;
+      if (!hasAllMeds) {
+        if (it.mmMedallion === 0) return 'red';
+        if (!hasMedallion('mm')) return 'red';
+      }
       return (it.somaria && it.lamp) ? 'green' : 'yellow';
 
     case 'tr':
-      // Red until moonpearl + medallion + hammer + titansMitt + somaria
-      if (!it.moonpearl) return 'red';
-      if (!hasMedallion('tr')) return 'red';
-      if (!it.hammer || it.gloves < 2 || !it.somaria) return 'red';
+      // Red until moonpearl + hammer + titansMitt + somaria + medallion accessible
+      if (!it.moonpearl || !it.hammer || it.gloves < 2 || !it.somaria) return 'red';
+      // All 3 medallions = can always enter regardless of assignment
+      var hasAllMeds = it.bombos && it.ether && it.quake;
+      if (!hasAllMeds) {
+        if (it.trMedallion === 0) return 'red';
+        if (!hasMedallion('tr')) return 'red';
+      }
       return (it.firerod && it.lamp) ? 'green' : 'yellow';
 
     case 'gt':
