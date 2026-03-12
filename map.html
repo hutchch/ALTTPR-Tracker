@@ -400,9 +400,11 @@ function dungeonColor(key) {
       return it.firerod ? 'green' : 'yellow';
 
     case 'tt':
-      // Red until moonpearl
+      // Red until moonpearl + (hammer + gloves>=1) OR titans mitt
       if (!it.moonpearl) return 'red';
-      return it.hammer ? 'green' : 'yellow';
+      if (it.gloves >= 2) return 'green';               // titans mitt
+      if (it.hammer && it.gloves >= 1) return 'green';  // hammer + power glove
+      return 'red';
 
     case 'ip':
       // Red until moonpearl + flippers + titansMitt + (bombos or firerod)
@@ -719,13 +721,20 @@ function saveCheckState() { try { localStorage.setItem('alttp-checks', JSON.stri
 function resetChecks() {
   checkState = {};
   saveCheckState();
+  // Reset prize-derived item counts
+  window.trackerItems.crystals     = 0;
+  window.trackerItems.pendants     = 0;
+  window.trackerItems.greenPendant = 0;
+  window.trackerItems.redCrystal   = 0;
   // Redraw all dots
   Object.keys(dotById).forEach(function(id) {
     dotById[id].className = dotClass(parseInt(id));
   });
-  // Reset dungeon cleared state
+  // Reset dungeon cleared/obtained state
   Object.keys(DUNGEONS).forEach(function(key) {
-    DUNGEONS[key].cleared = false;
+    DUNGEONS[key].cleared       = false;
+    DUNGEONS[key].prizeObtained = false;
+    DUNGEONS[key].fullyCleared  = false;
     refreshDungeonImg(key);
   });
   window.refreshMapLogic();
@@ -893,6 +902,7 @@ try {
         break;
       case 'items':
         // Merge snap into trackerItems, preserving prize-derived and medallion fields
+        // Use !== undefined so snap value of 0 is respected (not treated as "missing")
         var snap = e.data.data;
         var savedCrystals     = window.trackerItems.crystals     || 0;
         var savedPendants     = window.trackerItems.pendants     || 0;
@@ -901,12 +911,12 @@ try {
         var savedMmMed        = window.trackerItems.mmMedallion  || 0;
         var savedTrMed        = window.trackerItems.trMedallion  || 0;
         window.trackerItems = snap;
-        window.trackerItems.crystals     = snap.crystals     || savedCrystals;
-        window.trackerItems.pendants     = snap.pendants     || savedPendants;
-        window.trackerItems.greenPendant = snap.greenPendant || savedGreenPendant;
-        window.trackerItems.redCrystal   = snap.redCrystal   || savedRedCrystal;
-        window.trackerItems.mmMedallion  = snap.mmMedallion  || savedMmMed;
-        window.trackerItems.trMedallion  = snap.trMedallion  || savedTrMed;
+        window.trackerItems.crystals     = snap.crystals     !== undefined ? snap.crystals     : savedCrystals;
+        window.trackerItems.pendants     = snap.pendants     !== undefined ? snap.pendants     : savedPendants;
+        window.trackerItems.greenPendant = snap.greenPendant !== undefined ? snap.greenPendant : savedGreenPendant;
+        window.trackerItems.redCrystal   = snap.redCrystal   !== undefined ? snap.redCrystal   : savedRedCrystal;
+        window.trackerItems.mmMedallion  = snap.mmMedallion  !== undefined ? snap.mmMedallion  : savedMmMed;
+        window.trackerItems.trMedallion  = snap.trMedallion  !== undefined ? snap.trMedallion  : savedTrMed;
         window.refreshMapLogic();
         break;
       case 'rooms':
