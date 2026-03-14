@@ -31,7 +31,7 @@ Windows — add the flag to your browser shortcut's Target field:
 
 NOTE: Pop-ups may need to be permitted even if using the flag above
 
-
+______________________________________________________________________
 
 macOS — run from Terminal:
 
@@ -39,7 +39,7 @@ macOS — run from Terminal:
 
 NOTE: Pop-ups may need to be permitted even if using the flag above
 
-
+______________________________________________________________________
 
 Option 2 — Python local server - Python needs to be installed.
 
@@ -65,7 +65,7 @@ Color Reference
 
 
 
-
+______________________________________________________________________
 
 ALTTP Randomizer Tracker 
 Architecture
