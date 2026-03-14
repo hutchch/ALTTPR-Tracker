@@ -29,10 +29,17 @@ Windows — add the flag to your browser shortcut's Target field:
 
 <code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --allow-file-access-from-files</code>
 
+NOTE: Pop-ups may need to be permitted even if using the flag above
+
+---------------------------------------------------------------------------------------------------------------------------------
 macOS — run from Terminal:
 
 <code>open -a "Google Chrome" --args --allow-file-access-from-files</code>
 
+NOTE: Pop-ups may need to be permitted even if using the flag above
+
+
+---------------------------------------------------------------------------------------------------------------------------------
 Option 2 — Python local server - Python needs to be installed.
 
 <code>bashcd alttpr-tracker
