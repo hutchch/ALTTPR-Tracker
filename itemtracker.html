@@ -26,9 +26,27 @@ try { window._itemsBc = new BroadcastChannel('alttp-tracker'); } catch(e) {}
 // ── Scale from URL param ──────────────────────────────────────────────────────
 (function() {
   var p = new URLSearchParams(window.location.search);
-  var s = parseFloat(p.get('scale')) || 1;
-  if (s !== 1) document.body.style.zoom = s;
+  window._trackerScale = parseFloat(p.get('scale')) || 1;
+  if (window._trackerScale !== 1) document.body.style.zoom = window._trackerScale;
 })();
+
+// ── Self-resize: measure content after render and fit window to it ────────────
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    try {
+      var s = window._trackerScale || 1;
+      var body = document.body;
+      var chromeW = window.outerWidth  - window.innerWidth;
+      var chromeH = window.outerHeight - window.innerHeight;
+      if (chromeW <= 0) chromeW = 16;
+      if (chromeH <= 0) chromeH = 40;
+      // body.scrollWidth/Height report pre-zoom logical pixels — multiply by scale
+      var w = Math.ceil(body.scrollWidth  * s) + chromeW;
+      var h = Math.ceil(body.scrollHeight * s) + chromeH;
+      window.resizeTo(w, h);
+    } catch(e) {}
+  }, 200);
+});
 
 // ── Hook: broadcast prizes whenever a dungeon prize changes ───────────────────
 function broadcastPrizes() {

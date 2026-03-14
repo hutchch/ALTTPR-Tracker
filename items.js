@@ -262,7 +262,7 @@ const dungeons = {
         locations: [[0x172,0x10],[0x154,0x10],[0x150,0x10],[0x152,0x10],[0x170,0x10],[0x191,0x08]] },
     dp: { name: 'DP', bossAddr: 0x067, bigkeyAddr: 0x367, bigkeyMask: 0x10, compassAddr: 0x365, compassMask: 0x10, mapAddr: 0x369, mapMask: 0x10, smallKeyAddr: 0x4e3, maxChests: 6, maxSmallKeys: 1, maxItems: 2, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0,
         locations: [[0xe6,0x10],[0xe7,0x04],[0xe8,0x10],[0x10a,0x10],[0xea,0x10],[0x67,0x08]] },
-    toh: { name: 'ToH', bossAddr: 0x00f, bigkeyAddr: 0x366, bigkeyMask: 0x20, compassAddr: 0x364, compassMask: 0x20, mapAddr: 0x368, mapMask: 0x20, smallKeyAddr: 0x4ea, maxChests: 6, maxSmallKeys: 1, maxItems: 2, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0,
+    toh: { name: 'TOH', bossAddr: 0x00f, bigkeyAddr: 0x366, bigkeyMask: 0x20, compassAddr: 0x364, compassMask: 0x20, mapAddr: 0x368, mapMask: 0x20, smallKeyAddr: 0x4ea, maxChests: 6, maxSmallKeys: 1, maxItems: 2, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0,
         locations: [[0x10f,0x04],[0xee,0x10],[0x10e,0x10],[0x4e,0x10],[0x4e,0x20],[0xf,0x08]] },
     pod: { name: 'POD', bossAddr: 0x0b5, bigkeyAddr: 0x367, bigkeyMask: 0x02, compassAddr: 0x365, compassMask: 0x02, mapAddr: 0x369, mapMask: 0x02, smallKeyAddr: 0x4e6, maxChests: 14, maxSmallKeys: 6, maxItems: 5, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0,
         locations: [[0x12,0x10],[0x56,0x10],[0x54,0x10],[0x54,0x20],[0x74,0x10],[0x14,0x10],[0x34,0x10],[0x34,0x20],[0x34,0x40],[0x32,0x10],[0x32,0x20],[0xd4,0x10],[0xd4,0x20],[0xb5,0x08]] },
@@ -527,55 +527,60 @@ function cycleMedallionLabel(itemKey, slot) {
 const SAVEDATA_START = 0xF5F000;
 
 function connectWebSocket() {
+    // Close any existing socket cleanly before opening a new one
+    if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        try { ws.close(); } catch(e) {}
+        ws = null;
+    }
+
     try {
         ws = new WebSocket(`ws://${wsHost}:${wsPort}`);
         ws.binaryType = 'arraybuffer';
-        
+
         ws.onopen = () => {
             console.log('WebSocket connected - requesting device list');
             updateConnectionStatus('Connecting');
-            
-            // Request device list from QUsb2Snes
-            ws.send(JSON.stringify({
-                Opcode: 'DeviceList',
-                Space: 'SNES'
-            }));
-            
-            if (reconnectInterval) {
-                clearInterval(reconnectInterval);
-                reconnectInterval = null;
-            }
+            _stopReconnect();
+            ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
         };
-        
+
         ws.onmessage = handleWebSocketMessage;
-        
+
         ws.onerror = (error) => {
             console.error('WebSocket error:', error);
             updateConnectionStatus('Error');
+            _scheduleReconnect();
         };
-        
+
         ws.onclose = () => {
             console.log('WebSocket disconnected');
             updateConnectionStatus('Disconnected');
             deviceAttached = false;
-            
-            if (readTimer) {
-                clearInterval(readTimer);
-                readTimer = null;
-            }
-            
-            // Attempt to reconnect every 5 seconds
-            if (!reconnectInterval) {
-                reconnectInterval = setInterval(() => {
-                    console.log('Attempting to reconnect...');
-                    connectWebSocket();
-                }, 5000);
-            }
+            if (readTimer) { clearInterval(readTimer); readTimer = null; }
+            _scheduleReconnect();
         };
     } catch (e) {
         console.error('Failed to create WebSocket connection:', e);
         updateConnectionStatus('Error');
+        _scheduleReconnect();
     }
+}
+
+function _stopReconnect() {
+    if (reconnectInterval) { clearTimeout(reconnectInterval); reconnectInterval = null; }
+}
+
+function _scheduleReconnect() {
+    _stopReconnect(); // always reset — ensures a clean single timer
+    reconnectInterval = setTimeout(() => {
+        reconnectInterval = null;
+        console.log('Attempting to reconnect...');
+        connectWebSocket();
+    }, 5000);
 }
 
 function handleWebSocketMessage(event) {
@@ -1011,42 +1016,15 @@ function updateItemState(itemKey, state) {
 
 function manualReconnect() {
     const btn = document.querySelector('.reconnect-btn');
-    if (btn) {
-        btn.classList.add('reconnecting');
-        btn.disabled = true;
-    }
-
-    // Clear auto-reconnect timer so we take full control
-    if (reconnectInterval) {
-        clearInterval(reconnectInterval);
-        reconnectInterval = null;
-    }
-
-    // Stop SRAM polling
-    if (readTimer) {
-        clearInterval(readTimer);
-        readTimer = null;
-    }
-
-    // Close existing socket cleanly
-    if (ws) {
-        ws.onclose = null; // Prevent the onclose handler from starting auto-reconnect
-        ws.onerror = null;
-        ws.close();
-        ws = null;
-    }
-
+    if (btn) { btn.classList.add('reconnecting'); btn.disabled = true; }
+    _stopReconnect();
+    if (readTimer) { clearInterval(readTimer); readTimer = null; }
     deviceAttached = false;
     previousSRAM = null;
     updateConnectionStatus('Connecting');
-    connectWebSocket();
-
-    // Re-enable button after a moment regardless of outcome
+    connectWebSocket(); // connectWebSocket now closes stale socket itself
     setTimeout(() => {
-        if (btn) {
-            btn.classList.remove('reconnecting');
-            btn.disabled = false;
-        }
+        if (btn) { btn.classList.remove('reconnecting'); btn.disabled = false; }
     }, 3000);
 }
 
