@@ -31,7 +31,8 @@ Windows — add the flag to your browser shortcut's Target field:
 
 NOTE: Pop-ups may need to be permitted even if using the flag above
 
----------------------------------------------------------------------------------------------------------------------------------
+
+
 macOS — run from Terminal:
 
 <code>open -a "Google Chrome" --args --allow-file-access-from-files</code>
@@ -39,7 +40,7 @@ macOS — run from Terminal:
 NOTE: Pop-ups may need to be permitted even if using the flag above
 
 
----------------------------------------------------------------------------------------------------------------------------------
+
 Option 2 — Python local server - Python needs to be installed.
 
 <code>bashcd alttpr-tracker
@@ -63,7 +64,7 @@ Color Reference
 <img width="660" height="297" alt="image" src="https://github.com/user-attachments/assets/c321533d-26ff-45df-a7fb-d18acc79f840" />
 
 
----------------------------------------------------------------------------------------------------------------------------------
+
 
 
 ALTTP Randomizer Tracker 
