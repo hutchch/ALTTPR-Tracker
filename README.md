@@ -3,11 +3,10 @@
 <i><strong>This is still being tested, and logic adjusted, but works for use. </strong> </i>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them.
- - Currently this is 7 crystal Ganon Tower, with standard game mode.
+ - Currently this is a selectable (1-7) crystal Ganon Tower, with standard game mode.
+ - Either normal or enemizer.
  - Coming Soon:
     -  Key Sanity.
-    -  x number of Crystals for Ganon Tower.
-    -  open game mode.
 </p>
 <h2> Descriptions/Instructions</h2>
 A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
