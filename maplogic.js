@@ -199,11 +199,11 @@ function dungeonColor(key) {
       return (it.sword >= 1) ? 'green' : 'red';
 
     case 'pod':
-      // Red until moonpearl + (hammer+bow OR bow+hammer+hookshot OR flippers)
+      // Red until moonpearl + (hammer+gloves OR flippers+gloves OR aga1)
       if (!it.moonpearl) return 'red';
-      var canEnter = (it.hammer && it.bow) || (it.bow && it.hammer && it.hookshot) || it.flippers;
+      var canEnter = ((it.hammer || it.flippers) && it.gloves >= 1) || it.agahnim;
       if (!canEnter) return 'red';
-      return (it.lamp || it.firerod) ? 'green' : 'yellow';
+      return it.lamp ? 'green' : 'yellow';
 
     case 'sp':
       // Red until moonpearl + mirror + flippers
@@ -248,9 +248,10 @@ function dungeonColor(key) {
       }
       return (it.firerod && it.lamp) ? 'green' : 'yellow';
 
-    case 'gt':
-      // Red until 7 crystals
-      return it.crystals >= 7 ? 'green' : 'red';
+    case 'gt': {
+      var req = (window.trackerSettings && window.trackerSettings.gtCrystals) || 7;
+      return it.crystals >= req ? 'green' : 'red';
+    }
 
     default:
       return 'green';

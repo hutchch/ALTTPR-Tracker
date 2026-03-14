@@ -356,9 +356,12 @@ function dungeonColor(key) {
   };
 
   switch (key) {
-    case 'ep':
-      // Yellow until lamp found; green with lamp
+    case 'ep': {
+      // Non-enemizer: bow required to beat Armos Knights
+      var settings = window.trackerSettings || {};
+      if (settings.enemizer === 'no' && !it.bow) return 'yellow';
       return it.lamp ? 'green' : 'yellow';
+    }
 
     case 'dp':
       // Red until (Book or (Mirror + Flute + TitansMitt))
@@ -383,9 +386,9 @@ function dungeonColor(key) {
       return (it.sword >= 1 || it.cape) ? 'green' : 'red';
 
     case 'pod':
-      // Red until moonpearl + (hammer+gloves OR flippers+gloves)
-      if (!it.moonpearl || it.gloves < 1) return 'red';
-      var canEnter = it.hammer || it.flippers;
+      // Red until moonpearl + (hammer+gloves OR flippers+gloves OR aga1)
+      if (!it.moonpearl) return 'red';
+      var canEnter = ((it.hammer || it.flippers) && it.gloves >= 1) || it.agahnim;
       if (!canEnter) return 'red';
       return it.lamp ? 'green' : 'yellow';
 
@@ -434,9 +437,10 @@ function dungeonColor(key) {
       }
       return (it.firerod && it.lamp) ? 'green' : 'yellow';
 
-    case 'gt':
-      // Red until 7 crystals
-      return it.crystals >= 7 ? 'green' : 'red';
+    case 'gt': {
+      var req = (window.trackerSettings && window.trackerSettings.gtCrystals) || 7;
+      return it.crystals >= req ? 'green' : 'red';
+    }
 
     default:
       return 'green';
@@ -504,10 +508,9 @@ function checkLogic(it) {
     0:   function() { if (!boots) return 'red'; return (titan||(dwNW&&mirror)) ? 'green' : 'red'; },
     1:   function() { return 'green'; },
     2:   function() { return 'green'; },
-    3:   function() { // Spiral Cave: (gloves or flute) AND (mirror or hammer), lamp to see
-           var canReach = (glove || flute) && (mirror || hammer);
-           if (!canReach) return 'red';
-           return lamp ? 'green' : 'yellow';
+    3:   function() { // Spiral Cave: same access as Paradox Cave — eastDM
+           if (!eastDM) return 'red';
+           return DMlight ? 'green' : 'yellow';
          },
     4:   function() {
            if (!pearl||!hammer||!titan||!somaria||!mirror) return 'red';
@@ -691,7 +694,7 @@ var DUNGEONS = {
          img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
   dp:  { world:'lw', left: 7.60, top:78.4, label:'DP',  bossOffset:0x067, prize:0, cleared:false,
          img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
-  toh: { world:'lw', left:57.00, top: 3.0, label:'ToH', bossOffset:0x00f, prize:0, cleared:false,
+  toh: { world:'lw', left:57.00, top: 3.0, label:'TOH', bossOffset:0x00f, prize:0, cleared:false,
          img:'items/crystal1.png',      imgCleared:'items/crystal0.png' },
   ct:  { world:'lw', left:50.00, top:52.6, label:'AT',  bossOffset:0x020, prize:-2, cleared:false,
          img:'map/agahnim0.png',        imgCleared:'map/agahnim1.png' },
@@ -1071,6 +1074,11 @@ function changeZoom(dir) {
 // ── Init layout + zoom from URL params / localStorage ────────────────────────
 (function() {
   var p = new URLSearchParams(window.location.search);
+
+  // Enemizer and GT crystal settings from launcher
+  window.trackerSettings = window.trackerSettings || {};
+  window.trackerSettings.enemizer   = p.get('enemizer')   || localStorage.getItem('alttp-enemizer')   || 'yes';
+  window.trackerSettings.gtCrystals = parseInt(p.get('gtcrystals') || localStorage.getItem('alttp-gt-crystals') || '7');
 
   // Restore zoom index
   var pct  = parseInt(p.get('scale') || p.get('zoom') || '0') ||

@@ -85,6 +85,33 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   </div>
 </div>
 
+<div class="section">
+  <h2>Settings</h2>
+  <div class="row">
+    <label>Enemizer</label>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
+        <input type="radio" name="enemizer" id="enemizer-yes" value="yes" checked> Yes
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
+        <input type="radio" name="enemizer" id="enemizer-no" value="no"> No
+      </label>
+    </div>
+  </div>
+  <div class="row">
+    <label>GT Crystals Required</label>
+    <select id="gt-crystals">
+      <option value="7" selected>7</option>
+      <option value="6">6</option>
+      <option value="5">5</option>
+      <option value="4">4</option>
+      <option value="3">3</option>
+      <option value="2">2</option>
+      <option value="1">1</option>
+    </select>
+  </div>
+</div>
+
 <div class="btn-row">
   <button class="launch-btn" id="btn-items" onclick="launchItems()">Items Only</button>
   <button class="launch-btn" id="btn-map"   onclick="launchMap()">Map Only</button>
@@ -97,6 +124,16 @@ function save() {
   localStorage.setItem('alttp-ws-port',    document.getElementById('ws-port').value);
   localStorage.setItem('alttp-item-scale', document.getElementById('item-scale').value);
   localStorage.setItem('alttp-map-zoom',   document.getElementById('map-zoom').value);
+  var enemizer = document.querySelector('input[name="enemizer"]:checked').value;
+  localStorage.setItem('alttp-enemizer',   enemizer);
+  localStorage.setItem('alttp-gt-crystals', document.getElementById('gt-crystals').value);
+}
+
+function mapUrl() {
+  var zoom      = document.getElementById('map-zoom').value || '100';
+  var enemizer  = document.querySelector('input[name="enemizer"]:checked').value;
+  var gtCryst   = document.getElementById('gt-crystals').value || '7';
+  return 'map.html?zoom=' + zoom + '&enemizer=' + enemizer + '&gtcrystals=' + gtCryst;
 }
 
 function launchItems() {
@@ -111,26 +148,23 @@ function launchMap() {
   var zoom   = document.getElementById('map-zoom').value || '100';
   var layout = localStorage.getItem('alttp-map-layout') || 'horizontal';
   var size   = Math.round(512 * parseInt(zoom) / 100);
-  var chrome = 92; // topbar + bottombar + OS window chrome
-  var w = layout === 'vertical' ? size + 20 : size * 2 + 20;
+  var chrome = 92;
+  var w = layout === 'vertical' ? size + 20 : size * 2 + 32;
   var h = size + chrome;
-  var url = 'map.html?zoom=' + zoom;
-  window.open(url, 'alttp-map', 'width=' + w + ',height=' + h + ',resizable=yes');
+  window.open(mapUrl(), 'alttp-map', 'width=' + w + ',height=' + h + ',resizable=yes');
 }
 
 function launchBoth() {
   save();
-  // Open both synchronously — browsers allow multiple window.open calls
-  // triggered directly from the same user gesture without a setTimeout
   var scale  = document.getElementById('item-scale').value || '1.0';
   var zoom   = document.getElementById('map-zoom').value || '100';
   var layout = localStorage.getItem('alttp-map-layout') || 'horizontal';
   var size   = Math.round(512 * parseInt(zoom) / 100);
   var chrome = 92;
-  var mapW   = layout === 'vertical' ? size + 20 : size * 2 + 20;
+  var mapW   = layout === 'vertical' ? size + 20 : size * 2 + 32;
   var mapH   = size + chrome;
   window.open('itemtracker.html?scale=' + scale, 'alttp-items', 'width=500,height=390,resizable=yes');
-  window.open('map.html?zoom=' + zoom, 'alttp-map', 'width=' + mapW + ',height=' + mapH + ',resizable=yes');
+  window.open(mapUrl(), 'alttp-map', 'width=' + mapW + ',height=' + mapH + ',resizable=yes');
 }
 
 // Restore saved values
@@ -140,11 +174,15 @@ window.addEventListener('DOMContentLoaded', function() {
     'ws-port':    'alttp-ws-port',
     'item-scale': 'alttp-item-scale',
     'map-zoom':   'alttp-map-zoom',
+    'gt-crystals':'alttp-gt-crystals',
   };
   for (var id in fields) {
     var val = localStorage.getItem(fields[id]);
     if (val) document.getElementById(id).value = val;
   }
+  var enemizer = localStorage.getItem('alttp-enemizer') || 'yes';
+  var el = document.querySelector('input[name="enemizer"][value="' + enemizer + '"]');
+  if (el) el.checked = true;
 });
 </script>
 </body>
