@@ -512,6 +512,28 @@ function cycleItem(itemKey, slot) {
         img.alt = newState.name;
         slot.dataset.itemName = newState.name;
     }
+
+    // Broadcast updated item states to map
+    broadcastItemSnap();
+}
+
+function broadcastItemSnap() {
+    if (!window._itemsBc) return;
+    var snap = {};
+    var copyKeys = ['bow','boomerang','hookshot','bomb','mushroom','powder','firerod','icerod',
+                    'bombos','ether','quake','lamp','hammer','shovel','flute','net','book',
+                    'bottle','somaria','byrna','cape','mirror','boots','gloves','flippers',
+                    'moonpearl','sword','shield','tunic','agahnim','halfmagic'];
+    copyKeys.forEach(function(k) {
+        if (items[k]) snap[k] = items[k].currentState;
+    });
+    snap.crystals     = (window.trackerItems && window.trackerItems.crystals)     || 0;
+    snap.pendants     = (window.trackerItems && window.trackerItems.pendants)     || 0;
+    snap.greenPendant = (window.trackerItems && window.trackerItems.greenPendant) || 0;
+    snap.redCrystal   = (window.trackerItems && window.trackerItems.redCrystal)   || 0;
+    snap.mmMedallion  = (window.trackerItems && window.trackerItems.mmMedallion)  || 0;
+    snap.trMedallion  = (window.trackerItems && window.trackerItems.trMedallion)  || 0;
+    window._itemsBc.postMessage({ type: 'items', data: snap });
 }
 
 function cycleMedallionLabel(itemKey, slot) {

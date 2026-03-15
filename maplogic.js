@@ -206,8 +206,12 @@ function dungeonColor(key) {
       return it.lamp ? 'green' : 'yellow';
 
     case 'sp':
-      // Red until moonpearl + mirror + flippers
+      // Red until moonpearl + mirror + flippers + DW south access
       if (!it.moonpearl || !it.mirror || !it.flippers) return 'red';
+      var dwSouthSP = it.agahnim ||
+                      (it.hammer && it.gloves >= 1) ||
+                      (it.gloves >= 2);
+      if (!dwSouthSP) return 'red';
       return it.hookshot ? 'green' : 'yellow';
 
     case 'sw':
@@ -241,8 +245,8 @@ function dungeonColor(key) {
       // Red until moonpearl + hammer + titansMitt + somaria + medallion accessible
       if (!it.moonpearl || !it.hammer || it.gloves < 2 || !it.somaria) return 'red';
       // All 3 medallions = can always enter regardless of assignment
-      var hasAllMeds = it.bombos && it.ether && it.quake;
-      if (!hasAllMeds) {
+      var hasAllMedsTR = it.bombos && it.ether && it.quake;
+      if (!hasAllMedsTR) {
         if (it.trMedallion === 0) return 'red';
         if (!hasMedallion('tr')) return 'red';
       }
