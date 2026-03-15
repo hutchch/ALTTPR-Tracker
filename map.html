@@ -393,8 +393,10 @@ function dungeonColor(key) {
       return it.lamp ? 'green' : 'yellow';
 
     case 'sp':
-      // Red until moonpearl + mirror + flippers
+      // Red until moonpearl + mirror + flippers + DW south access
       if (!it.moonpearl || !it.mirror || !it.flippers) return 'red';
+      var dwSouthSP = it.agahnim || (it.hammer && it.gloves >= 1) || (it.gloves >= 2);
+      if (!dwSouthSP) return 'red';
       return it.hookshot ? 'green' : 'yellow';
 
     case 'sw':
@@ -416,8 +418,9 @@ function dungeonColor(key) {
       return 'green';
 
     case 'mm':
-      // Red until flute + titans mitt + medallion accessible
+      // Red until flute + titans mitt + medallion + (boots or hookshot)
       if (!it.flute || it.gloves < 2) return 'red';
+      if (!it.boots && !it.hookshot) return 'red';
       // All 3 medallions = can always enter regardless of assignment
       var hasAllMeds = it.bombos && it.ether && it.quake;
       if (!hasAllMeds) {
@@ -430,8 +433,8 @@ function dungeonColor(key) {
       // Red until moonpearl + hammer + titansMitt + somaria + medallion accessible
       if (!it.moonpearl || !it.hammer || it.gloves < 2 || !it.somaria) return 'red';
       // All 3 medallions = can always enter regardless of assignment
-      var hasAllMeds = it.bombos && it.ether && it.quake;
-      if (!hasAllMeds) {
+      var hasAllMedsTR = it.bombos && it.ether && it.quake;
+      if (!hasAllMedsTR) {
         if (it.trMedallion === 0) return 'red'; // unknown and don't have all 3
         if (!hasMedallion('tr')) return 'red';  // wrong one marked
       }
@@ -1042,8 +1045,13 @@ function resizeWindowToMap() {
   var size   = Math.round(512 * pct / 100);
   var maps   = document.getElementById('maps');
   var isVert = maps ? maps.classList.contains('vertical') : false;
-  var w = isVert ? size + 20 : size * 2 + 32;
-  var h = size + CHROME_H;
+  var chromeW = window.outerWidth  - window.innerWidth;
+  var chromeH = window.outerHeight - window.innerHeight;
+  // Fall back to fixed estimate if browser reports 0 (e.g. before first paint)
+  if (chromeW <= 0) chromeW = 16;
+  if (chromeH <= 0) chromeH = CHROME_H;
+  var w = (isVert ? size + 20 : size * 2 + 32) + chromeW;
+  var h = size + chromeH;
   try { window.resizeTo(w, h); } catch(e) {}
 }
 
@@ -1222,6 +1230,10 @@ function mapReconnect() {
 // Auto-connect on load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', mapConnect);
+  // Re-run resize after full page load so browser chrome dimensions are accurate
+  window.addEventListener('load', function() {
+    setTimeout(resizeWindowToMap, 150);
+  });
 } else {
   mapConnect();
 }

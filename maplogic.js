@@ -231,8 +231,9 @@ function dungeonColor(key) {
       return 'green';
 
     case 'mm':
-      // Red until flute + titans mitt + medallion accessible
+      // Red until flute + titans mitt + medallion + (boots or hookshot)
       if (!it.flute || it.gloves < 2) return 'red';
+      if (!it.boots && !it.hookshot) return 'red';
       // All 3 medallions = can always enter regardless of assignment
       var hasAllMeds = it.bombos && it.ether && it.quake;
       if (!hasAllMeds) {
