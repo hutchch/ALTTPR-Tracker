@@ -7,7 +7,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Coming Soon:
     -  Key Sanity.
 </p>
-Quick setup guide is available 
+Quick setup guide is available https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR%20Tracker.pdf
 
 <h2> Descriptions/Instructions</h2>
 A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
