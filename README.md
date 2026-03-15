@@ -1,7 +1,8 @@
 <h1>ALTTPR Tracker (v0.0.1d Alpha release)</h1>
 <p>
 <i><strong>This is still being tested, and logic adjusted, but works for use. </strong> </i>
-
+Watch for the 1.0.0 release
+ 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them.
  - Currently this is a selectable (1-7) crystal Ganon Tower, with standard game mode.
  - Either normal or enemizer.
