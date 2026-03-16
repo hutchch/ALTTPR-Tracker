@@ -386,18 +386,22 @@ function dungeonColor(key) {
       return (it.sword >= 1 || it.cape) ? 'green' : 'red';
 
     case 'pod':
-      // Red until moonpearl + (hammer+gloves OR flippers+gloves OR aga1)
+      // Red until moonpearl + DW east access; yellow until hammer; green with hammer
       if (!it.moonpearl) return 'red';
-      var canEnter = ((it.hammer || it.flippers) && it.gloves >= 1) || it.agahnim;
-      if (!canEnter) return 'red';
-      return it.lamp ? 'green' : 'yellow';
+      var dwEastPOD = it.agahnim ||
+                      (it.gloves >= 2 && it.flippers) ||
+                      (it.hammer && it.gloves >= 1);
+      if (!dwEastPOD) return 'red';
+      if (!it.hammer) return 'yellow';
+      return 'green';
 
     case 'sp':
-      // Red until moonpearl + mirror + flippers + DW south access
+      // Red until moonpearl + mirror + flippers + DW south access; yellow until hammer; green with hammer
       if (!it.moonpearl || !it.mirror || !it.flippers) return 'red';
       var dwSouthSP = it.agahnim || (it.hammer && it.gloves >= 1) || (it.gloves >= 2);
       if (!dwSouthSP) return 'red';
-      return it.hookshot ? 'green' : 'yellow';
+      if (!it.hammer) return 'yellow';
+      return 'green';
 
     case 'sw':
       // Red until moonpearl + gloves>=1 + hammer
@@ -412,10 +416,11 @@ function dungeonColor(key) {
       return 'red';
 
     case 'ip':
-      // Red until moonpearl + flippers + titansMitt + (bombos or firerod)
+      // Red until moonpearl + flippers + titansMitt + (bombos or firerod to melt ice)
       if (!it.moonpearl || !it.flippers || it.gloves < 2) return 'red';
       if (!it.bombos && !it.firerod) return 'red';
-      return 'green';
+      // Yellow without hammer (needed to progress fully); green with hammer
+      return it.hammer ? 'green' : 'yellow';
 
     case 'mm':
       // Red until flute + titans mitt + medallion + (boots or hookshot)
@@ -1082,6 +1087,23 @@ function changeZoom(dir) {
 // ── Init layout + zoom from URL params / localStorage ────────────────────────
 (function() {
   var p = new URLSearchParams(window.location.search);
+
+  // In Electron, fix image paths to point to the unpacked asset folder
+  var _assetBase = p.get('assetbase');
+  if (_assetBase) {
+    var _mapBase = _assetBase.replace(/\\/g, '/') + '/map';
+    // Fix CSS background images for LW/DW maps
+    var lwEl = document.getElementById('lw');
+    var dwEl = document.getElementById('dw');
+    if (lwEl) lwEl.style.backgroundImage = "url('" + _mapBase + "/map_lw.png')";
+    if (dwEl) dwEl.style.backgroundImage = "url('" + _mapBase + "/map_dw.png')";
+    // Fix dungeon prize/boss image paths
+    Object.keys(DUNGEONS).forEach(function(key) {
+      var d = DUNGEONS[key];
+      if (d.img)        d.img        = d.img.replace('map/',        _mapBase + '/');
+      if (d.imgCleared) d.imgCleared = d.imgCleared.replace('map/', _mapBase + '/');
+    });
+  }
 
   // Enemizer and GT crystal settings from launcher
   window.trackerSettings = window.trackerSettings || {};

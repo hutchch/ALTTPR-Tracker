@@ -266,3 +266,50 @@ body {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+/* ── Check and Death counter boxes (in GO row, column 9) ───────────────────── */
+.stats-slot {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
+    padding: 2px 2px 2px 6px;
+    align-self: center;
+    width: 0;
+    min-width: fit-content;
+}
+
+.stat-box {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 5px 8px;
+    border: none;
+    background: transparent;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.stat-label {
+    font-size: 8px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    opacity: 0.8;
+    white-space: nowrap;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.stat-check {
+    color: #7ddf7d;
+}
+
+.stat-death {
+    color: #f88;
+}

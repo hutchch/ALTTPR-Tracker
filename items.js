@@ -1,4 +1,53 @@
-const BASE_URL = "items";
+// BASE_URL for item images.
+// In Electron we ask the main process for the real absolute file:// path.
+// In browser we use the normal relative path.
+let BASE_URL = 'items';
+
+function applyBaseUrl(newBase) {
+  BASE_URL = newBase;
+  // Rebuild all image src paths in the items object
+  Object.keys(items).forEach(function(key) {
+    var item = items[key];
+    if (!item.states) return;
+    item.states.forEach(function(state) {
+      if (state.img) {
+        // Replace any existing base (items/ or file://.../) with the new one
+        state.img = state.img.replace(/^.*\/items\//, newBase + '/');
+        // Handle case where img is just 'items/filename.png'
+        if (!state.img.startsWith(newBase)) {
+          state.img = state.img.replace(/^items\//, newBase + '/');
+        }
+      }
+    });
+  });
+  // Re-render all currently displayed item images
+  document.querySelectorAll('[data-item-key] img, .item-slot img').forEach(function(img) {
+    var slot = img.closest('[data-item-key]') || img.closest('.item-slot');
+    if (!slot) return;
+    var key = slot.dataset.itemKey || slot.dataset.dungeonKey;
+    if (key && items[key]) {
+      var state = items[key].states[items[key].currentState];
+      if (state && state.img) img.src = state.img;
+    }
+  });
+}
+
+(async function() {
+  if (window.electronAPI && window.electronAPI.getPaths) {
+    try {
+      const paths = await window.electronAPI.getPaths();
+      if (paths && paths.itemsUrl) {
+        // Wait for DOM so items object and rendered images are available
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function() { applyBaseUrl(paths.itemsUrl); });
+        } else {
+          // Small delay to let createTracker() finish rendering
+          setTimeout(function() { applyBaseUrl(paths.itemsUrl); }, 100);
+        }
+      }
+    } catch(e) { /* fall back to relative path */ }
+  }
+})();
 
 // WebSocket connection
 let ws = null;
@@ -286,7 +335,7 @@ const layout = [
     ['bow', 'boomerang', 'hookshot', 'bomb', 'mushroom', 'powder', 'moonpearl', 'sword', 'ep'],
     ['firerod', 'icerod', 'bombos', 'ether', 'quake', 'boots', 'gloves', 'shield', 'dp'],
     ['lamp', 'hammer', 'shovel', 'flute', 'net', 'book', 'flippers', 'tunic', 'toh'],
-    ['bottle', 'somaria', 'byrna', 'cape', 'mirror', 'halfmagic', 'agahnim', 'gomode'],
+    ['bottle', 'somaria', 'byrna', 'cape', 'mirror', 'halfmagic', 'agahnim', 'gomode', 'stats'],
     ['pod', 'sp', 'sw', 'tt', 'ip', 'mm', 'tr', 'gt']
 ];
 
@@ -402,8 +451,22 @@ function createTracker() {
                 countsContainer.appendChild(itemContainer);
                 
                 dungeonSlot.appendChild(countsContainer);
-                
+
+
+
                 rowDiv.appendChild(dungeonSlot);
+            } else if (itemKey === 'stats') {
+                const statsSlot = document.createElement('div');
+                statsSlot.className = 'stats-slot';
+                const checkBox = document.createElement('div');
+                checkBox.className = 'stat-box stat-check';
+                checkBox.innerHTML = '<span class="stat-label">CHECKS</span><span class="stat-value" id="toh-check-count">0</span>';
+                const deathBox = document.createElement('div');
+                deathBox.className = 'stat-box stat-death';
+                deathBox.innerHTML = '<span class="stat-label">DEATHS</span><span class="stat-value" id="toh-death-count">0</span>';
+                statsSlot.appendChild(checkBox);
+                statsSlot.appendChild(deathBox);
+                rowDiv.appendChild(statsSlot);
             } else {
                 // Regular item
                 const itemSlot = document.createElement('div');
@@ -535,6 +598,7 @@ function broadcastItemSnap() {
     snap.trMedallion  = (window.trackerItems && window.trackerItems.trMedallion)  || 0;
     window._itemsBc.postMessage({ type: 'items', data: snap });
 }
+window.broadcastItemSnap = broadcastItemSnap;
 
 function cycleMedallionLabel(itemKey, slot) {
     const item = items[itemKey];
@@ -1015,6 +1079,17 @@ function processInventoryData(data) {
             };
         });
         window._itemsBc.postMessage({ type: 'dungeonComplete', data: dungeonSnap });
+    }
+
+    // Check count (SRAM 0xF5F423 = inv offset 0xE3) and death count (0xF5F449 = inv offset 0x109)
+    const checkEl = document.getElementById('toh-check-count');
+    const deathEl = document.getElementById('toh-death-count');
+    if (checkEl && 0xE3 < data.length) {
+        checkEl.textContent = data[0xE3];
+    }
+    if (deathEl && 0x10a < data.length) {
+        const deaths = data[0x109] | (data[0x10a] << 8);
+        deathEl.textContent = deaths;
     }
 }
 

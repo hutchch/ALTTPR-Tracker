@@ -45,6 +45,7 @@ window.addEventListener('load', function() {
       var h = Math.ceil(body.scrollHeight * s) + chromeH;
       window.resizeTo(w, h);
     } catch(e) {}
+
   }, 200);
 });
 
@@ -85,13 +86,8 @@ window.cycleMedallionLabel = function(itemKey, slot) {
   else if (label === 'TR')   { window.trackerItems.mmMedallion = 0;      window.trackerItems.trMedallion = medIdx; }
   else if (label === 'BOTH') { window.trackerItems.mmMedallion = medIdx; window.trackerItems.trMedallion = medIdx; }
   else                       { window.trackerItems.mmMedallion = 0;      window.trackerItems.trMedallion = 0; }
-  // Broadcast immediately so map updates without needing SRAM
-  if (window._itemsBc) {
-    window._itemsBc.postMessage({ type: 'medallions', data: {
-      mmMedallion: window.trackerItems.mmMedallion,
-      trMedallion: window.trackerItems.trMedallion
-    }});
-  }
+  // Broadcast full item snap so map gets both medallion assignments AND current item states
+  if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
 
 // ── DOMContentLoaded: init tracker then connect via items.js stack ────────────
@@ -99,8 +95,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // createTracker() was already called by items.js DOMContentLoaded handler.
   // Start WS using items.js's own connectWebSocket (already has UI hooks).
   connectWebSocket();
-  // Broadcast initial (empty) prizes once DOM is ready
+  // Broadcast initial prizes and full item snap once DOM is ready
   setTimeout(broadcastPrizes, 500);
+  setTimeout(function() { if (window.broadcastItemSnap) window.broadcastItemSnap(); }, 600);
 });
 </script>
 </body>
