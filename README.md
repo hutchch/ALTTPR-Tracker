@@ -20,37 +20,7 @@ Features
 - Autotracking — connects to QUsb2Snes / SNI (ws://localhost:23074) to update items and dungeon state automatically
 - No install required — runs entirely in the browser, locally
 
-Quick Start
-
-Option 1 — Open directly in Chrome or Edge
-Launch Chrome or Edge with the --allow-file-access-from-files flag, then open index.html.
-
-Windows — add the flag to your browser shortcut's Target field:
-
-<code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --allow-file-access-from-files</code>
-
-NOTE: Pop-ups may need to be permitted even if using the flag above
-
-______________________________________________________________________
-
-macOS — run from Terminal:
-
-<code>open -a "Google Chrome" --args --allow-file-access-from-files</code>
-
-NOTE: Pop-ups may need to be permitted even if using the flag above
-
-______________________________________________________________________
-
-Option 2 — Python local server - Python needs to be installed.
-
-<code>bashcd alttpr-tracker
-python -m http.server 8080
-</code>
-
-Then open <code>http://localhost:8080</code> in any browser.
-Usage
-
-1. Open index.html and click Launch Both to open the Item Tracker and Map windows
+1. Open the program and click Launch Both to open the Item Tracker and Map windows
 2. Left-click items to mark them obtained; right-click to cycle backward
 3. Right-click Bombos, Ether, or Quake to assign dungeon medallion requirements (MM / TR / BOTH)
 4. Click dungeon prize icons to cycle prize type (Crystal → Red Crystal → Pendant → Green Pendant)
