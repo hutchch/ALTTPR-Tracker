@@ -199,14 +199,14 @@ function dungeonColor(key) {
       return (it.sword >= 1) ? 'green' : 'red';
 
     case 'pod':
-      // Red until moonpearl + DW east access; yellow until hammer; green with hammer
+      // Red until moonpearl + DW east access; yellow without hammer or lamp; green with both
       if (!it.moonpearl) return 'red';
       var dwEastPOD = it.agahnim ||
                       (it.gloves >= 2 && it.flippers) ||
                       (it.hammer && it.gloves >= 1);
       if (!dwEastPOD) return 'red';
       if (!it.hammer) return 'yellow';
-      return 'green';
+      return it.lamp ? 'green' : 'yellow';
 
     case 'sp':
       // Red until moonpearl + mirror + flippers + DW south access; yellow until hammer; green with hammer

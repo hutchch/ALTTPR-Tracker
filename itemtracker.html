@@ -10,6 +10,11 @@
 
 <div class="tracker-container"></div>
 
+<div class="tracker-bottom-bar">
+  <div class="connection-status" id="item-conn-status">○ Disconnected</div>
+  <button class="reconnect-btn" id="item-reconnect-btn" title="Reconnect to QUsb2Snes" onclick="manualReconnect()">↻</button>
+</div>
+
 <script src="items.js"></script>
 <script>
 // ── Set up BroadcastChannel so items.js can broadcast to map ──────────────────
@@ -82,11 +87,29 @@ window.cycleMedallionLabel = function(itemKey, slot) {
   var label = items[itemKey] ? items[itemKey].medallionLabel : '';
   var medIdx = {bombos:1, ether:2, quake:3}[itemKey] || 0;
   if (!window.trackerItems) window.trackerItems = {};
-  if      (label === 'MM')   { window.trackerItems.mmMedallion = medIdx; window.trackerItems.trMedallion = 0; }
-  else if (label === 'TR')   { window.trackerItems.mmMedallion = 0;      window.trackerItems.trMedallion = medIdx; }
-  else if (label === 'BOTH') { window.trackerItems.mmMedallion = medIdx; window.trackerItems.trMedallion = medIdx; }
-  else                       { window.trackerItems.mmMedallion = 0;      window.trackerItems.trMedallion = 0; }
-  // Broadcast full item snap so map gets both medallion assignments AND current item states
+  var mm = window.trackerItems.mmMedallion || 0;
+  var tr = window.trackerItems.trMedallion || 0;
+
+  // Clear this medallion from any slot it currently occupies
+  if (mm === medIdx) mm = 0;
+  if (tr === medIdx) tr = 0;
+
+  // Assign to new slot(s)
+  if      (label === 'MM')   { mm = medIdx; }
+  else if (label === 'TR')   { tr = medIdx; }
+  else if (label === 'BOTH') { mm = medIdx; tr = medIdx; }
+  // '' = cleared above already
+
+  window.trackerItems.mmMedallion = mm;
+  window.trackerItems.trMedallion = tr;
+  // Send a dedicated medallions message first so map updates immediately
+  if (window._itemsBc) {
+    window._itemsBc.postMessage({ type: 'medallions', data: {
+      mmMedallion: mm,
+      trMedallion: tr
+    }});
+  }
+  // Then send full snap so all item states are also current
   if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
 

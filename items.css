@@ -1,9 +1,12 @@
-body {
+html, body {
     margin: 0;
     padding: 0;
+}
+
+body {
     background-color: #000000;
     font-family: Arial, sans-serif;
-    overflow: hidden;
+    padding-bottom: 30px;
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -53,11 +56,11 @@ body {
     background: transparent;
     border: 2px solid currentColor;
     border-radius: 50%;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: bold;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-    width: 38px;
-    height: 38px;
+    width: 28px;
+    height: 28px;
 }
 
 .medallion-label {
@@ -213,37 +216,45 @@ body {
 }
 
 /* Connection status indicator */
-.connection-status {
+/* ── Bottom bar: connection status + reconnect button ───────────────────────── */
+.tracker-bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    background: #0a0a0a;
+    border-top: 1px solid #1a1a1a;
     position: fixed;
-    bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 9px;
-    padding: 5px 10px;
-    background-color: rgba(0, 0, 0, 0.7);
-    border-radius: 4px;
-    z-index: 1000;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    box-sizing: border-box;
+    z-index: 100;
 }
 
-/* Reconnect button */
+.connection-status {
+    font-size: 9px;
+    color: #95a5a6;
+    flex: 1;
+    text-align: center;
+}
+
 .reconnect-btn {
-    position: fixed;
-    bottom: 8px;
-    right: 8px;
-    width: 20px;
-    height: 20px;
+    width: 15px;
+    height: 15px;
     font-size: 14px;
-    line-height: 20px;
+    line-height: 12px;
     text-align: center;
     padding: 0;
-    background-color: rgba(0, 0, 0, 0.7);
+    background: transparent;
     color: #7ab8f5;
     border: 1px solid #3a6ea8;
     border-radius: 4px;
     cursor: pointer;
-    z-index: 1000;
     transition: color 0.2s, background-color 0.2s;
     font-family: Arial, sans-serif;
+    flex-shrink: 0;
 }
 
 .reconnect-btn:hover {
@@ -302,7 +313,7 @@ body {
 }
 
 .stat-value {
-    font-size: 18px;
+    font-size: 14px;
     font-weight: bold;
 }
 
@@ -313,3 +324,8 @@ body {
 .stat-death {
     color: #f88;
 }
+
+.stat-bonk {
+    color: #ff8c00;
+}
+

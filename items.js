@@ -154,8 +154,9 @@ const items = {
     },
     gomode: {
         states: [
-            { img: null, name: 'Go Mode Off', color: '#666' },
-            { img: null, name: 'Go Mode On', color: '#2ecc71' }
+            { img: null, name: 'Go Mode Off',      color: '#666'     },
+            { img: null, name: 'Go Mode On',        color: '#2ecc71'  },
+            { img: null, name: 'Go Mode Feeling',   color: '#eee600'  }
         ],
         currentState: 0,
         isGoMode: true
@@ -464,8 +465,12 @@ function createTracker() {
                 const deathBox = document.createElement('div');
                 deathBox.className = 'stat-box stat-death';
                 deathBox.innerHTML = '<span class="stat-label">DEATHS</span><span class="stat-value" id="toh-death-count">0</span>';
+                const bonkBox = document.createElement('div');
+                bonkBox.className = 'stat-box stat-bonk';
+                bonkBox.innerHTML = '<span class="stat-label">BONKS</span><span class="stat-value" id="toh-bonk-count">0</span>';
                 statsSlot.appendChild(checkBox);
                 statsSlot.appendChild(deathBox);
+                statsSlot.appendChild(bonkBox);
                 rowDiv.appendChild(statsSlot);
             } else {
                 // Regular item
@@ -1091,6 +1096,11 @@ function processInventoryData(data) {
         const deaths = data[0x109] | (data[0x10a] << 8);
         deathEl.textContent = deaths;
     }
+    // Bonk count (SRAM 0xF5F420 = inv offset 0xE0)
+    const bonkEl = document.getElementById('toh-bonk-count');
+    if (bonkEl && 0xE0 < data.length) {
+        bonkEl.textContent = data[0xE0];
+    }
 }
 
 function updateItemState(itemKey, state) {
@@ -1112,7 +1122,7 @@ function updateItemState(itemKey, state) {
 }
 
 function manualReconnect() {
-    const btn = document.querySelector('.reconnect-btn');
+    const btn = document.getElementById('item-reconnect-btn') || document.querySelector('.reconnect-btn');
     if (btn) { btn.classList.add('reconnecting'); btn.disabled = true; }
     _stopReconnect();
     if (readTimer) { clearInterval(readTimer); readTimer = null; }
@@ -1125,25 +1135,17 @@ function manualReconnect() {
     }, 3000);
 }
 
-function ensureReconnectButton() {
-    if (document.querySelector('.reconnect-btn')) return;
-    const btn = document.createElement('button');
-    btn.className = 'reconnect-btn';
-    btn.textContent = '↻';
-    btn.title = 'Reconnect to QUsb2Snes';
-    btn.addEventListener('click', manualReconnect);
-    document.body.appendChild(btn);
+function ensureBottomBar() {
+    // Bottom bar is in itemtracker.html — nothing to create
 }
 
-function updateConnectionStatus(status) {
-    ensureReconnectButton();
+// Keep alias for legacy calls
+function ensureReconnectButton() { ensureBottomBar(); }
 
-    let statusDiv = document.querySelector('.connection-status');
-    if (!statusDiv) {
-        statusDiv = document.createElement('div');
-        statusDiv.className = 'connection-status';
-        document.body.appendChild(statusDiv);
-    }
+function updateConnectionStatus(status) {
+    let statusDiv = document.getElementById('item-conn-status') ||
+                    document.querySelector('.connection-status');
+    if (!statusDiv) return;
     
     const statusText = {
         'Connected': '● Connected',
