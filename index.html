@@ -41,7 +41,10 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 </head>
 <body>
 
-<h1>⚔ ALTTP Tracker</h1>
+<h1>⚔ ALTTPR Tracker</h1>
+  <p style="text-align: center;">
+  <small>Version 1.0.2</small>
+</p>
 
 <div class="section">
   <h2>Connection</h2>
@@ -99,7 +102,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
     </div>
   </div>
   <div class="row">
-    <label>GT Crystals Required</label>
+    <label>Ganon's Tower Crystal Requirement</label>
     <select id="gt-crystals">
       <option value="7" selected>7</option>
       <option value="6">6</option>
@@ -119,68 +122,88 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 </div>
 
 <script>
-function save() {
-  localStorage.setItem('alttp-ws-host',    document.getElementById('ws-host').value);
-  localStorage.setItem('alttp-ws-port',    document.getElementById('ws-port').value);
-  localStorage.setItem('alttp-item-scale', document.getElementById('item-scale').value);
-  localStorage.setItem('alttp-map-zoom',   document.getElementById('map-zoom').value);
-  var enemizer = document.querySelector('input[name="enemizer"]:checked').value;
-  localStorage.setItem('alttp-enemizer',   enemizer);
-  localStorage.setItem('alttp-gt-crystals', document.getElementById('gt-crystals').value);
+var IS_ELECTRON = !!(window.electronAPI && window.electronAPI.isElectron);
+
+function getSettings() {
+  return {
+    wsHost:     document.getElementById('ws-host').value     || 'localhost',
+    wsPort:     document.getElementById('ws-port').value     || '23074',
+    scale:      document.getElementById('item-scale').value  || '1.0',
+    zoom:       document.getElementById('map-zoom').value    || '100',
+    layout:     localStorage.getItem('alttp-map-layout')     || 'horizontal',
+    enemizer:   document.querySelector('input[name="enemizer"]:checked').value || 'yes',
+    gtCrystals: document.getElementById('gt-crystals').value || '7',
+  };
 }
 
-function mapUrl() {
-  var zoom      = document.getElementById('map-zoom').value || '100';
-  var enemizer  = document.querySelector('input[name="enemizer"]:checked').value;
-  var gtCryst   = document.getElementById('gt-crystals').value || '7';
-  return 'map.html?zoom=' + zoom + '&enemizer=' + enemizer + '&gtcrystals=' + gtCryst;
+function save() {
+  var s = getSettings();
+  localStorage.setItem('alttp-ws-host',     s.wsHost);
+  localStorage.setItem('alttp-ws-port',     s.wsPort);
+  localStorage.setItem('alttp-item-scale',  s.scale);
+  localStorage.setItem('alttp-map-zoom',    s.zoom);
+  localStorage.setItem('alttp-enemizer',    s.enemizer);
+  localStorage.setItem('alttp-gt-crystals', s.gtCrystals);
+}
+
+function mapUrl(s) {
+  return 'map.html?zoom=' + s.zoom + '&enemizer=' + s.enemizer + '&gtcrystals=' + s.gtCrystals;
 }
 
 function launchItems() {
   save();
-  var scale = document.getElementById('item-scale').value || '1.0';
-  var url   = 'itemtracker.html?scale=' + scale;
-  window.open(url, 'alttp-items', 'width=500,height=390,resizable=yes');
+  var s = getSettings();
+  if (IS_ELECTRON) {
+    window.electronAPI.launch({ which: 'items', ...s });
+  } else {
+    window.open('itemtracker.html?scale=' + s.scale, 'alttp-items', 'width=500,height=390,resizable=yes');
+  }
 }
 
 function launchMap() {
   save();
-  var zoom   = document.getElementById('map-zoom').value || '100';
-  var layout = localStorage.getItem('alttp-map-layout') || 'horizontal';
-  var size   = Math.round(512 * parseInt(zoom) / 100);
-  var chrome = 92;
-  var w = layout === 'vertical' ? size + 20 : size * 2 + 32;
-  var h = size + chrome;
-  window.open(mapUrl(), 'alttp-map', 'width=' + w + ',height=' + h + ',resizable=yes');
+  var s    = getSettings();
+  if (IS_ELECTRON) {
+    window.electronAPI.launch({ which: 'map', ...s });
+  } else {
+    var size = Math.round(512 * parseInt(s.zoom) / 100);
+    var w = s.layout === 'vertical' ? size + 20 : size * 2 + 32;
+    var h = size + 92;
+    window.open(mapUrl(s), 'alttp-map', 'width=' + w + ',height=' + h + ',resizable=yes');
+  }
 }
 
 function launchBoth() {
   save();
-  var scale  = document.getElementById('item-scale').value || '1.0';
-  var zoom   = document.getElementById('map-zoom').value || '100';
-  var layout = localStorage.getItem('alttp-map-layout') || 'horizontal';
-  var size   = Math.round(512 * parseInt(zoom) / 100);
-  var chrome = 92;
-  var mapW   = layout === 'vertical' ? size + 20 : size * 2 + 32;
-  var mapH   = size + chrome;
-  window.open('itemtracker.html?scale=' + scale, 'alttp-items', 'width=500,height=390,resizable=yes');
-  window.open(mapUrl(), 'alttp-map', 'width=' + mapW + ',height=' + mapH + ',resizable=yes');
+  var s = getSettings();
+  if (IS_ELECTRON) {
+    window.electronAPI.launch({ which: 'both', ...s });
+  } else {
+    var size = Math.round(512 * parseInt(s.zoom) / 100);
+    var mapW = s.layout === 'vertical' ? size + 20 : size * 2 + 32;
+    var mapH = size + 92;
+    window.open('itemtracker.html?scale=' + s.scale, 'alttp-items', 'width=500,height=390,resizable=yes');
+    window.open(mapUrl(s), 'alttp-map', 'width=' + mapW + ',height=' + mapH + ',resizable=yes');
+  }
 }
 
-// Restore saved values
-window.addEventListener('DOMContentLoaded', function() {
+// Restore saved values — in Electron pull from electron-store, fallback to localStorage
+window.addEventListener('DOMContentLoaded', async function() {
+  var saved = {};
+  if (IS_ELECTRON) {
+    saved = await window.electronAPI.loadSettings();
+  }
   var fields = {
-    'ws-host':    'alttp-ws-host',
-    'ws-port':    'alttp-ws-port',
-    'item-scale': 'alttp-item-scale',
-    'map-zoom':   'alttp-map-zoom',
-    'gt-crystals':'alttp-gt-crystals',
+    'ws-host':    saved.wsHost     || localStorage.getItem('alttp-ws-host'),
+    'ws-port':    saved.wsPort     || localStorage.getItem('alttp-ws-port'),
+    'item-scale': saved.scale      || localStorage.getItem('alttp-item-scale'),
+    'map-zoom':   saved.zoom       || localStorage.getItem('alttp-map-zoom'),
+    'gt-crystals':saved.gtCrystals || localStorage.getItem('alttp-gt-crystals'),
   };
   for (var id in fields) {
-    var val = localStorage.getItem(fields[id]);
-    if (val) document.getElementById(id).value = val;
+    if (fields[id]) document.getElementById(id).value = fields[id];
   }
-  var enemizer = localStorage.getItem('alttp-enemizer') || 'yes';
+  var enemizer = saved.enemizer || localStorage.getItem('alttp-enemizer') || 'yes';
   var el = document.querySelector('input[name="enemizer"][value="' + enemizer + '"]');
   if (el) el.checked = true;
 });
