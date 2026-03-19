@@ -216,6 +216,33 @@ body {
 }
 
 /* Connection status indicator */
+/* ── Bottom bar size buttons ────────────────────────────────────────────────── */
+.size-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.size-btn {
+    width: 16px;
+    height: 16px;
+    background: #1a1a1a;
+    color: #888;
+    border: 1px solid #333;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    flex-shrink: 0;
+}
+.size-btn:hover  { background: #333; color: #fff; }
+.size-btn:active { transform: scale(0.9); }
+
 /* ── Bottom bar: connection status + reconnect button ───────────────────────── */
 .tracker-bottom-bar {
     display: flex;

@@ -11,6 +11,10 @@
 <div class="tracker-container"></div>
 
 <div class="tracker-bottom-bar">
+  <div class="size-group">
+    <button class="size-btn" onclick="changeTrackerScale(-0.1)">−</button>
+    <button class="size-btn" onclick="changeTrackerScale(0.1)">+</button>
+  </div>
   <div class="connection-status" id="item-conn-status">○ Disconnected</div>
   <button class="reconnect-btn" id="item-reconnect-btn" title="Reconnect to QUsb2Snes" onclick="manualReconnect()">↻</button>
 </div>
@@ -122,6 +126,28 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(broadcastPrizes, 500);
   setTimeout(function() { if (window.broadcastItemSnap) window.broadcastItemSnap(); }, 600);
 });
+
+// ── Scale adjustment from bottom bar buttons ──────────────────────────────────
+function changeTrackerScale(delta) {
+  var current = window._trackerScale || 1;
+  var next = Math.min(2.0, Math.max(0.5, Math.round((current + delta) * 10) / 10));
+  window._trackerScale = next;
+  document.body.style.zoom = next;
+  // Resize window to fit new scale
+  setTimeout(function() {
+    try {
+      var s = next;
+      var body = document.body;
+      var chromeW = window.outerWidth  - window.innerWidth;
+      var chromeH = window.outerHeight - window.innerHeight;
+      if (chromeW <= 0) chromeW = 16;
+      if (chromeH <= 0) chromeH = 40;
+      var w = Math.ceil(body.scrollWidth  * s) + chromeW;
+      var h = Math.ceil(body.scrollHeight * s) + chromeH;
+      window.resizeTo(w, h);
+    } catch(e) {}
+  }, 50);
+}
 </script>
 </body>
 </html>

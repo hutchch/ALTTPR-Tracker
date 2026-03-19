@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ALTTP Timer</title>
+<meta http-equiv="Content-Security-Policy" content="connect-src * ws://*:*;">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: Arial, sans-serif;
+  background: #0d0d0d;
+  color: #ccc;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  user-select: none;
+  overflow: hidden;
+}
+
+.size-btn {
+  width: 18px;
+  height: 18px;
+  background: #1a1a1a;
+  color: #888;
+  border: 1px solid #333;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.size-btn:hover { background: #333; color: #fff; }
+.size-btn:active { transform: scale(0.9); }
+
+/* ── Main content area ── */
+#content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* ── Timer display ── */
+.timer-display { text-align: center; }
+
+#timer-main {
+  font-size: 52px;
+  font-weight: bold;
+  color: var(--timer-color, #3498db);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+  transition: font-size 0.15s;
+}
+
+#timer-centis {
+  font-size: 30px;
+  font-weight: bold;
+  color: var(--timer-color-dim, #2a7ab8);
+  font-variant-numeric: tabular-nums;
+  transition: font-size 0.15s;
+}
+
+.timer-display.running #timer-main   { color: var(--timer-color, #3498db); }
+.timer-display.running #timer-centis { color: var(--timer-color-dim, #2a7ab8); }
+.timer-display.finished #timer-main   { color: var(--timer-color, #3498db); opacity: 0.7; }
+.timer-display.finished #timer-centis { color: var(--timer-color-dim, #2a7ab8); opacity: 0.7; }
+
+/* ── Controls ── */
+.controls {
+  display: flex;
+  gap: 8px;
+}
+
+.ctrl-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+}
+.ctrl-btn:active { transform: scale(0.92); }
+
+#btn-playpause { background: #1a5c2e; color: #2ecc71; border: 1px solid #2ecc71; }
+#btn-playpause:hover { background: #2ecc71; color: #000; }
+#btn-playpause.running { background: #5c4a00; color: #ffd700; border-color: #ffd700; }
+#btn-playpause.running:hover { background: #ffd700; color: #000; }
+
+#btn-reset { background: #1a1a1a; color: #888; border: 1px solid #444; }
+#btn-reset:hover { background: #444; color: #fff; }
+
+/* ── Set time ── */
+.set-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.set-time input {
+  background: #111;
+  color: #ccc;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: monospace;
+  text-align: center;
+  width: 90px;
+}
+.set-time input:focus { outline: none; border-color: #3498db; }
+
+.set-btn {
+  background: #1a2e4a;
+  color: #7ab8f5;
+  border: 1px solid #2a4e7a;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.set-btn:hover { background: #2a4a6a; }
+
+/* ── Bottom bar: size buttons left, status centre ── */
+#bottombar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  background: #0a0a0a;
+  border-top: 1px solid #1a1a1a;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.size-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+#conn-status {
+  font-size: 10px;
+  color: #555;
+}
+#conn-status.connected    { color: #2ecc71; }
+#conn-status.connecting   { color: #f39c12; }
+#conn-status.disconnected { color: #e74c3c; }
+</style>
+</head>
+<body>
+
+<div id="content">
+  <div class="timer-display" id="timer-display">
+    <span id="timer-main">00:00:00</span><span id="timer-centis">.00</span>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="btn-playpause" onclick="togglePlayPause()">▶</button>
+    <button class="ctrl-btn" id="btn-reset"     onclick="resetTimer()">↻</button>
+  </div>
+
+  <div class="set-time">
+    <input type="text" id="time-input" placeholder="HH:MM:SS" maxlength="8">
+    <button class="set-btn" onclick="setTimeFromInput()">Set</button>
+  </div>
+</div>
+
+<div id="bottombar">
+  <div class="size-group">
+    <button class="size-btn" onclick="changeSize(-4)">−</button>
+    <button class="size-btn" onclick="changeSize(4)">+</button>
+  </div>
+  <div id="conn-status" class="disconnected">○ No device</div>
+  <div style="width:40px;flex-shrink:0;"></div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+var centiseconds = 0;
+var intervalId   = null;
+var isRunning    = false;
+var fontSize     = 52;
+var fontSizeSub  = Math.round(fontSize * 0.58);
+
+var dispMain   = document.getElementById('timer-main');
+var dispCentis = document.getElementById('timer-centis');
+var dispWrap   = document.getElementById('timer-display');
+var btnPlay    = document.getElementById('btn-playpause');
+var connStatus = document.getElementById('conn-status');
+
+// ── URL params ────────────────────────────────────────────────────────────────
+var p      = new URLSearchParams(window.location.search);
+var wsHost = p.get('wshost') || p.get('host') || localStorage.getItem('alttp-ws-host') || 'localhost';
+var wsPort = p.get('wsport') || p.get('port') || localStorage.getItem('alttp-ws-port') || '23074';
+
+// Apply chosen timer color
+var TIMER_COLORS = {
+  blue:   { main: '#3498db', dim: '#2a7ab8' },
+  green:  { main: '#2ecc71', dim: '#27ae60' },
+  red:    { main: '#b20d1d', dim: '#cd1325' },
+  orange: { main: '#d36a0f', dim: '#eb7611' },
+  purple: { main: '#7c13cd', dim: '#8914e3' },
+  yellow: { main: '#ffd700', dim: '#c8a800' },
+  pink:   { main: '#e314d2', dim: '#eb11d9' },
+};
+var colorKey = p.get('color') || 'blue';
+var tc = TIMER_COLORS[colorKey] || TIMER_COLORS.blue;
+document.documentElement.style.setProperty('--timer-color',     tc.main);
+document.documentElement.style.setProperty('--timer-color-dim', tc.dim);
+
+// ── Font size controls ────────────────────────────────────────────────────────
+function changeSize(delta) {
+  fontSize = Math.max(20, Math.min(120, fontSize + delta));
+  fontSizeSub = Math.round(fontSize * 0.58);
+  dispMain.style.fontSize   = fontSize + 'px';
+  dispCentis.style.fontSize = fontSizeSub + 'px';
+}
+
+// ── Formatting ────────────────────────────────────────────────────────────────
+function formatTime(cs) {
+  var h = Math.floor(cs / 360000);
+  var m = Math.floor((cs % 360000) / 6000);
+  var s = Math.floor((cs % 6000) / 100);
+  var c = cs % 100;
+  return { main: pad(h)+':'+pad(m)+':'+pad(s), centis: '.'+pad(c) };
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function updateDisplay() {
+  var t = formatTime(centiseconds);
+  dispMain.textContent   = t.main;
+  dispCentis.textContent = t.centis;
+}
+
+// ── Timer controls ────────────────────────────────────────────────────────────
+function startTimer() {
+  if (isRunning) return;
+  isRunning  = true;
+  intervalId = setInterval(function() { centiseconds++; updateDisplay(); }, 10);
+  btnPlay.textContent = '⏸';
+  btnPlay.className   = 'ctrl-btn running';
+  dispWrap.className  = 'timer-display running';
+}
+
+function stopTimer() {
+  if (!isRunning) return;
+  isRunning = false;
+  clearInterval(intervalId);
+  btnPlay.textContent = '▶';
+  btnPlay.className   = 'ctrl-btn';
+}
+
+function finishTimer() {
+  stopTimer();
+  dispWrap.className = 'timer-display finished';
+}
+
+function togglePlayPause() {
+  if (isRunning) stopTimer(); else startTimer();
+}
+
+function resetTimer() {
+  stopTimer();
+  centiseconds = 0;
+  updateDisplay();
+  dispWrap.className = 'timer-display';
+}
+
+function setTimeFromInput() {
+  var val   = document.getElementById('time-input').value.trim();
+  var parts = val.split(':').map(function(x) { return parseInt(x) || 0; });
+  var h = 0, m = 0, s = 0;
+  if (parts.length === 3)      { h = parts[0]; m = parts[1]; s = parts[2]; }
+  else if (parts.length === 2) { m = parts[0]; s = parts[1]; }
+  else                         { s = parts[0]; }
+  centiseconds = (h * 3600 + m * 60 + s) * 100;
+  updateDisplay();
+  document.getElementById('time-input').value = '';
+}
+
+document.getElementById('time-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') setTimeFromInput();
+});
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+var _ws             = null;
+var _reconnectTimer = null;
+var _deviceAttached = false;
+var _pendingRead    = false;
+var _pollTimer      = null;
+
+var GAMEMODE_SRAM  = 'F50010';
+var GAMEPLAY_MODES = [0x07, 0x09, 0x0B];
+var TRIFORCE_MODE  = 0x19;
+
+function setConnStatus(text, cls) {
+  connStatus.textContent = text;
+  connStatus.className   = cls;
+}
+
+function connect() {
+  if (_ws) { try { _ws.close(); } catch(e) {} _ws = null; }
+  setConnStatus('○ Connecting…', 'connecting');
+  try {
+    _ws = new WebSocket('ws://' + wsHost + ':' + wsPort);
+    _ws.binaryType = 'arraybuffer';
+    _ws.onopen  = function() {
+      setConnStatus('○ Connecting…', 'connecting');
+      _ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
+    };
+    _ws.onmessage = handleMessage;
+    _ws.onerror   = function() { setConnStatus('○ Error', 'disconnected'); scheduleReconnect(); };
+    _ws.onclose   = function() {
+      _deviceAttached = false;
+      setConnStatus('○ Disconnected', 'disconnected');
+      scheduleReconnect();
+    };
+  } catch(e) { scheduleReconnect(); }
+}
+
+function scheduleReconnect() {
+  clearTimeout(_reconnectTimer);
+  _reconnectTimer = setTimeout(connect, 5000);
+}
+
+function handleMessage(evt) {
+  try {
+    if (evt.data instanceof ArrayBuffer) {
+      if (_pendingRead) {
+        _pendingRead = false;
+        var gm = new Uint8Array(evt.data)[0];
+        if (GAMEPLAY_MODES.indexOf(gm) !== -1) startTimer();
+        else if (gm === TRIFORCE_MODE)          finishTimer();
+      }
+      return;
+    }
+    var r = JSON.parse(evt.data);
+    if (r.Results && Array.isArray(r.Results)) {
+      if (!r.Results.length) {
+        setConnStatus('○ No device', 'disconnected');
+        setTimeout(function() {
+          _ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
+        }, 3000);
+        return;
+      }
+      _ws.send(JSON.stringify({ Opcode: 'Attach', Space: 'SNES', Operands: [r.Results[0]] }));
+      setConnStatus('● Connected', 'connected');
+      _deviceAttached = true;
+      clearInterval(_pollTimer);
+      _pollTimer = setInterval(pollGamemode, 500);
+    }
+  } catch(e) {}
+}
+
+function pollGamemode() {
+  if (!_ws || _ws.readyState !== WebSocket.OPEN || !_deviceAttached || _pendingRead) return;
+  _pendingRead = true;
+  _ws.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: [GAMEMODE_SRAM, '01'] }));
+}
+
+window.addEventListener('load', function() { connect(); });
+</script>
+</body>
+</html>
