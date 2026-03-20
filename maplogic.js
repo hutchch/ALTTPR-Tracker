@@ -195,8 +195,9 @@ function dungeonColor(key) {
       return it.lamp ? 'green' : 'yellow';
 
     case 'ct':
-      // Castle Tower - need agahnim fight, sword required
-      return (it.sword >= 1) ? 'green' : 'red';
+      // Red until lamp AND (master sword OR cape)
+      if (!it.lamp) return 'red';
+      return (it.sword >= 2 || it.cape) ? 'green' : 'red';
 
     case 'pod':
       // Red until moonpearl + DW east access; yellow without hammer or lamp; green with both
