@@ -97,3 +97,7 @@ Vertical:
 
 Item Tracking with Map:
 <img width="1319" height="1209" alt="image" src="https://github.com/user-attachments/assets/f86c5a8a-ea50-4a29-a3f2-25d5f95317df" />
+
+
+Logic
+<img width="1157" height="1071" alt="image" src="https://github.com/user-attachments/assets/1ac9d6b3-48a4-4070-9aed-6801bdc69d9b" />
