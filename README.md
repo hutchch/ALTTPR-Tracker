@@ -30,11 +30,13 @@ Features
 4. Click dungeon prize icons to cycle prize type (Crystal → Red Crystal → Pendant → Green Pendant)
 5. Map dots and dungeon boxes update automatically based on your items
 
-
 Autotracking
 Start QUsb2Snes or SNI before launching the tracker. The connection status bar at the bottom of each window shows the current state. Click Reconnect if the connection drops.
 Color Reference
 <img width="660" height="297" alt="image" src="https://github.com/user-attachments/assets/c321533d-26ff-45df-a7fb-d18acc79f840" />
+
+For best gaming experience, set Retroarch not to pause the game.  Under Settings -> User Interface, and turn off the pause content settings.
+<img width="1798" height="602" alt="image" src="https://github.com/user-attachments/assets/9a5d9e2c-b0d6-4e75-a3bc-5939ac62c63b" />
 
 ______________________________________________________________________
 
