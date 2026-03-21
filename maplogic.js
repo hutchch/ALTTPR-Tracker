@@ -177,10 +177,11 @@ function dungeonColor(key) {
 
     case 'dp':
       // Red until (Book or (Mirror + Flute + TitansMitt))
-      // Yellow if those but missing Boots; green with boots
+      // Yellow if accessible but missing boots, gloves, or lamp/firerod; green with all
       var hasAccess = it.book || (it.mirror && it.flute && it.gloves >= 2);
       if (!hasAccess) return 'red';
-      return it.boots ? 'green' : 'yellow';
+      if (!it.boots || !it.gloves || (!it.lamp && !it.firerod)) return 'yellow';
+      return 'green';
 
     case 'toh':
       // Access routes:
