@@ -6,6 +6,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Either normal or enemizer.
  - Coming Soon:
     -  Key Sanity.
+    -  Background customization for Item Tracker.
 </p>
 Quick setup guide is available https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR%20Tracker.pdf
 
