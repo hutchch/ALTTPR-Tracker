@@ -420,7 +420,8 @@ function dungeonColor(key) {
     case 'sw': {
       // DW NW access: moonpearl + gloves
       if (!it.moonpearl) return 'red';
-      var dwNWSW = it.gloves >= 1 ||
+      var dwNWSW = it.gloves >= 2 ||
+                   (it.hammer && it.gloves >= 1) ||
                    (it.agahnim && it.hookshot && (it.hammer || it.gloves >= 1 || it.flippers));
       if (!dwNWSW) return 'red';
       // Yellow without firerod; green with firerod
@@ -430,13 +431,12 @@ function dungeonColor(key) {
     case 'tt': {
       // DW NW access: moonpearl + gloves or titans mitt
       if (!it.moonpearl) return 'red';
-      var dwNWTT = it.gloves >= 1 || it.gloves >= 2 ||
+      var dwNWTT = it.gloves >= 2 ||
+                   (it.hammer && it.gloves >= 1) ||
                    (it.agahnim && it.hookshot && (it.hammer || it.gloves >= 1 || it.flippers));
       if (!dwNWTT) return 'red';
       // Yellow without hammer; green with hammer
-      if (it.gloves >= 2) return it.hammer ? 'green' : 'yellow';  // titans mitt
-      if (it.gloves >= 1) return it.hammer ? 'green' : 'yellow';  // power glove
-      return 'yellow';
+      return it.hammer ? 'green' : 'yellow';
     }
 
     case 'ip':
@@ -613,7 +613,11 @@ function checkLogic(it) {
     93:  function() { return dwSouth ? 'green' : 'red'; },
     94:  function() { return flippers ? 'green' : 'red'; },
     95:  function() { return shovel ? 'green' : 'red'; },
-    96:  function() { return 'green'; },
+    96:  function() {
+           var settings = window.trackerSettings || {};
+           if (settings.gamemode === 'open') return (lamp || (glove && bomb)) ? 'green' : 'red';
+           return 'green';
+         },
     97:  function() { return 'green'; },
     98:  function() { return 'green'; },
     99:  function() { return 'green'; },
@@ -627,7 +631,11 @@ function checkLogic(it) {
     103: function() {
            return (it.pendants >= 3) ? 'green' : (book ? 'orange' : 'red');
          },
-    104: function() { return 'green'; },
+    104: function() {
+           var settings = window.trackerSettings || {};
+           if (settings.gamemode === 'open') return lamp ? 'green' : 'red';
+           return 'green';
+         },
     105: function() { return flippers ? 'green' : 'red'; },
   };
 }
@@ -1133,6 +1141,7 @@ function changeZoom(dir) {
   window.trackerSettings = window.trackerSettings || {};
   window.trackerSettings.enemizer   = p.get('enemizer')   || localStorage.getItem('alttp-enemizer')   || 'yes';
   window.trackerSettings.gtCrystals = parseInt(p.get('gtcrystals') || localStorage.getItem('alttp-gt-crystals') || '7');
+  window.trackerSettings.gamemode   = p.get('gamemode')   || localStorage.getItem('alttp-gamemode')   || 'standard';
 
   // Restore zoom index
   var pct  = parseInt(p.get('scale') || p.get('zoom') || '0') ||

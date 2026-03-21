@@ -408,6 +408,14 @@ html[data-bg="transparent"] .dungeon-slot {
     background: rgba(0,0,0,0.2) !important;
     border-color: rgba(255,255,255,0.25) !important;
 }
+html[data-bg="transparent"] .dungeon-slot.completed-items {
+    border-color: #66f !important;
+    border-width: 2px !important;
+}
+html[data-bg="transparent"] .dungeon-slot.completed-full {
+    border-color: #5b7 !important;
+    border-width: 2px !important;
+}
 html[data-bg="transparent"] .item-slot {
     background: transparent !important;
 }
@@ -429,6 +437,14 @@ html[data-bg="transparent"] .item-slot::before {
 [data-bg="white"] .dungeon-slot {
     border-color: #999;
     background-color: rgba(0,0,0,0.05);
+}
+[data-bg="white"] .dungeon-slot.completed-items {
+    border-color: #66f !important;
+    border-width: 2px !important;
+}
+[data-bg="white"] .dungeon-slot.completed-full {
+    border-color: #5b7 !important;
+    border-width: 2px !important;
 }
 
 [data-bg="white"] .stat-check { color: #1a7a1a; }

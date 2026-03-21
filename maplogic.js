@@ -234,6 +234,7 @@ function dungeonColor(key) {
       // DW NW access: moonpearl + gloves
       if (!it.moonpearl) return 'red';
       var dwNWSW = it.gloves >= 2 ||
+                   (it.hammer && it.gloves >= 1) ||
                    (it.agahnim && it.hookshot && (it.hammer || it.gloves >= 1 || it.flippers));
       if (!dwNWSW) return 'red';
       // Yellow without firerod; green with firerod
@@ -243,6 +244,7 @@ function dungeonColor(key) {
     case 'tt': {
       if (!it.moonpearl) return 'red';
       var dwNWTT = it.gloves >= 2 ||
+                   (it.hammer && it.gloves >= 1) ||
                    (it.agahnim && it.hookshot && (it.hammer || it.gloves >= 1 || it.flippers));
       if (!dwNWTT) return 'red';
       return it.hammer ? 'green' : 'yellow';
