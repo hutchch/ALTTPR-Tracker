@@ -227,7 +227,7 @@ function dungeonColor(key) {
                       (it.gloves >= 2);
       if (!dwSouthSP) return 'red';
       if (!it.hammer) return 'yellow';
-      return 'green';
+      return it.hookshot ? 'green' : 'yellow';
 
     case 'sw': {
       // DW NW access: moonpearl + gloves

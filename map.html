@@ -44,7 +44,7 @@ body {
   overflow: auto;
   background: #000;
   min-height: 0;
-  padding-left: 8px;
+  padding-left: 12px;
 }
 #maps { display: inline-flex; flex-direction: row; gap: 12px; }
 #maps.vertical { flex-direction: column; }
@@ -414,7 +414,7 @@ function dungeonColor(key) {
       var dwSouthSP = it.agahnim || (it.hammer && it.gloves >= 1) || (it.gloves >= 2);
       if (!dwSouthSP) return 'red';
       if (!it.hammer) return 'yellow';
-      return 'green';
+      return it.hookshot ? 'green' : 'yellow';
 
     case 'sw': {
       // DW NW access: moonpearl + gloves
@@ -662,7 +662,7 @@ var CHECKS = [
   [17,  82.80, 17.10, "Paradox Cave (7)",       "lw"],
   [18,  39.00, 29.30, "Bonk Rock Cave",         "lw"],
   [19,  65.20, 93.40, "Mini Moldorm Cave (5)",  "lw"],
-  [20,  88.40, 76.90, "Ice Rod Cave",           "lw"],
+  [20,  90.90, 76.90, "Ice Rod Cave",           "lw"],
   [21,  83.20,  9.60, "Hookshot Cave Bot. R",   "dw"],
   [22,  83.20,  8.00, "Hookshot Cave (3)",      "dw"],
   [65,   9.00, 47.30, "Bottle Merchant",        "lw"],
