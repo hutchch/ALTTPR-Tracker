@@ -183,11 +183,21 @@ function dungeonColor(key) {
       return it.boots ? 'green' : 'yellow';
 
     case 'toh':
-      // Red until (PowerGloves or Flute+Mirror or PowerGloves or Flute) AND (Hammer+Hookshot for alt)
-      // Simplified: need gloves>=1 OR (flute AND mirror) OR (flute AND hammer AND hookshot)
-      var hasAccess = (it.gloves >= 1) || (it.flute && it.mirror) || (it.flute && it.hammer && it.hookshot);
-      if (!hasAccess) return 'red';
-      // Yellow if missing lamp or firerod
+      // Access routes:
+      // flute + mirror
+      // flute + hookshot + hammer
+      // lamp + gloves + mirror
+      // lamp + gloves + hookshot + hammer
+      var flute   = it.flute >= 1;
+      var gloves  = it.gloves >= 1;
+      var mirror  = it.mirror >= 1;
+      var hookham = it.hookshot && it.hammer;
+      var canAccess = (flute && mirror) ||
+                      (flute && hookham) ||
+                      (it.lamp && gloves && mirror) ||
+                      (it.lamp && gloves && hookham);
+      if (!canAccess) return 'red';
+      // Yellow if using flute route without lamp/firerod
       return (it.lamp || it.firerod) ? 'green' : 'yellow';
 
     case 'hc':
@@ -200,14 +210,14 @@ function dungeonColor(key) {
       return (it.sword >= 2 || it.cape) ? 'green' : 'red';
 
     case 'pod':
-      // Red until moonpearl + DW east access; yellow without hammer or lamp; green with both
+      // Red until moonpearl + DW east access; yellow without hammer/lamp/bow; green with all
       if (!it.moonpearl) return 'red';
       var dwEastPOD = it.agahnim ||
                       (it.gloves >= 2 && it.flippers) ||
                       (it.hammer && it.gloves >= 1);
       if (!dwEastPOD) return 'red';
-      if (!it.hammer) return 'yellow';
-      return it.lamp ? 'green' : 'yellow';
+      if (!it.hammer || !it.lamp || !it.bow) return 'yellow';
+      return 'green';
 
     case 'sp':
       // Red until moonpearl + mirror + flippers + DW south access; yellow until hammer; green with hammer
@@ -219,15 +229,23 @@ function dungeonColor(key) {
       if (!it.hammer) return 'yellow';
       return 'green';
 
-    case 'sw':
-      // Red until moonpearl + gloves>=1 + hammer
-      if (!it.moonpearl || !(it.gloves >= 1) || !it.hammer) return 'red';
-      return it.firerod ? 'green' : 'yellow';
-
-    case 'tt':
-      // Red until moonpearl
+    case 'sw': {
+      // DW NW access: moonpearl + gloves
       if (!it.moonpearl) return 'red';
+      var dwNWSW = it.gloves >= 1 ||
+                   (it.agahnim && it.hookshot && (it.hammer || it.gloves >= 1 || it.flippers));
+      if (!dwNWSW) return 'red';
+      // Yellow without firerod; green with firerod
+      return it.firerod ? 'green' : 'yellow';
+    }
+
+    case 'tt': {
+      if (!it.moonpearl) return 'red';
+      var dwNWTT = it.gloves >= 1 || it.gloves >= 2 ||
+                   (it.agahnim && it.hookshot && (it.hammer || it.gloves >= 1 || it.flippers));
+      if (!dwNWTT) return 'red';
       return it.hammer ? 'green' : 'yellow';
+    }
 
     case 'ip':
       // Red until moonpearl + flippers + titansMitt + (bombos or firerod to melt ice)
