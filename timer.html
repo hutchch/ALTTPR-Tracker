@@ -9,7 +9,7 @@
 html, body { height: 100%; }
 body {
   font-family: Arial, sans-serif;
-  background: #0d0d0d;
+  background: #000000;
   color: #ccc;
   display: flex;
   flex-direction: column;
@@ -156,6 +156,55 @@ body {
 #conn-status.connected    { color: #2ecc71; }
 #conn-status.connecting   { color: #f39c12; }
 #conn-status.disconnected { color: #e74c3c; }
+
+/* ── Background themes ── */
+[data-bg="grey"]        body { background: #2a2a2a; }
+[data-bg="white"]       body { background: #ffffff; }
+html[data-bg="transparent"] body { background: transparent !important; background-color: transparent !important; padding-top: 30px; }
+html[data-bg="transparent"] body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 140px;   /* leave room for Windows caption buttons */
+    height: 30px;
+    -webkit-app-region: drag;
+    z-index: 9999;
+}
+html[data-bg="transparent"] #bottombar {
+    background: rgba(0,0,0,0.5) !important;
+    border-top-color: rgba(255,255,255,0.15) !important;
+    -webkit-app-region: drag;
+    cursor: move;
+}
+html[data-bg="transparent"] #bottombar * {
+    -webkit-app-region: no-drag;
+    cursor: default;
+}
+html[data-bg="transparent"] #content, html[data-bg="transparent"] #timer-display { background: transparent !important; }
+html[data-bg="transparent"] .set-time input { background: rgba(0,0,0,0.4) !important; border-color: rgba(255,255,255,0.2) !important; }
+html[data-bg="transparent"] .set-btn { background: rgba(0,30,60,0.6) !important; }
+
+/* Grey: dark bottom bar matching item tracker style */
+[data-bg="grey"]  #bottombar  { background: #0a0a0a; border-top-color: #1a1a1a; }
+[data-bg="grey"]  #conn-status { color: #95a5a6; }
+[data-bg="grey"]  #conn-status.connected    { color: #2ecc71; }
+[data-bg="grey"]  #conn-status.connecting   { color: #f39c12; }
+[data-bg="grey"]  #conn-status.disconnected { color: #e74c3c; }
+[data-bg="grey"]  .size-btn   { background: #1a1a1a; color: #888; border-color: #333; }
+[data-bg="grey"]  .size-btn:hover { background: #333; color: #fff; }
+[data-bg="grey"]  .set-time input { background: #3d3d3d; color: #ccc; border-color: #555; }
+[data-bg="grey"]  .set-btn    { background: #1a2e4a; color: #7ab8f5; border-color: #2a4e7a; }
+
+/* White: light bottom bar */
+[data-bg="white"] #bottombar  { background: #e0e0e0; border-top-color: #bbb; }
+[data-bg="white"] #conn-status { color: #444; }
+[data-bg="white"] #conn-status.connected    { color: #1a7a1a; }
+[data-bg="white"] #conn-status.disconnected { color: #cc2200; }
+[data-bg="white"] .size-btn   { background: #ccc; color: #333; border-color: #aaa; }
+[data-bg="white"] .size-btn:hover { background: #bbb; color: #000; }
+[data-bg="white"] .set-time input { background: #eee; color: #111; border-color: #aaa; }
+[data-bg="white"] .set-btn    { background: #c8dcf0; color: #1a4a7a; border-color: #aac; }
 </style>
 </head>
 <body>
@@ -218,6 +267,12 @@ var colorKey = p.get('color') || 'blue';
 var tc = TIMER_COLORS[colorKey] || TIMER_COLORS.blue;
 document.documentElement.style.setProperty('--timer-color',     tc.main);
 document.documentElement.style.setProperty('--timer-color-dim', tc.dim);
+
+// Apply background
+var bgKey = p.get('bg') || 'black';
+if (bgKey !== 'black') {
+  document.documentElement.setAttribute('data-bg', bgKey);
+}
 
 // ── Font size controls ────────────────────────────────────────────────────────
 function changeSize(delta) {
@@ -300,6 +355,9 @@ var _deviceAttached = false;
 var _pendingRead    = false;
 var _pollTimer      = null;
 
+var _lastGamemode   = -1;
+var _triforceCount  = 0;
+var TRIFORCE_CONFIRM = 2; // must see TRIFORCE_MODE this many times in a row
 var GAMEMODE_SRAM  = 'F50010';
 var GAMEPLAY_MODES = [0x07, 0x09, 0x0B];
 var TRIFORCE_MODE  = 0x19;
@@ -340,8 +398,17 @@ function handleMessage(evt) {
       if (_pendingRead) {
         _pendingRead = false;
         var gm = new Uint8Array(evt.data)[0];
-        if (GAMEPLAY_MODES.indexOf(gm) !== -1) startTimer();
-        else if (gm === TRIFORCE_MODE)          finishTimer();
+        if (GAMEPLAY_MODES.indexOf(gm) !== -1) {
+          _triforceCount = 0;
+          startTimer();
+        } else if (gm === TRIFORCE_MODE) {
+          _triforceCount++;
+          if (_triforceCount >= TRIFORCE_CONFIRM) finishTimer();
+        } else {
+          // Transient/unknown gamemode — reset triforce counter but don't stop
+          _triforceCount = 0;
+        }
+        _lastGamemode = gm;
       }
       return;
     }

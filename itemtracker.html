@@ -32,11 +32,17 @@ try { window._itemsBc = new BroadcastChannel('alttp-tracker'); } catch(e) {}
   wsPort = port;   // items.js `let wsPort`
 })();
 
-// ── Scale from URL param ──────────────────────────────────────────────────────
+// ── Scale and background from URL params ──────────────────────────────────────
 (function() {
   var p = new URLSearchParams(window.location.search);
   window._trackerScale = parseFloat(p.get('scale')) || 1;
   if (window._trackerScale !== 1) document.body.style.zoom = window._trackerScale;
+
+  // Background color — apply class to body for CSS theming
+  var bg = p.get('bg') || localStorage.getItem('alttp-tracker-bg') || 'black';
+  if (bg !== 'black') {
+    document.documentElement.setAttribute('data-bg', bg);
+  }
 })();
 
 // ── Self-resize: measure content after render and fit window to it ────────────

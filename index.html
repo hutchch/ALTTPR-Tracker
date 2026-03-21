@@ -45,7 +45,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 
 <h1>⚔ ALTTP Tracker</h1>
   <p style="text-align: center;">
-  <small>Version 1.0.3</small>
+  <small>Version 1.0.5</small>
 </p>
 <div class="section">
   <h2>Connection</h2>
@@ -74,6 +74,15 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
     </select>
   </div>
   <div class="row">
+    <label>Tracker BG</label>
+    <select id="tracker-bg">
+      <option value="black"       selected>Black</option>
+      <option value="grey"               >Grey</option>
+      <option value="white"              >White</option>
+      <option value="transparent"        >Transparent</option>
+    </select>
+  </div>
+  <div class="row">
     <label>Map Scale</label>
     <select id="map-zoom">
       <option value="70">70%</option>
@@ -91,6 +100,17 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 
 <div class="section">
   <h2>Settings</h2>
+  <div class="row">
+    <label>Mode</label>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
+        <input type="radio" name="gamemode" id="gamemode-standard" value="standard" checked> Standard
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
+        <input type="radio" name="gamemode" id="gamemode-open" value="open"> Open
+      </label>
+    </div>
+  </div>
   <div class="row">
     <label>Enemizer</label>
     <div style="display:flex;gap:16px;align-items:center;">
@@ -136,6 +156,15 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
       <option value="pink"          >Pink</option>
     </select>
   </div>
+  <div class="row">
+    <label>Background</label>
+    <select id="timer-bg">
+      <option value="black"       selected>Black</option>
+      <option value="grey"               >Grey</option>
+      <option value="white"              >White</option>
+      <option value="transparent"        >Transparent</option>
+    </select>
+  </div>
   <div class="btn-row" style="margin-top:8px;">
     <button class="launch-btn" id="btn-timer" onclick="launchTimer()">⏱ Timer</button>
   </div>
@@ -153,6 +182,8 @@ function getSettings() {
     layout:     localStorage.getItem('alttp-map-layout')     || 'horizontal',
     enemizer:   document.querySelector('input[name="enemizer"]:checked').value || 'yes',
     gtCrystals: document.getElementById('gt-crystals').value || '7',
+    gamemode:   document.querySelector('input[name="gamemode"]:checked').value || 'standard',
+    trackerBg:  document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black',
   };
 }
 
@@ -164,11 +195,14 @@ function save() {
   localStorage.setItem('alttp-map-zoom',    s.zoom);
   localStorage.setItem('alttp-enemizer',    s.enemizer);
   localStorage.setItem('alttp-gt-crystals', s.gtCrystals);
+  localStorage.setItem('alttp-gamemode', s.gamemode);
+  localStorage.setItem('alttp-tracker-bg', document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black');
   localStorage.setItem('alttp-timer-color', document.getElementById('timer-color') ? document.getElementById('timer-color').value : 'blue');
+  localStorage.setItem('alttp-timer-bg', document.getElementById('timer-bg') ? document.getElementById('timer-bg').value : 'black');
 }
 
 function mapUrl(s) {
-  return 'map.html?zoom=' + s.zoom + '&enemizer=' + s.enemizer + '&gtcrystals=' + s.gtCrystals;
+  return 'map.html?zoom=' + s.zoom + '&enemizer=' + s.enemizer + '&gtcrystals=' + s.gtCrystals + '&gamemode=' + s.gamemode;
 }
 
 function launchItems() {
@@ -177,7 +211,8 @@ function launchItems() {
   if (IS_ELECTRON) {
     window.electronAPI.launch({ which: 'items', ...s });
   } else {
-    window.open('itemtracker.html?scale=' + s.scale, 'alttp-items', 'width=500,height=390,resizable=yes');
+    var tbg = document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black';
+    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg, 'alttp-items', 'width=500,height=390,resizable=yes');
   }
 }
 
@@ -198,10 +233,11 @@ function launchTimer() {
   save();
   var s = getSettings();
   var tc = document.getElementById('timer-color').value || 'blue';
+  var tbg = document.getElementById('timer-bg').value || 'black';
   if (IS_ELECTRON) {
-    window.electronAPI.launch({ which: 'timer', timerColor: tc, ...s });
+    window.electronAPI.launch({ which: 'timer', timerColor: tc, timerBg: tbg, ...s });
   } else {
-    window.open('timer.html?wshost=' + s.wsHost + '&wsport=' + s.wsPort + '&color=' + tc, 'alttp-timer', 'width=300,height=220,resizable=yes');
+    window.open('timer.html?wshost=' + s.wsHost + '&wsport=' + s.wsPort + '&color=' + tc + '&bg=' + tbg, 'alttp-timer', 'width=300,height=220,resizable=yes');
   }
 }
 
@@ -214,7 +250,8 @@ function launchBoth() {
     var size = Math.round(512 * parseInt(s.zoom) / 100);
     var mapW = s.layout === 'vertical' ? size + 20 : size * 2 + 32;
     var mapH = size + 92;
-    window.open('itemtracker.html?scale=' + s.scale, 'alttp-items', 'width=500,height=390,resizable=yes');
+    var tbg = document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black';
+    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg, 'alttp-items', 'width=500,height=390,resizable=yes');
     window.open(mapUrl(s), 'alttp-map', 'width=' + mapW + ',height=' + mapH + ',resizable=yes');
   }
 }
@@ -232,6 +269,8 @@ window.addEventListener('DOMContentLoaded', async function() {
     'map-zoom':   saved.zoom       || localStorage.getItem('alttp-map-zoom'),
     'gt-crystals':saved.gtCrystals || localStorage.getItem('alttp-gt-crystals'),
     'timer-color': saved.timerColor   || localStorage.getItem('alttp-timer-color'),
+    'timer-bg':    saved.timerBg      || localStorage.getItem('alttp-timer-bg'),
+    'tracker-bg':  saved.trackerBg    || localStorage.getItem('alttp-tracker-bg'),
   };
   for (var id in fields) {
     if (fields[id]) document.getElementById(id).value = fields[id];
@@ -239,6 +278,9 @@ window.addEventListener('DOMContentLoaded', async function() {
   var enemizer = saved.enemizer || localStorage.getItem('alttp-enemizer') || 'yes';
   var el = document.querySelector('input[name="enemizer"][value="' + enemizer + '"]');
   if (el) el.checked = true;
+  var gm = saved.gamemode || localStorage.getItem('alttp-gamemode') || 'standard';
+  var gmel = document.querySelector('input[name="gamemode"][value="' + gm + '"]');
+  if (gmel) gmel.checked = true;
 });
 </script>
 </body>

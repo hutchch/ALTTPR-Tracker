@@ -356,3 +356,91 @@ body {
     color: #ffa500;
 }
 
+
+/* ── Light background themes ─────────────────────────────────────────────────
+   Applied via data-bg attribute on <html> element                            */
+
+/* White background */
+[data-bg="white"] body {
+    background-color: #ffffff;
+}
+
+/* Grey background */
+[data-bg="grey"] body {
+    background-color: #2a2a2a;
+}
+
+/* Transparent background - requires Electron transparent window */
+html[data-bg="transparent"],
+html[data-bg="transparent"] body,
+html[data-bg="transparent"] .tracker-container,
+html[data-bg="transparent"] .tracker-outer {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+html[data-bg="transparent"] body {
+    padding-top: 30px;   /* clear traffic lights (macOS) / titlebar overlay (Windows) */
+}
+
+/* Drag strip at top — allows window dragging (macOS: full width; Windows: leaves room for caption buttons) */
+html[data-bg="transparent"] body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 140px;   /* leave ~140px on right for Windows caption buttons */
+    height: 30px;
+    -webkit-app-region: drag;
+    z-index: 9999;
+}
+html[data-bg="transparent"] .tracker-bottom-bar {
+    background: rgba(0,0,0,0.6) !important;
+    border-top-color: rgba(255,255,255,0.2) !important;
+    -webkit-app-region: drag;
+    cursor: move;
+    position: fixed;          /* ensure it's in the drag region */
+}
+html[data-bg="transparent"] .tracker-bottom-bar * {
+    -webkit-app-region: no-drag;
+    cursor: default;
+}
+html[data-bg="transparent"] .dungeon-slot {
+    background: rgba(0,0,0,0.2) !important;
+    border-color: rgba(255,255,255,0.25) !important;
+}
+html[data-bg="transparent"] .item-slot {
+    background: transparent !important;
+}
+html[data-bg="transparent"] .item-slot::before {
+    background-color: rgba(0,0,0,0.85) !important;
+}
+
+/* Light text fixes for white and grey backgrounds */
+[data-bg="white"] .dungeon-label,
+[data-bg="white"] .key-count,
+[data-bg="white"] .item-count,
+[data-bg="white"] .medallion-label,
+[data-bg="white"] .connection-status,
+[data-bg="white"] .stat-label,
+[data-bg="white"] .stat-value {
+    color: #111;
+}
+
+[data-bg="white"] .dungeon-slot {
+    border-color: #999;
+    background-color: rgba(0,0,0,0.05);
+}
+
+[data-bg="white"] .stat-check { color: #1a7a1a; }
+[data-bg="white"] .stat-death { color: #cc2200; }
+[data-bg="white"] .stat-bonk  { color: #cc5500; }
+
+[data-bg="white"] .tracker-bottom-bar {
+    background: #e0e0e0;
+    border-top-color: #bbb;
+}
+[data-bg="white"] .connection-status { color: #444; }
+[data-bg="white"] .reconnect-btn { color: #1a5a9c; border-color: #1a5a9c; background: transparent; }
+[data-bg="white"] .size-btn { background: #ddd; color: #333; border-color: #aaa; }
+[data-bg="white"] .size-btn:hover { background: #bbb; color: #000; }
+[data-bg="white"] .item-slot.go-mode { color: #222; }
