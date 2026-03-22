@@ -415,6 +415,12 @@ function connect() {
     _ws.onerror   = function() { setConnStatus('○ Error', 'disconnected'); scheduleReconnect(); };
     _ws.onclose   = function() {
       _deviceAttached = false;
+      _pendingRead    = false;
+      _validReadCount = 0;
+      _zeroReadCount  = 0;
+      _triforceCount  = 0;
+      clearInterval(_pollTimer);
+      _pollTimer = null;
       setConnStatus('○ Disconnected', 'disconnected');
       scheduleReconnect();
     };
@@ -465,7 +471,9 @@ function handleMessage(evt) {
             if (_zeroReadCount >= ZERO_READ_LIMIT) {
               _zeroReadCount = 0;
               _validReadCount = 0;
+              _triforceCount = 0;
               _deviceAttached = false;
+              _pendingRead = false;
               clearInterval(_pollTimer);
               _pollTimer = null;
               setConnStatus('○ Waiting for game…', 'connecting');
@@ -493,8 +501,10 @@ function handleMessage(evt) {
       _ws.send(JSON.stringify({ Opcode: 'Attach', Space: 'SNES', Operands: [r.Results[0]] }));
       setConnStatus('● Connected', 'connected');
       _deviceAttached = true;
-      _zeroReadCount = 0;
+      _pendingRead    = false;  // clear any stuck pending read from previous session
+      _zeroReadCount  = 0;
       _validReadCount = 0;
+      _triforceCount  = 0;
       clearInterval(_pollTimer);
       // Start fast (250ms) to catch game start quickly, slow down after first valid read
       _pollTimer = setInterval(pollGamemode, 250);
