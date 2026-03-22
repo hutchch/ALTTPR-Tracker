@@ -56,6 +56,15 @@ let wsPort = 23074;
 let reconnectInterval = null;
 let deviceName = null;
 let deviceAttached = false;
+let _deviceRetryTimer = null;
+let _gamemodeValid = false;
+const GAMEMODE_SRAM = (0xF50010).toString(16).toUpperCase();
+const GAMEPLAY_MODES = [0x07, 0x09, 0x0B];
+const KNOWN_ALTTP_MODES = [
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+    0x08, 0x0A, 0x0C, 0x0D, 0x0E, 0x0F,
+    0x10, 0x14, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B
+];
 let readTimer = null;
 let previousSRAM = null;
 
@@ -651,6 +660,7 @@ function connectWebSocket() {
             console.log('WebSocket disconnected');
             updateConnectionStatus('Disconnected');
             deviceAttached = false;
+    _gamemodeValid = false;
             if (readTimer) { clearInterval(readTimer); readTimer = null; }
             _scheduleReconnect();
         };
@@ -679,6 +689,25 @@ function handleWebSocketMessage(event) {
         // Handle binary data (SRAM reads)
         if (event.data instanceof ArrayBuffer) {
             const data = new Uint8Array(event.data);
+            // If we haven't confirmed gamemode yet, this is a gamemode check response
+            if (!_gamemodeValid) {
+                const gm = data[0];
+                if (GAMEPLAY_MODES.indexOf(gm) !== -1 || KNOWN_ALTTP_MODES.indexOf(gm) !== -1) {
+                    // Valid ALTTP mode (gameplay or menu/startup) — start SRAM reading
+                    _gamemodeValid = true;
+                    updateConnectionStatus('Connected');
+                    startSRAMReading();
+                } else {
+                    // Unknown value — RetroArch not ready yet, retry DeviceList after 2s
+                    updateConnectionStatus('No device found');
+                    setTimeout(() => {
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
+                        }
+                    }, 2000);
+                }
+                return;
+            }
             processSRAMData(data);
             return;
         }
@@ -701,18 +730,35 @@ function handleWebSocketMessage(event) {
                     }));
                     
                     deviceAttached = true;
+                    _gamemodeValid = false;
                     updateConnectionStatus('Connected');
-                    
-                    // Start reading SRAM
-                    startSRAMReading();
+
+                    // Check gamemode first — wait for game to be running before reading SRAM
+                    checkGamemode();
                 } else {
                     updateConnectionStatus('No device found');
+                    // Retry DeviceList automatically
+                    clearTimeout(_deviceRetryTimer);
+                    _deviceRetryTimer = setTimeout(() => {
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
+                        }
+                    }, 3000);
                 }
             }
         }
     } catch (e) {
         console.error('Failed to handle WebSocket message:', e);
     }
+}
+
+function checkGamemode() {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !deviceAttached) return;
+    ws.send(JSON.stringify({
+        Opcode: 'GetAddress',
+        Space: 'SNES',
+        Operands: ['F50010', '01']
+    }));
 }
 
 function startSRAMReading() {

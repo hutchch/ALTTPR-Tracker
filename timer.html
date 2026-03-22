@@ -359,16 +359,42 @@ var _reconnectTimer = null;
 var _deviceAttached = false;
 var _pendingRead    = false;
 var _pollTimer      = null;
-var _validReadCount = 0;     // counts consecutive valid (non-zero) reads
-var _zeroReadCount  = 0;     // counts consecutive zero/invalid reads
-var ZERO_READ_LIMIT = 20;    // after this many zero reads, re-validate device
+var _validReadCount = 0;     // counts consecutive valid gameplay reads
+var _zeroReadCount  = 0;     // counts consecutive garbage reads
+var ZERO_READ_LIMIT = 20;    // garbage reads before re-validating (~5s at 250ms)
 
 var _lastGamemode   = -1;
 var _triforceCount  = 0;
-var TRIFORCE_CONFIRM = 2; // must see TRIFORCE_MODE this many times in a row
-var GAMEMODE_SRAM  = 'F50010';
-var GAMEPLAY_MODES = [0x07, 0x09, 0x0B];
-var TRIFORCE_MODE  = 0x19;
+var TRIFORCE_CONFIRM = 2;
+var GAMEMODE_SRAM   = 'F50010';
+var GAMEPLAY_MODES  = [0x07, 0x09, 0x0B];
+var TRIFORCE_MODE   = 0x19;
+
+// Known non-gameplay ALTTP modes — startup, menus, cutscenes etc.
+// Seeing these means the game is loading/in menus, NOT garbage data
+var KNOWN_MODES = [
+  0x00, // Startup / boot
+  0x01, // File select init
+  0x02, // Copy / erase file select
+  0x03, // Intro / title sequence
+  0x04, // Title screen
+  0x05, // File select
+  0x06, // Agahnim intro cutscene
+  0x08, // Opening sequence
+  0x0A, // Special transition
+  0x0C, // Game over
+  0x0D, // Boss death
+  0x0E, // Item get screen
+  0x0F, // Attract mode / demo
+  0x10, // Credits
+  0x14, // Inventory screen
+  0x16, // Save and quit
+  0x17, // Pause screen
+  0x18, // Death sequence
+  0x19, // Triforce room (handled separately)
+  0x1A, // Victory
+  0x1B, // Game ending
+];
 
 function setConnStatus(text, cls) {
   connStatus.textContent = text;
@@ -407,11 +433,12 @@ function handleMessage(evt) {
         _pendingRead = false;
         var gm = new Uint8Array(evt.data)[0];
         if (GAMEPLAY_MODES.indexOf(gm) !== -1) {
+          // In-game — start timer
           _triforceCount = 0;
           _zeroReadCount = 0;
           _validReadCount++;
-          // Slow down polling once game is running — no need to hammer the connection
           if (_validReadCount === 1) {
+            // First confirmed gameplay read — slow down polling
             clearInterval(_pollTimer);
             _pollTimer = setInterval(pollGamemode, 500);
           }
@@ -425,28 +452,30 @@ function handleMessage(evt) {
             _pollTimer = setInterval(pollGamemode, 500);
           }
           if (_triforceCount >= TRIFORCE_CONFIRM) finishTimer();
-        } else if (gm === 0x00) {
-          // Zero gamemode — RetroArch may not have loaded game yet
-          _triforceCount = 0;
-          _zeroReadCount++;
-          if (_zeroReadCount >= ZERO_READ_LIMIT) {
-            // Re-request device list to re-validate connection
-            _zeroReadCount = 0;
-            _validReadCount = 0;
-            _deviceAttached = false;
-            clearInterval(_pollTimer);
-            _pollTimer = null;
-            setConnStatus('○ Waiting for game…', 'connecting');
-            setTimeout(function() {
-              if (_ws && _ws.readyState === WebSocket.OPEN) {
-                _ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
-              }
-            }, 2000);
-          }
-        } else {
-          // Transient/unknown gamemode — reset triforce counter but don't stop
+        } else if (KNOWN_MODES.indexOf(gm) !== -1) {
+          // Known pre-game / menu mode — game is loading, just wait
           _triforceCount = 0;
           _zeroReadCount = 0;
+        } else {
+          // Truly unknown value — likely garbage from RetroArch before game loads
+          _triforceCount = 0;
+          if (_validReadCount === 0) {
+            // Only count garbage before we've seen any valid gameplay
+            _zeroReadCount++;
+            if (_zeroReadCount >= ZERO_READ_LIMIT) {
+              _zeroReadCount = 0;
+              _validReadCount = 0;
+              _deviceAttached = false;
+              clearInterval(_pollTimer);
+              _pollTimer = null;
+              setConnStatus('○ Waiting for game…', 'connecting');
+              setTimeout(function() {
+                if (_ws && _ws.readyState === WebSocket.OPEN) {
+                  _ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
+                }
+              }, 1000);
+            }
+          }
         }
         _lastGamemode = gm;
       }
