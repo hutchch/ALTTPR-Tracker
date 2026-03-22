@@ -14,6 +14,8 @@ Quick setup guide is available https://github.com/hutchch/ALTTPR-Tracker/blob/ma
 <h2> Descriptions/Instructions</h2>
 A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
 
+Launch RetroArch Emulator prior to launching the tracker to avoid issues.
+
 Features
 - Item Tracker — click to cycle all items, weapons, and equipment through their states
 - Dual overworld maps — Light World and Dark World with color-coded logic dots for every check
