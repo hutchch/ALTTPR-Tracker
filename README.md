@@ -1,4 +1,4 @@
-<h1>ALTTPR Tracker (v1.0.4a release)</h1>
+<h1>ALTTPR Tracker (v1.0.5 release)</h1>
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
@@ -6,8 +6,6 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Either normal or enemizer.
  - Coming Soon:
     -  Key Sanity.
-    -  Standard or Open start.
-    -  Background customization for Item Tracker.
 </p>
 Quick setup guide is available https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR%20Tracker.pdf
 
