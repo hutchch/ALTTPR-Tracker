@@ -2,7 +2,9 @@
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
- - Currently this is a selectable (1-7) crystal Ganon Tower, with standard game mode.
+
+ - Currently this is a selectable (1-7) crystal Ganon Tower
+ - Standard or open game start.
  - Either normal or enemizer.
  - Coming Soon:
     -  Key Sanity.
@@ -14,8 +16,18 @@ A browser-based item and map tracker for A Link to the Past Randomizer runs. Tra
 
 ______________________________________________________________________
 
-<h3>NOTE: Launch RetroArch Emulator prior to launching the tracker to avoid issues.</h3>
+<h3>NOTE: Launch Order </h3>
 
+For best results here is the launch order that was tested.
+
+1. Launch QUSB2SNES or SNI
+2. Open the Emulator (RetroArch)
+3. Launch the game to the title screen
+4. Launch the various tracker components (map, Items, timer)
+    - These should all show connected 
+5. Start the game
+
+______________________________________________________________________
 Features
 - Item Tracker — click to cycle all items, weapons, and equipment through their states
 - Dual overworld maps — Light World and Dark World with color-coded logic dots for every check
