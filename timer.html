@@ -284,13 +284,16 @@ function changeSize(delta) {
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 function formatTime(cs) {
-  var h = Math.floor(cs / 360000);
-  var m = Math.floor((cs % 360000) / 6000);
-  var s = Math.floor((cs % 6000) / 100);
-  var c = cs % 100;
-  return { main: pad(h)+':'+pad(m)+':'+pad(s), centis: '.'+pad(c) };
+  var neg = cs < 0;
+  var abs = Math.abs(cs);
+  var h = Math.floor(abs / 360000);
+  var m = Math.floor((abs % 360000) / 6000);
+  var s = Math.floor((abs % 6000) / 100);
+  var c = abs % 100;
+  var main = (neg ? '-' : '') + pad(h) + ':' + pad(m) + ':' + pad(s);
+  return { main: main, centis: '.' + pad(c) };
 }
-function pad(n) { return String(n).padStart(2, '0'); }
+function pad(n) { return String(Math.abs(n)).padStart(2, '0'); }
 
 function updateDisplay() {
   var t = formatTime(centiseconds);
@@ -333,13 +336,15 @@ function resetTimer() {
 }
 
 function setTimeFromInput() {
-  var val   = document.getElementById('time-input').value.trim();
+  var val = document.getElementById('time-input').value.trim();
+  var neg = val.charAt(0) === '-';
+  if (neg) val = val.slice(1);
   var parts = val.split(':').map(function(x) { return parseInt(x) || 0; });
   var h = 0, m = 0, s = 0;
   if (parts.length === 3)      { h = parts[0]; m = parts[1]; s = parts[2]; }
   else if (parts.length === 2) { m = parts[0]; s = parts[1]; }
   else                         { s = parts[0]; }
-  centiseconds = (h * 3600 + m * 60 + s) * 100;
+  centiseconds = (h * 3600 + m * 60 + s) * 100 * (neg ? -1 : 1);
   updateDisplay();
   document.getElementById('time-input').value = '';
 }
@@ -405,11 +410,20 @@ function handleMessage(evt) {
           _triforceCount = 0;
           _zeroReadCount = 0;
           _validReadCount++;
+          // Slow down polling once game is running — no need to hammer the connection
+          if (_validReadCount === 1) {
+            clearInterval(_pollTimer);
+            _pollTimer = setInterval(pollGamemode, 500);
+          }
           startTimer();
         } else if (gm === TRIFORCE_MODE) {
           _triforceCount++;
           _zeroReadCount = 0;
           _validReadCount++;
+          if (_validReadCount === 1) {
+            clearInterval(_pollTimer);
+            _pollTimer = setInterval(pollGamemode, 500);
+          }
           if (_triforceCount >= TRIFORCE_CONFIRM) finishTimer();
         } else if (gm === 0x00) {
           // Zero gamemode — RetroArch may not have loaded game yet
@@ -453,6 +467,7 @@ function handleMessage(evt) {
       _zeroReadCount = 0;
       _validReadCount = 0;
       clearInterval(_pollTimer);
+      // Start fast (250ms) to catch game start quickly, slow down after first valid read
       _pollTimer = setInterval(pollGamemode, 250);
     }
   } catch(e) {}
