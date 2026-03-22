@@ -354,6 +354,9 @@ var _reconnectTimer = null;
 var _deviceAttached = false;
 var _pendingRead    = false;
 var _pollTimer      = null;
+var _validReadCount = 0;     // counts consecutive valid (non-zero) reads
+var _zeroReadCount  = 0;     // counts consecutive zero/invalid reads
+var ZERO_READ_LIMIT = 20;    // after this many zero reads, re-validate device
 
 var _lastGamemode   = -1;
 var _triforceCount  = 0;
@@ -400,13 +403,36 @@ function handleMessage(evt) {
         var gm = new Uint8Array(evt.data)[0];
         if (GAMEPLAY_MODES.indexOf(gm) !== -1) {
           _triforceCount = 0;
+          _zeroReadCount = 0;
+          _validReadCount++;
           startTimer();
         } else if (gm === TRIFORCE_MODE) {
           _triforceCount++;
+          _zeroReadCount = 0;
+          _validReadCount++;
           if (_triforceCount >= TRIFORCE_CONFIRM) finishTimer();
+        } else if (gm === 0x00) {
+          // Zero gamemode — RetroArch may not have loaded game yet
+          _triforceCount = 0;
+          _zeroReadCount++;
+          if (_zeroReadCount >= ZERO_READ_LIMIT) {
+            // Re-request device list to re-validate connection
+            _zeroReadCount = 0;
+            _validReadCount = 0;
+            _deviceAttached = false;
+            clearInterval(_pollTimer);
+            _pollTimer = null;
+            setConnStatus('○ Waiting for game…', 'connecting');
+            setTimeout(function() {
+              if (_ws && _ws.readyState === WebSocket.OPEN) {
+                _ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
+              }
+            }, 2000);
+          }
         } else {
           // Transient/unknown gamemode — reset triforce counter but don't stop
           _triforceCount = 0;
+          _zeroReadCount = 0;
         }
         _lastGamemode = gm;
       }
@@ -424,8 +450,10 @@ function handleMessage(evt) {
       _ws.send(JSON.stringify({ Opcode: 'Attach', Space: 'SNES', Operands: [r.Results[0]] }));
       setConnStatus('● Connected', 'connected');
       _deviceAttached = true;
+      _zeroReadCount = 0;
+      _validReadCount = 0;
       clearInterval(_pollTimer);
-      _pollTimer = setInterval(pollGamemode, 500);
+      _pollTimer = setInterval(pollGamemode, 250);
     }
   } catch(e) {}
 }
