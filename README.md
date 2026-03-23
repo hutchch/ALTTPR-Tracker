@@ -118,5 +118,5 @@ Item Tracking with Map:
 Logic
 <img width="1163" height="1000" alt="image" src="https://github.com/user-attachments/assets/22d2cc5f-d273-4571-bc4b-c246be144a63" />
 
-
+Special Thanks to "Jedi Master T8ter" [https://linktr.ee/jedi_master_t8tr](https://linktr.ee/jedi_master_t8ter) for showing this tracker on stream and testing it.  Another Special thanks to "LordHoell" [https://link.tr](https://linktr.ee/lordhoell) for indirectly providing ideas for the ItemTracker and for providing the idea on how to vibe code the map.
 
