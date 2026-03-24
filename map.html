@@ -75,6 +75,7 @@ body {
 .dot.visible   { background: #ff8c00; border: 2px solid #000; }
 .dot.unavail   { background: #ff4444; border: 2px solid #000; }
 .dot.cleared   { background: rgba(40,40,40,0.85); border: 1.5px solid #555; }
+.dot.hidden    { display: none; pointer-events: none; }
 
 /* ── Dungeon markers ── */
 .dng {
@@ -299,6 +300,8 @@ window.SRAM_FLAGS = {
   102:[[0x22c,0x10],[0x22c,0x20]],
   103:[0x300,0x40],
   104:[0x064,0x10],
+  109:[0x1C0,0x10],  // CT - Room 03 (Key Sanity)
+  110:[0x1A0,0x10],  // CT - Dark Maze (Key Sanity)
   105:[[0x228,0x10],[0x228,0x20]],
   106:[0x1c0,0x10],
   107:[0x1a0,0x10],
@@ -394,10 +397,17 @@ function dungeonColor(key) {
       // Hyrule Castle - always accessible in standard
       return it.lamp ? 'green' : 'yellow';
 
-    case 'ct':
+    case 'ct': {
       // Red until lamp AND (master sword OR cape)
       if (!it.lamp) return 'red';
-      return (it.sword >= 2 || it.cape) ? 'green' : 'red';
+      if (!(it.sword >= 2 || it.cape)) return 'red';
+      var settings = window.trackerSettings || {};
+      if (settings.dungeonItems === 'keysanity') {
+        var ctKeys = (it.ctSmallKeys) || 0;
+        return ctKeys >= 2 ? 'green' : 'red';
+      }
+      return 'green';
+    }
 
     case 'pod':
       // Red until moonpearl + DW east access; yellow without hammer/lamp/bow; green with all
@@ -478,6 +488,7 @@ function dungeonColor(key) {
       return 'green';
   }
 }
+
 window.dungeonColor = dungeonColor;
 
 </script>
@@ -633,8 +644,21 @@ function checkLogic(it) {
          },
     104: function() {
            var settings = window.trackerSettings || {};
-           if (settings.gamemode === 'open') return lamp ? 'green' : 'red';
+           if (settings.gamemode === 'open') return (lamp || firerod) ? 'green' : 'red';
            return 'green';
+         },
+    109: function() {
+           var settings = window.trackerSettings || {};
+           if (settings.dungeonItems !== 'keysanity') return null;
+           return (sword2 || cape) ? 'green' : 'red';
+         },
+    110: function() {
+           var settings = window.trackerSettings || {};
+           if (settings.dungeonItems !== 'keysanity') return null;
+           if (!lamp) return 'red';
+           if (!(sword2 || cape)) return 'red';
+           var ctKeys = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
+           return ctKeys >= 1 ? 'green' : 'red';
          },
     105: function() { return flippers ? 'green' : 'red'; },
   };
@@ -704,6 +728,8 @@ var CHECKS = [
   [100, 32.00, 58.00, "Magic Bat",              "lw"],
   [103,  5.00,  3.40, "Master Sword Pedestal",  "lw"],
   [104, 51.20, 38.20, "Dark Cross",             "lw"],
+  [109, 43.50, 53.50, "CT - Room 03",           "lw"],
+  [110, 57.00, 53.50, "CT - Dark Maze",          "lw"],
   [105, 89.80, 15.20, "Waterfall Fairy (2)",    "lw"],
   // Dark World
   [4,   85.20,  9.30, "Mimic Cave",             "lw"],
@@ -757,12 +783,49 @@ var DUNGEONS = {
 };
 
 // Prize image arrays for cycling (when prize>=0)
-var PRIZE_CYCLE = [
-  { img:'items/crystal1.png',      imgCleared:'items/crystal0.png'      },
-  { img:'items/redcrystal1.png',   imgCleared:'items/redcrystal0.png'   },
-  { img:'items/pendant1.png',      imgCleared:'items/pendant0.png'      },
-  { img:'items/greenpendant1.png', imgCleared:'items/greenpendant0.png' },
+// Standard mode: 0=crystal, 1=redcrystal, 2=pendant, 3=greenpendant
+// Key Sanity:    0=unknown, 1=crystal, 2=redcrystal, 3=pendant, 4=greenpendant
+var PRIZE_CYCLE_STANDARD = [
+  { name:'crystal',      img:'items/crystal1.png',      imgCleared:'items/crystal0.png'      },
+  { name:'redcrystal',   img:'items/redcrystal1.png',   imgCleared:'items/redcrystal0.png'   },
+  { name:'pendant',      img:'items/pendant1.png',      imgCleared:'items/pendant0.png'      },
+  { name:'greenpendant', img:'items/greenpendant1.png', imgCleared:'items/greenpendant0.png' },
 ];
+var PRIZE_CYCLE_KEYSANITY = [
+  { name:'unknown',      img:'items/unknown1.png',      imgCleared:'items/unknown0.png'      },
+  { name:'crystal',      img:'items/crystal1.png',      imgCleared:'items/crystal0.png'      },
+  { name:'redcrystal',   img:'items/redcrystal1.png',   imgCleared:'items/redcrystal0.png'   },
+  { name:'pendant',      img:'items/pendant1.png',      imgCleared:'items/pendant0.png'      },
+  { name:'greenpendant', img:'items/greenpendant1.png', imgCleared:'items/greenpendant0.png' },
+];
+
+// Helper: find prize index by name in current cycle
+function prizeIndexByName(name) {
+  for (var i = 0; i < PRIZE_CYCLE.length; i++) {
+    if (PRIZE_CYCLE[i].name === name) return i;
+  }
+  return 0; // default to first entry
+}
+var PRIZE_CYCLE = PRIZE_CYCLE_STANDARD;
+
+// Apply Key Sanity prize defaults
+(function() {
+  // Initialise mapObtained on all dungeons
+  Object.keys(DUNGEONS).forEach(function(key) { DUNGEONS[key].mapObtained = false; });
+  var p = new URLSearchParams(window.location.search);
+  var ksMode = (p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+  if (ksMode) {
+    PRIZE_CYCLE = PRIZE_CYCLE_KEYSANITY;
+    // Set all non-fixed dungeons to unknown (prize index 0 in KS cycle)
+    Object.keys(DUNGEONS).forEach(function(key) {
+      var def = DUNGEONS[key];
+      if (def.prize === -2) return; // CT and GT have fixed prizes
+      def.prize = 0;
+      def.img        = PRIZE_CYCLE[0].img;
+      def.imgCleared = PRIZE_CYCLE[0].imgCleared;
+    });
+  }
+})();
 
 // ── Persistent check state ────────────────────────────────────────────────────
 // Always start fresh — checks are cleared on each page load (new game).
@@ -778,6 +841,7 @@ function resetChecks() {
   window.trackerItems.pendants     = 0;
   window.trackerItems.greenPendant = 0;
   window.trackerItems.redCrystal   = 0;
+  window.trackerItems.ctSmallKeys  = 0;
   // Redraw all dots
   Object.keys(dotById).forEach(function(id) {
     dotById[id].className = dotClass(parseInt(id));
@@ -812,6 +876,7 @@ var dotById = {};
 function dotClass(id) {
   if (checkState[id]) return 'dot cleared';
   var color = window.checkColor ? window.checkColor(id) : 'green';
+  if (color === null) return 'dot hidden';
   var cls = { green:'available', yellow:'possible', orange:'visible', red:'unavail' };
   return 'dot ' + (cls[color] || 'available');
 }
@@ -882,6 +947,15 @@ function refreshDungeonImg(key) {
     return;
   }
   img.style.display = '';
+  // Key Sanity: if prize is unknown but dungeon map is obtained, show map1.png as hint
+  var settings = window.trackerSettings || {};
+  if (settings.dungeonItems === 'keysanity') {
+    var cycle = PRIZE_CYCLE[def.prize];
+    if (cycle && cycle.name === 'unknown' && def.mapObtained) {
+      img.src = 'items/map1.png';
+      return;
+    }
+  }
   img.src = def.cleared ? def.imgCleared : def.img;
 }
 
@@ -903,10 +977,7 @@ window.refreshMapLogic = function() {
       el.className = 'dng ' + c;
     }
     // Prize image: bright (1.png) until obtained, then dim (0.png)
-    var img = dngEls[key].querySelector('img');
-    if (img) {
-      img.src = def.cleared ? def.imgCleared : def.img;
-    }
+    refreshDungeonImg(key);
   });
   // Refresh dot cleared state
   Object.keys(dotById).forEach(function(id) {
@@ -985,6 +1056,7 @@ try {
         window.trackerItems.redCrystal   = snap.redCrystal   !== undefined ? snap.redCrystal   : savedRedCrystal;
         window.trackerItems.mmMedallion  = snap.mmMedallion  !== undefined ? snap.mmMedallion  : savedMmMed;
         window.trackerItems.trMedallion  = snap.trMedallion  !== undefined ? snap.trMedallion  : savedTrMed;
+        window.trackerItems.ctSmallKeys  = snap.ctSmallKeys  !== undefined ? snap.ctSmallKeys  : (window.trackerItems.ctSmallKeys || 0);
         // Agahnim defeated → mark CT fully cleared (no items remain after boss)
         if (snap.agahnim && !DUNGEONS.ct.cleared) {
           DUNGEONS.ct.cleared = true;
@@ -1010,14 +1082,13 @@ try {
         }
         Object.keys(pz).forEach(function(key) {
           if (!DUNGEONS[key]) return;
-          var idx = pz[key].state;
-          if (idx >= 0 && idx < PRIZE_CYCLE.length) {
-            DUNGEONS[key].prize      = idx;
-            DUNGEONS[key].img        = PRIZE_CYCLE[idx].img;
-            DUNGEONS[key].imgCleared = PRIZE_CYCLE[idx].imgCleared;
-          }
-          // obtained = prize actually collected (0.png = bright in tracker convention)
+          var prizeName = pz[key].name || 'unknown';
+          var idx = prizeIndexByName(prizeName);
+          DUNGEONS[key].prize      = idx;
+          DUNGEONS[key].img        = PRIZE_CYCLE[idx].img;
+          DUNGEONS[key].imgCleared = PRIZE_CYCLE[idx].imgCleared;
           DUNGEONS[key].prizeObtained = pz[key].obtained || false;
+          DUNGEONS[key].mapObtained   = pz[key].mapState === 1;
           refreshDungeonImg(key);
         });
         // Pendant/crystal counts from obtained prizes only
@@ -1026,11 +1097,11 @@ try {
           Object.keys(DUNGEONS).forEach(function(k) {
             var def = DUNGEONS[k];
             if (!def.prizeObtained) return;
-            var p = def.prize;
-            if      (p===0){cc++;}
-            else if (p===1){cc++;rc++;}
-            else if (p===2){pc++;}
-            else if (p===3){pc++;gpc++;}
+            var pname = PRIZE_CYCLE[def.prize] ? PRIZE_CYCLE[def.prize].name : '';
+            if      (pname==='crystal')      { cc++; }
+            else if (pname==='redcrystal')   { cc++; rc++; }
+            else if (pname==='pendant')      { pc++; }
+            else if (pname==='greenpendant') { pc++; gpc++; }
           });
           window.trackerItems.crystals     = cc;
           window.trackerItems.pendants     = pc;
@@ -1141,7 +1212,8 @@ function changeZoom(dir) {
   window.trackerSettings = window.trackerSettings || {};
   window.trackerSettings.enemizer   = p.get('enemizer')   || localStorage.getItem('alttp-enemizer')   || 'yes';
   window.trackerSettings.gtCrystals = parseInt(p.get('gtcrystals') || localStorage.getItem('alttp-gt-crystals') || '7');
-  window.trackerSettings.gamemode   = p.get('gamemode')   || localStorage.getItem('alttp-gamemode')   || 'standard';
+  window.trackerSettings.gamemode      = p.get('gamemode')      || localStorage.getItem('alttp-gamemode')      || 'standard';
+  window.trackerSettings.dungeonItems  = p.get('dungeonitems')  || localStorage.getItem('alttp-dungeon-items')  || 'standard';
 
   // Restore zoom index
   var pct  = parseInt(p.get('scale') || p.get('zoom') || '0') ||
@@ -1166,11 +1238,11 @@ function changeZoom(dir) {
   Object.keys(DUNGEONS).forEach(function(k) {
     var def = DUNGEONS[k];
     if (!def.prizeObtained) return;
-    var p = def.prize;
-    if      (p===0){cc++;}
-    else if (p===1){cc++;rc++;}
-    else if (p===2){pc++;}
-    else if (p===3){pc++;gpc++;}
+    var pname = PRIZE_CYCLE[def.prize] ? PRIZE_CYCLE[def.prize].name : '';
+    if      (pname==='crystal')      { cc++; }
+    else if (pname==='redcrystal')   { cc++; rc++; }
+    else if (pname==='pendant')      { pc++; }
+    else if (pname==='greenpendant') { pc++; gpc++; }
   });
   window.trackerItems.crystals     = cc;
   window.trackerItems.pendants     = pc;

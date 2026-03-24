@@ -6,7 +6,7 @@ html, body {
 body {
     background-color: #000000;
     font-family: Arial, sans-serif;
-    padding-bottom: 30px;
+    padding-bottom: 24px;
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -53,14 +53,14 @@ body {
 }
 
 .item-slot.go-mode {
-    background: transparent;
     border: 2px solid currentColor;
     border-radius: 50%;
     font-size: 12px;
     font-weight: bold;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
     width: 28px;
     height: 28px;
+    margin-left: 5px;
+    transition: background 0.15s, color 0.15s;
 }
 
 .medallion-label {
@@ -99,7 +99,7 @@ body {
 }
 
 .dungeon-slot.completed-full {
-    border-color: #5b7;
+    border-color: #2e8b57;
     border-width: 2px;
 }
 
@@ -114,6 +114,21 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 1px;
+}
+
+.dungeon-top-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 2px;
+}
+
+.dungeon-top-row .dungeon-label {
+    flex: 1;
+    text-align: center;
+    margin-bottom: 0;
 }
 
 .dungeon-label {
@@ -225,13 +240,15 @@ body {
 }
 
 .size-btn {
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
     background: #1a1a1a;
     color: #888;
     border: 1px solid #333;
     border-radius: 3px;
-    font-size: 12px;
+    font-size: 8px;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -248,30 +265,40 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 10px;
+    padding: 2px 6px;
     background: #0a0a0a;
     border-top: 1px solid #1a1a1a;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 20px;
+    height: 18px;
     box-sizing: border-box;
     z-index: 100;
+    gap: 4px;
 }
 
 .connection-status {
-    font-size: 9px;
+    font-size: 8px;
     color: #95a5a6;
     flex: 1;
     text-align: center;
 }
 
+.mode-label {
+    font-size: 7px;
+    font-weight: bold;
+    color: #666;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    margin-right: 4px;
+}
+
 .reconnect-btn {
-    width: 15px;
-    height: 15px;
-    font-size: 14px;
-    line-height: 12px;
+    width: 13px;
+    height: 13px;
+    font-size: 11px;
+    line-height: 13px;
     text-align: center;
     padding: 0;
     background: transparent;
@@ -349,11 +376,36 @@ body {
 }
 
 .stat-death {
-    color: #f88;
+    color: #ff0000;
 }
 
 .stat-bonk {
     color: #ffa500;
+}
+
+.stat-ctkey {
+    color: #fff;
+    gap: 4px;
+    justify-content: flex-end;
+}
+
+.stat-ctkey .stat-label {
+    margin-right: 2px;
+    opacity: 1;
+    color: #e8d48b;
+}
+
+.stat-ctkey .stat-value {
+    font-size: 11px;
+    color: #fff;
+}
+
+.stat-icon {
+    width: 12px;
+    height: 12px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
 }
 
 
@@ -413,10 +465,10 @@ html[data-bg="transparent"] .dungeon-slot.completed-items {
     border-width: 2px !important;
 }
 html[data-bg="transparent"] .dungeon-slot.completed-full {
-    border-color: #5b7 !important;
+    border-color: #7ddf7d !important;
     border-width: 2px !important;
 }
-html[data-bg="transparent"] .item-slot {
+html[data-bg="transparent"] .item-slot:not(.go-mode) {
     background: transparent !important;
 }
 html[data-bg="transparent"] .item-slot::before {
@@ -443,7 +495,7 @@ html[data-bg="transparent"] .item-slot::before {
     border-width: 2px !important;
 }
 [data-bg="white"] .dungeon-slot.completed-full {
-    border-color: #5b7 !important;
+    border-color: #2e8b57 !important;
     border-width: 2px !important;
 }
 

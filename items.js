@@ -341,6 +341,21 @@ const dungeons = {
         locations: [[0x119,0x04],[0xf6,0x10],[0xf6,0x20],[0xf6,0x40],[0xf6,0x80],[0x116,0x10],[0xfa,0x10],[0xf8,0x10],[0xf8,0x20],[0xf8,0x40],[0xf8,0x80],[0x118,0x10],[0x118,0x20],[0x118,0x40],[0x118,0x80],[0x38,0x10],[0x38,0x20],[0x38,0x40],[0x11a,0x10],[0x13a,0x10],[0x13a,0x20],[0x13a,0x40],[0x13a,0x80],[0x7a,0x10],[0x7a,0x20],[0x7a,0x40],[0x9a,0x10]] }
 };
 
+// Expose dungeons globally so itemtracker.html can read/update them
+window.dungeons = dungeons;
+
+// Apply Key Sanity maxItems overrides if mode is set
+(function() {
+    var p = new URLSearchParams(window.location.search);
+    var mode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
+    if (mode === 'keysanity') {
+        var KS = { ep:6, dp:6, toh:6, pod:14, sp:10, sw:8, tt:8, ip:8, mm:8, tr:12, gt:27 };
+        Object.keys(KS).forEach(function(k) {
+            if (dungeons[k]) dungeons[k].maxItems = KS[k];
+        });
+    }
+})();
+
 const layout = [
     ['bow', 'boomerang', 'hookshot', 'bomb', 'mushroom', 'powder', 'moonpearl', 'sword', 'ep'],
     ['firerod', 'icerod', 'bombos', 'ether', 'quake', 'boots', 'gloves', 'shield', 'dp'],
@@ -375,24 +390,45 @@ function createTracker() {
                 // Container for label and prize (left side for pendant dungeons)
                 const dungeonContent = document.createElement('div');
                 dungeonContent.className = 'dungeon-content';
-                
-                const label = document.createElement('div');
-                label.className = 'dungeon-label';
-                label.textContent = dungeons[itemKey].name;
-                dungeonContent.appendChild(label);
-                
-                // Only add prize image if not bigkeyOnly
-                if (!dungeons[itemKey].bigkeyOnly) {
-                    const prizeImg = document.createElement('img');
-                    prizeImg.className = 'prize-img';
-                    prizeImg.src = `${BASE_URL}/crystal0.png`;
-                    prizeImg.alt = 'Crystal';
-                    dungeonContent.appendChild(prizeImg);
-                    
-                    dungeonSlot.addEventListener('click', () => cycleDungeonPrize(itemKey, dungeonSlot));
+
+                if (isPendantDungeon) {
+                    // Pendant dungeons: label then prize stacked vertically
+                    const label = document.createElement('div');
+                    label.className = 'dungeon-label';
+                    label.textContent = dungeons[itemKey].name;
+                    dungeonContent.appendChild(label);
+
+                    if (!dungeons[itemKey].bigkeyOnly) {
+                        const prizeImg = document.createElement('img');
+                        prizeImg.className = 'prize-img';
+                        const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+                        prizeImg.src = `${BASE_URL}/${_ksMode === 'keysanity' ? 'unknown0.png' : 'crystal0.png'}`;
+                        prizeImg.alt = 'Prize';
+                        dungeonContent.appendChild(prizeImg);
+                        dungeonSlot.addEventListener('click', () => cycleDungeonPrize(itemKey, dungeonSlot));
+                    }
+                    dungeonSlot.appendChild(dungeonContent);
+                } else {
+                    // DW dungeons: label left, prize right on top row
+                    const topRow = document.createElement('div');
+                    topRow.className = 'dungeon-top-row';
+                    const label = document.createElement('div');
+                    label.className = 'dungeon-label';
+                    label.textContent = dungeons[itemKey].name;
+                    topRow.appendChild(label);
+
+                    if (!dungeons[itemKey].bigkeyOnly) {
+                        const prizeImg = document.createElement('img');
+                        prizeImg.className = 'prize-img';
+                        const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+                        prizeImg.src = `${BASE_URL}/${_ksMode === 'keysanity' ? 'unknown0.png' : 'crystal0.png'}`;
+                        prizeImg.alt = 'Prize';
+                        topRow.appendChild(prizeImg);
+                        dungeonSlot.addEventListener('click', () => cycleDungeonPrize(itemKey, dungeonSlot));
+                    }
+                    dungeonSlot.appendChild(topRow);
+                    dungeonSlot.appendChild(dungeonContent); // empty but needed for consistent structure
                 }
-                
-                dungeonSlot.appendChild(dungeonContent);
                 
                 // Container for dungeon items (bigkey, compass, map)
                 const itemsContainer = document.createElement('div');
@@ -402,18 +438,44 @@ function createTracker() {
                 bigkeyImg.className = 'bigkey-img';
                 bigkeyImg.src = `${BASE_URL}/bigkey0.png`;
                 bigkeyImg.alt = 'Big Key';
+                bigkeyImg.style.cursor = 'pointer';
+                bigkeyImg.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const d = dungeons[itemKey];
+                    d.bigkeyState = d.bigkeyState ? 0 : 1;
+                    bigkeyImg.src = `${BASE_URL}/bigkey${d.bigkeyState}.png`;
+                });
                 itemsContainer.appendChild(bigkeyImg);
-                
+
                 const compassImg = document.createElement('img');
                 compassImg.className = 'compass-img';
                 compassImg.src = `${BASE_URL}/compass0.png`;
                 compassImg.alt = 'Compass';
+                compassImg.style.cursor = 'pointer';
+                compassImg.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const d = dungeons[itemKey];
+                    d.compassState = d.compassState ? 0 : 1;
+                    compassImg.src = `${BASE_URL}/compass${d.compassState}.png`;
+                    updateDungeonCountDisplay(itemKey);
+                    if (window.broadcastItemSnap) window.broadcastItemSnap();
+                });
                 itemsContainer.appendChild(compassImg);
-                
+
                 const mapImg = document.createElement('img');
                 mapImg.className = 'map-img';
                 mapImg.src = `${BASE_URL}/map0.png`;
                 mapImg.alt = 'Map';
+                mapImg.style.cursor = 'pointer';
+                mapImg.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const d = dungeons[itemKey];
+                    d.mapState = d.mapState ? 0 : 1;
+                    mapImg.src = `${BASE_URL}/map${d.mapState}.png`;
+                    updateDungeonCountDisplay(itemKey);
+                    if (typeof broadcastPrizes === 'function') setTimeout(broadcastPrizes, 50);
+                    if (window.broadcastItemSnap) window.broadcastItemSnap();
+                });
                 itemsContainer.appendChild(mapImg);
                 
                 dungeonSlot.appendChild(itemsContainer);
@@ -477,6 +539,14 @@ function createTracker() {
                 const bonkBox = document.createElement('div');
                 bonkBox.className = 'stat-box stat-bonk';
                 bonkBox.innerHTML = '<span class="stat-label">BONKS</span><span class="stat-value" id="toh-bonk-count">0</span>';
+                // CT small key counter — Key Sanity only, shown above checks
+                const _ksCheck = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+                if (_ksCheck) {
+                    const ctKeyBox = document.createElement('div');
+                    ctKeyBox.className = 'stat-box stat-ctkey';
+                    ctKeyBox.innerHTML = `<span class="stat-label">CT</span><img src="${BASE_URL}/smallkey0.png" class="stat-icon" alt="Key"><span class="stat-value" id="toh-ctkey-count">0/2</span>`;
+                    statsSlot.appendChild(ctKeyBox);
+                }
                 statsSlot.appendChild(checkBox);
                 statsSlot.appendChild(deathBox);
                 statsSlot.appendChild(bonkBox);
@@ -491,7 +561,15 @@ function createTracker() {
                 if (items[itemKey].isGoMode) {
                     itemSlot.classList.add('go-mode');
                     itemSlot.textContent = 'GO';
-                    itemSlot.style.color = items[itemKey].states[0].color;
+                    itemSlot.style.marginLeft = '5px';
+                    const state0 = items[itemKey].states[0];
+                    if (state0.color === '#666') {
+                        itemSlot.style.color = state0.color;
+                        itemSlot.style.background = 'transparent';
+                    } else {
+                        itemSlot.style.color = '#000';
+                        itemSlot.style.background = state0.color;
+                    }
                 } else {
                     const img = document.createElement('img');
                     img.src = items[itemKey].states[0].img;
@@ -524,7 +602,10 @@ function createTracker() {
 
 function cycleDungeonPrize(dungeonKey, slot) {
     const dungeon = dungeons[dungeonKey];
-    const prizeImages = ['crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png'];
+    const ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+    const prizeImages = ksMode
+        ? ['unknown0.png', 'crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png']
+        : ['crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png'];
     
     dungeon.prizeState = (dungeon.prizeState + 1) % prizeImages.length;
     
@@ -540,11 +621,19 @@ function updateDungeonCountDisplay(dungeonKey) {
     const slot = document.querySelector(`[data-dungeon-key="${dungeonKey}"]`);
     
     if (slot) {
+        // Calculate status first
+        const allItemsCollected = dungeon.itemCount >= dungeon.maxItems;
+        const allKeysCollected  = dungeon.maxSmallKeys > 0
+            ? dungeon.smallKeyCount >= dungeon.maxSmallKeys
+            : false;
+
         // Update small key count
         if (dungeon.maxSmallKeys > 0) {
             const keyCountSpan = slot.querySelector('.key-count');
             if (keyCountSpan) {
                 keyCountSpan.textContent = `${dungeon.smallKeyCount}/${dungeon.maxSmallKeys}`;
+                const _ksForKey = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+                keyCountSpan.style.color = (_ksForKey && allKeysCollected) ? '#2ecc71' : '';
             }
         }
         
@@ -553,22 +642,21 @@ function updateDungeonCountDisplay(dungeonKey) {
         if (itemCountSpan) {
             itemCountSpan.textContent = `${dungeon.itemCount}/${dungeon.maxItems}`;
         }
-        
-        // Check completion status
-        const allItemsCollected = dungeon.itemCount >= dungeon.maxItems;
-        
+
         // Check if prize is collected (1.png = obtained/bright)
         const prizeImg = slot.querySelector('.prize-img');
         const prizeCollected = prizeImg && prizeImg.src.includes('1.png');
-        
+
+        const ksMode2 = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+
         // Remove all completion classes first
         slot.classList.remove('completed-items', 'completed-full');
-        
+
         if (allItemsCollected && prizeCollected) {
-            // Bright green - all items + prize collected
+            // Green — all items + prize collected (both modes)
             slot.classList.add('completed-full');
-        } else if (allItemsCollected) {
-            // Dark green - only items collected
+        } else if (allItemsCollected && !ksMode2) {
+            // Standard: blue when all items collected
             slot.classList.add('completed-items');
         }
     }
@@ -581,7 +669,13 @@ function cycleItem(itemKey, slot) {
     const newState = item.states[item.currentState];
     
     if (item.isGoMode) {
-        slot.style.color = newState.color;
+        if (newState.color === '#666') {
+            slot.style.color = newState.color;
+            slot.style.background = 'transparent';
+        } else {
+            slot.style.color = '#000';
+            slot.style.background = newState.color;
+        }
         slot.dataset.itemName = newState.name;
     } else {
         const img = slot.querySelector('img');
@@ -610,6 +704,8 @@ function broadcastItemSnap() {
     snap.redCrystal   = (window.trackerItems && window.trackerItems.redCrystal)   || 0;
     snap.mmMedallion  = (window.trackerItems && window.trackerItems.mmMedallion)  || 0;
     snap.trMedallion  = (window.trackerItems && window.trackerItems.trMedallion)  || 0;
+    snap.ctSmallKeys  = (window.trackerItems && window.trackerItems.ctSmallKeys)  || 0;
+    // Include bigkey states so map can show yellow when dungeon accessible but bigkey missing
     window._itemsBc.postMessage({ type: 'items', data: snap });
 }
 window.broadcastItemSnap = broadcastItemSnap;
@@ -848,23 +944,34 @@ function processRoomData(data) {
             let chestsOpened = 0;
             
             for (const [room, bitmask] of dungeon.locations) {
-                if (room < data.length && (data[room] & bitmask) !== 0) {
+                // For floor item locations (0x04): check both the floor pickup flag AND
+                // chest-open flag (0x10) since KS mode places a chest there instead
+                const effectiveMask = (bitmask === 0x04) ? (0x04 | 0x10) : bitmask;
+                if (room < data.length && (data[room] & effectiveMask) !== 0) {
                     chestsOpened++;
                 }
             }
             
             // Calculate items = total chests - dungeon items - small keys
-            let dungeonItems = 0;
-            if (dungeon.compassState > 0) dungeonItems++;
-            if (dungeon.mapState > 0) dungeonItems++;
-            if (dungeon.bigkeyState > 0) dungeonItems++;
-            
-            // Use the high-water mark of small keys ever held so that using a key
-            // doesn't cause the chest subtraction to drop and inflate the item count
-            const smallKeys = dungeon.smallKeyMax || dungeon.smallKeyCount;
-            
-            // Items = total chests - map - compass - bigkey - smallkeys
-            let items = chestsOpened - dungeonItems - smallKeys;
+            // In Key Sanity mode, map/compass/bigkey/keys ARE items — don't subtract them
+            const ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+            let items;
+            if (ksMode) {
+                // All chests count as items
+                items = chestsOpened;
+            } else {
+                let dungeonItems = 0;
+                if (dungeon.compassState > 0) dungeonItems++;
+                if (dungeon.mapState > 0) dungeonItems++;
+                if (dungeon.bigkeyState > 0) dungeonItems++;
+                // Use the high-water mark of small keys ever held so that using a key
+                // doesn't cause the chest subtraction to drop and inflate the item count.
+                // In standard mode, cap at maxSmallKeys to prevent over-counting when
+                // the floor item (0x04) also increments the SRAM small key counter.
+                const smallKeys = dungeon.smallKeyMax || dungeon.smallKeyCount;
+                const smallKeySubtract = Math.min(smallKeys, dungeon.maxSmallKeys);
+                items = chestsOpened - dungeonItems - smallKeySubtract;
+            }
             if (items < 0) items = 0;
             
             // Update if changed
@@ -1037,6 +1144,7 @@ function processInventoryData(data) {
                     if (bigkeyImg) {
                         bigkeyImg.src = `${BASE_URL}/bigkey1.png`;
                     }
+                    if (window.broadcastItemSnap) window.broadcastItemSnap();
                 }
             }
             
@@ -1067,6 +1175,8 @@ function processInventoryData(data) {
                     if (mapImg) {
                         mapImg.src = `${BASE_URL}/map1.png`;
                     }
+                    // Notify map window so it can show map1.png as prize placeholder
+                    if (typeof broadcastPrizes === 'function') setTimeout(broadcastPrizes, 50);
                 }
             }
         }
@@ -1089,24 +1199,33 @@ function processInventoryData(data) {
         snap.crystals = (window.trackerItems && window.trackerItems.crystals) || 0;
         snap.mmMedallion = (window.trackerItems && window.trackerItems.mmMedallion) || 0;
         snap.trMedallion = (window.trackerItems && window.trackerItems.trMedallion) || 0;
+        snap.ctSmallKeys = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
+
 
         // Count obtained prizes from dungeon slots for check logic
-        // prizeState tells us the TYPE (0=crystal,1=redcrystal,2=pendant,3=greenpendant)
-        // The image src tells us if it's OBTAINED: 0.png=unset/dim, 1.png=obtained/bright
+        // prizeState tells us the TYPE
+        // Standard:   0=crystal,1=redcrystal,2=pendant,3=greenpendant
+        // Key Sanity: 0=unknown,1=crystal,2=redcrystal,3=pendant,4=greenpendant,5=unknown(obtained)
         var crystalCount = 0, redCrystalCount = 0, pendantCount = 0, greenPendantCount = 0;
         Object.keys(dungeons).forEach(function(key) {
             var d = dungeons[key];
             var slot = document.querySelector('[data-dungeon-key="' + key + '"]');
             var obtained = false;
+            var prizeName = 'unknown';
             if (slot) {
                 var prizeImg = slot.querySelector('.prize-img');
                 obtained = prizeImg && prizeImg.src.includes('1.png');
+                var src = prizeImg ? prizeImg.src : '';
+                if      (src.includes('greenpendant')) prizeName = 'greenpendant';
+                else if (src.includes('pendant'))      prizeName = 'pendant';
+                else if (src.includes('redcrystal'))   prizeName = 'redcrystal';
+                else if (src.includes('crystal'))      prizeName = 'crystal';
             }
-            if (!obtained) return; // only count if boss cleared/prize collected
-            if (d.prizeState === 0) crystalCount++;
-            else if (d.prizeState === 1) { crystalCount++; redCrystalCount++; }
-            else if (d.prizeState === 2) pendantCount++;
-            else if (d.prizeState === 3) { pendantCount++; greenPendantCount++; }
+            if (!obtained) return;
+            if      (prizeName === 'crystal')      crystalCount++;
+            else if (prizeName === 'redcrystal')   { crystalCount++; redCrystalCount++; }
+            else if (prizeName === 'pendant')      pendantCount++;
+            else if (prizeName === 'greenpendant') { pendantCount++; greenPendantCount++; }
         });
         snap.redCrystal   = redCrystalCount;
         snap.crystals     = crystalCount;
@@ -1146,6 +1265,21 @@ function processInventoryData(data) {
     const bonkEl = document.getElementById('toh-bonk-count');
     if (bonkEl && 0xE0 < data.length) {
         bonkEl.textContent = data[0xE0];
+    }
+    // CT small key count (SRAM 0xF5F4E4 = inv offset 0x1a4) — Key Sanity only
+    // Use high water mark so count doesn't drop when keys are used
+    const ctKeyEl = document.getElementById('toh-ctkey-count');
+    if (0x1a4 < data.length) {
+        const ctKeysRaw = data[0x1a4];
+        if (!window.trackerItems) window.trackerItems = {};
+        const prev = window.trackerItems.ctSmallKeysMax || 0;
+        const ctKeys = Math.max(ctKeysRaw, prev);
+        window.trackerItems.ctSmallKeysMax = ctKeys;
+        window.trackerItems.ctSmallKeys = ctKeys;
+        if (ctKeyEl) {
+            ctKeyEl.textContent = ctKeys + '/2';
+            ctKeyEl.style.color = ctKeys >= 2 ? '#2ecc71' : '';
+        }
     }
 }
 
