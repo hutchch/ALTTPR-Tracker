@@ -1,4 +1,4 @@
-<h1>ALTTPR Tracker (v1.0.5 release)</h1>
+<h1>ALTTPR Tracker (v1.1.0 release)</h1>
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
@@ -6,10 +6,10 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Currently this is a selectable (1-7) crystal Ganon Tower
  - Standard or open game start.
  - Either normal or enemizer.
- - Coming Soon:
-    -  Key Sanity.
+ - Key Sanity.
 </p>
 Quick setup guide is available https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR%20Tracker.pdf
+User Guide is available https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR-Tracker-User-Guide.pdf
 
 <h2> Descriptions/Instructions</h2>
 A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
