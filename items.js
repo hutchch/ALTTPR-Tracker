@@ -712,12 +712,13 @@ window.broadcastItemSnap = broadcastItemSnap;
 
 function cycleMedallionLabel(itemKey, slot) {
     const item = items[itemKey];
+    // Default cycle — will be overridden by itemtracker.html with context-aware filtering
     const labels = ['', 'MM', 'TR', 'BOTH'];
     const currentIndex = labels.indexOf(item.medallionLabel);
     item.medallionLabel = labels[(currentIndex + 1) % labels.length];
-    
+
     const labelDiv = slot.querySelector('.medallion-label');
-    labelDiv.textContent = item.medallionLabel;
+    if (labelDiv) labelDiv.textContent = item.medallionLabel;
 }
 
 const SAVEDATA_START = 0xF5F000;

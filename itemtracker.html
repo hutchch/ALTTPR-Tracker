@@ -12,10 +12,11 @@
 
 <div class="tracker-bottom-bar">
   <div class="size-group">
-    <button class="size-btn" onclick="changeTrackerScale(-0.1)">−</button>
+    <button class="size-btn" onclick="changeTrackerScale(-0.1)">&#8722;</button>
     <button class="size-btn" onclick="changeTrackerScale(0.1)">+</button>
   </div>
   <div class="connection-status" id="item-conn-status">○ Disconnected</div>
+  <span class="mode-label" id="item-mode-label"></span>
   <button class="reconnect-btn" id="item-reconnect-btn" title="Reconnect to QUsb2Snes" onclick="manualReconnect()">↻</button>
 </div>
 
@@ -37,6 +38,15 @@ try { window._itemsBc = new BroadcastChannel('alttp-tracker'); } catch(e) {}
   var p = new URLSearchParams(window.location.search);
   window._trackerScale = parseFloat(p.get('scale')) || 1;
   if (window._trackerScale !== 1) document.body.style.zoom = window._trackerScale;
+
+  // Store dungeonItems mode for reference
+  window._dungeonItemsMode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
+
+  // Set mode label in bottom bar
+  document.addEventListener('DOMContentLoaded', function() {
+    var lbl = document.getElementById('item-mode-label');
+    if (lbl) lbl.textContent = window._dungeonItemsMode === 'keysanity' ? 'KS' : 'STD';
+  });
 
   // Background color — apply class to body for CSS theming
   var bg = p.get('bg') || localStorage.getItem('alttp-tracker-bg') || 'black';
@@ -74,14 +84,18 @@ function broadcastPrizes() {
       var prizeImg = document.querySelector('[data-dungeon-key="' + key + '"] .prize-img');
       if (!prizeImg) return;
       var src = prizeImg.src || '';
-      // state = prize type (0=crystal,1=redcrystal,2=pendant,3=greenpendant)
-      // obtained = boss beaten = prize image changed to 0.png (bright) by SRAM auto-clear
+      // Derive prize name from image src
+      var name = 'unknown';
+      if      (src.includes('greenpendant')) name = 'greenpendant';
+      else if (src.includes('pendant'))      name = 'pendant';
+      else if (src.includes('redcrystal'))   name = 'redcrystal';
+      else if (src.includes('crystal'))      name = 'crystal';
       prizes[key] = {
-        state:    src.includes('greenpendant') ? 3 : src.includes('pendant') ? 2 : src.includes('redcrystal') ? 1 : 0,
-        obtained: src.includes('0.png')
+        name:     name,
+        obtained: src.includes('1.png'),
+        mapState: dungeons[key] ? (dungeons[key].mapState || 0) : 0
       };
     });
-    // Include medallion assignments so map always has current values
     var mm = window.trackerItems ? (window.trackerItems.mmMedallion || 0) : 0;
     var tr = window.trackerItems ? (window.trackerItems.trMedallion || 0) : 0;
     window._itemsBc.postMessage({ type: 'prizes', data: prizes, mmMedallion: mm, trMedallion: tr });
@@ -93,33 +107,54 @@ window.onPrizeCycled = function() { setTimeout(broadcastPrizes, 30); };
 // ── Medallion label cycling → broadcast items ─────────────────────────────────
 var _origCycleLabel = window.cycleMedallionLabel;
 window.cycleMedallionLabel = function(itemKey, slot) {
-  if (_origCycleLabel) _origCycleLabel(itemKey, slot);
-  var label = items[itemKey] ? items[itemKey].medallionLabel : '';
   var medIdx = {bombos:1, ether:2, quake:3}[itemKey] || 0;
   if (!window.trackerItems) window.trackerItems = {};
-  var mm = window.trackerItems.mmMedallion || 0;
-  var tr = window.trackerItems.trMedallion || 0;
 
-  // Clear this medallion from any slot it currently occupies
-  if (mm === medIdx) mm = 0;
-  if (tr === medIdx) tr = 0;
+  // Find what the OTHER two medallions are currently assigned to
+  var otherMM = 0, otherTR = 0;
+  ['bombos','ether','quake'].forEach(function(k) {
+    if (k === itemKey) return;
+    var lbl = items[k] ? items[k].medallionLabel : '';
+    var idx = {bombos:1, ether:2, quake:3}[k] || 0;
+    if (lbl === 'MM' || lbl === 'BOTH') otherMM = idx;
+    if (lbl === 'TR' || lbl === 'BOTH') otherTR = idx;
+  });
 
-  // Assign to new slot(s)
-  if      (label === 'MM')   { mm = medIdx; }
-  else if (label === 'TR')   { tr = medIdx; }
-  else if (label === 'BOTH') { mm = medIdx; tr = medIdx; }
-  // '' = cleared above already
+  // Build available labels: always include '' (clear); include MM if not taken by another,
+  // TR if not taken by another, BOTH if neither is taken by another
+  var labels = [''];
+  if (!otherMM) labels.push('MM');
+  if (!otherTR) labels.push('TR');
+  if (!otherMM && !otherTR) labels.push('BOTH');
+
+  var currentLabel = items[itemKey] ? items[itemKey].medallionLabel : '';
+  var currentIdx = labels.indexOf(currentLabel);
+  // If current label is no longer valid (e.g. another medallion took it), reset to ''
+  var nextLabel = labels[(currentIdx + 1) % labels.length];
+
+  // Update items.js state
+  if (items[itemKey]) items[itemKey].medallionLabel = nextLabel;
+  var labelDiv = slot.querySelector('.medallion-label');
+  if (labelDiv) labelDiv.textContent = nextLabel;
+
+  // Compute new mm/tr values
+  var mm = otherMM;
+  var tr = otherTR;
+  if      (nextLabel === 'MM')   { mm = medIdx; }
+  else if (nextLabel === 'TR')   { tr = medIdx; }
+  else if (nextLabel === 'BOTH') { mm = medIdx; tr = medIdx; }
 
   window.trackerItems.mmMedallion = mm;
   window.trackerItems.trMedallion = tr;
-  // Send a dedicated medallions message first so map updates immediately
+
+  // Send medallions message first so map updates immediately
   if (window._itemsBc) {
     window._itemsBc.postMessage({ type: 'medallions', data: {
       mmMedallion: mm,
       trMedallion: tr
     }});
   }
-  // Then send full snap so all item states are also current
+  // Then send full snap
   if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
 
