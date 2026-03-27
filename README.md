@@ -7,14 +7,18 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Standard or open game start.
  - Either normal or enemizer.
  - Key Sanity.
+
+Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
 </p>
 ______________________________________________________________________
 
 <h2> Descriptions/Instructions</h2>
-A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.<br>
-<br>
-Quick setup guide is available: https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR%20Tracker.pdf <br>
-User Guide is available: https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR-Tracker-User-Guide.pdf
+<p>A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
+
+Quick Setup Guide: [Quick Setup](https://github.com/hutchch/blob/main/Hutch-ALTTPR%20Tracker.pdf)<br>
+User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR-Tracker-User-Guide.pdf)
+
+</p>
 ______________________________________________________________________
 
 <h3>NOTE: Launch Order </h3>
