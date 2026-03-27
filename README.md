@@ -114,6 +114,8 @@ Vertical:
 Item Tracking with Map:
 <img width="1319" height="1209" alt="image" src="https://github.com/user-attachments/assets/f86c5a8a-ea50-4a29-a3f2-25d5f95317df" />
 
+Key Sanity Completionist:
+<img width="1288" height="1239" alt="image" src="https://github.com/user-attachments/assets/3b6f6856-fcf8-48f8-b1bf-470974d7d71d" />
 
 Logic
 <img width="1163" height="1000" alt="image" src="https://github.com/user-attachments/assets/22d2cc5f-d273-4571-bc4b-c246be144a63" />
