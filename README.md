@@ -106,13 +106,16 @@ UI / Display
 - Connection status indicator (green/yellow/red)
 
 Horizontal:
-<img width="1075" height="588" alt="image" src="https://github.com/user-attachments/assets/de13335d-c609-4fc2-ad8a-72b93ed0292d" />
+<img width="1060" height="959" alt="image" src="https://github.com/user-attachments/assets/a86a2e49-c7c6-4eef-badf-463df188b98c" />
+
 
 Vertical:
-<img width="1229" height="1140" alt="image" src="https://github.com/user-attachments/assets/7c946064-12bd-4ca7-9f38-caeae051ada6" />
+<img width="538" height="1480" alt="image" src="https://github.com/user-attachments/assets/87c1d2f3-2e83-49b2-b3e1-761c971b61a5" />
 
-Item Tracking with Map:
-<img width="1319" height="1209" alt="image" src="https://github.com/user-attachments/assets/f86c5a8a-ea50-4a29-a3f2-25d5f95317df" />
+
+Key Sanity Item Tracking with Map and Timer:
+<img width="1196" height="1519" alt="image" src="https://github.com/user-attachments/assets/bc0dbeee-3cd5-4a18-8289-fba106830840" />
+
 
 Key Sanity Completionist:
 <img width="1288" height="1239" alt="image" src="https://github.com/user-attachments/assets/3b6f6856-fcf8-48f8-b1bf-470974d7d71d" />
