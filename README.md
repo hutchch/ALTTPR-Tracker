@@ -7,9 +7,15 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Standard or open game start.
  - Either normal or enemizer.
  - Key Sanity.
-
+ 
 Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
 </p>
+
+______________________________________________________________________
+ 
+ Coming Soon:
+ 
+ <img width="491" height="160" alt="image" src="https://github.com/user-attachments/assets/45fc91a9-c21e-4aeb-a608-b25acb6694e2" />
 ______________________________________________________________________
 
 <h2> Descriptions/Instructions</h2>
