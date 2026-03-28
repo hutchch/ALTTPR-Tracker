@@ -444,11 +444,12 @@ function dungeonColor(key) {
       return 'green';
 
     case 'sp':
-      // Red until moonpearl + mirror + flippers + DW south access; yellow until hammer; green with hammer
+      // Red until moonpearl + mirror + flippers + DW south access
+      // DW south: (aga + hammer) OR (hammer + gloves) OR titans mitt
       if (!it.moonpearl || !it.mirror || !it.flippers) return 'red';
-      var dwSouthSP = it.agahnim || (it.hammer && it.gloves >= 1) || (it.gloves >= 2);
+      var dwSouthSP = (it.agahnim && it.hammer) || (it.hammer && it.gloves >= 1) || (it.gloves >= 2);
       if (!dwSouthSP) return 'red';
-      if (!it.hammer) return 'yellow';
+      if (it.gloves >= 2 && !it.hammer) return 'yellow'; // titans mitt access but no hammer to enter
       if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
         if (!it.spSmallKeys) return 'yellow';
       }
