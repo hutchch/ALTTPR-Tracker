@@ -1,4 +1,4 @@
-<h1>ALTTPR Tracker (v1.1.0a release)</h1>
+<h1>ALTTPR Tracker (v1.1.1 release)</h1>
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
@@ -6,17 +6,15 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Currently this is a selectable (1-7) crystal Ganon Tower
  - Standard or open game start.
  - Either normal or enemizer.
- - Key Sanity.
+ - Dungeon Item Shuffle
+   - Standard
+   - Map/Compass
+   - Map/Compass/Small key
+   - Key Sanity
 
 Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
 </p>
 
-______________________________________________________________________
- 
- Coming Soon:
--  Map/Compass and Map/Compass/Small Key modes
--  Key Logic for MCK and KS Modes
- <img width="491" height="160" alt="image" src="https://github.com/user-attachments/assets/45fc91a9-c21e-4aeb-a608-b25acb6694e2" />
 ______________________________________________________________________
 
 <h2> Descriptions/Instructions</h2>
@@ -131,6 +129,10 @@ Key Sanity Item Tracking with Map and Timer:
 
 Key Sanity Completionist:
 <img width="1288" height="1239" alt="image" src="https://github.com/user-attachments/assets/3b6f6856-fcf8-48f8-b1bf-470974d7d71d" />
+
+Item Counts:
+
+<img width="400" height="400" alt="image" src="https://github.com/user-attachments/assets/b422e137-a5b6-4b45-893d-b50088e1af53" />
 
 Logic
 <img width="1163" height="1000" alt="image" src="https://github.com/user-attachments/assets/22d2cc5f-d273-4571-bc4b-c246be144a63" />
