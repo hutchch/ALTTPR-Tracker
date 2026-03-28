@@ -45,7 +45,10 @@ try { window._itemsBc = new BroadcastChannel('alttp-tracker'); } catch(e) {}
   // Set mode label in bottom bar
   document.addEventListener('DOMContentLoaded', function() {
     var lbl = document.getElementById('item-mode-label');
-    if (lbl) lbl.textContent = window._dungeonItemsMode === 'keysanity' ? 'KS' : 'STD';
+    if (lbl) {
+      var modeLabels = { standard: 'STD', mapcompass: 'MC', mapcompasskeys: 'MCK', keysanity: 'KS' };
+      lbl.textContent = modeLabels[window._dungeonItemsMode] || 'STD';
+    }
   });
 
   // Background color — apply class to body for CSS theming

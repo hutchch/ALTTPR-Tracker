@@ -344,14 +344,27 @@ const dungeons = {
 // Expose dungeons globally so itemtracker.html can read/update them
 window.dungeons = dungeons;
 
-// Apply Key Sanity maxItems overrides if mode is set
+// Apply dungeon item shuffle maxItems overrides based on mode
 (function() {
     var p = new URLSearchParams(window.location.search);
     var mode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
     if (mode === 'keysanity') {
+        // All dungeon items (map/compass/keys/bigkey) are shuffled — count all chests
         var KS = { ep:6, dp:6, toh:6, pod:14, sp:10, sw:8, tt:8, ip:8, mm:8, tr:12, gt:27 };
         Object.keys(KS).forEach(function(k) {
             if (dungeons[k]) dungeons[k].maxItems = KS[k];
+        });
+    } else if (mode === 'mapcompass') {
+        // Maps and compasses are shuffled — standard + 2 per dungeon (GT +1, no map)
+        var MC = { ep:5, dp:4, toh:4, pod:7, sp:8, sw:4, tt:6, ip:5, mm:4, tr:7, gt:22 };
+        Object.keys(MC).forEach(function(k) {
+            if (dungeons[k]) dungeons[k].maxItems = MC[k];
+        });
+    } else if (mode === 'mapcompasskeys') {
+        // Maps, compasses, and small keys shuffled but big key stays — subtract 1 for big key
+        var MCK = { ep:5, dp:5, toh:5, pod:13, sp:9, sw:7, tt:7, ip:7, mm:7, tr:11, gt:26 };
+        Object.keys(MCK).forEach(function(k) {
+            if (dungeons[k]) dungeons[k].maxItems = MCK[k];
         });
     }
 })();
@@ -402,7 +415,8 @@ function createTracker() {
                         const prizeImg = document.createElement('img');
                         prizeImg.className = 'prize-img';
                         const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
-                        prizeImg.src = `${BASE_URL}/${_ksMode === 'keysanity' ? 'unknown0.png' : 'crystal0.png'}`;
+                        const _isShuffled = ['keysanity','mapcompass','mapcompasskeys'].includes(_ksMode);
+                        prizeImg.src = `${BASE_URL}/${_isShuffled ? 'unknown0.png' : 'crystal0.png'}`;
                         prizeImg.alt = 'Prize';
                         dungeonContent.appendChild(prizeImg);
                         dungeonSlot.addEventListener('click', () => cycleDungeonPrize(itemKey, dungeonSlot));
@@ -421,7 +435,8 @@ function createTracker() {
                         const prizeImg = document.createElement('img');
                         prizeImg.className = 'prize-img';
                         const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
-                        prizeImg.src = `${BASE_URL}/${_ksMode === 'keysanity' ? 'unknown0.png' : 'crystal0.png'}`;
+                        const _isShuffled = ['keysanity','mapcompass','mapcompasskeys'].includes(_ksMode);
+                        prizeImg.src = `${BASE_URL}/${_isShuffled ? 'unknown0.png' : 'crystal0.png'}`;
                         prizeImg.alt = 'Prize';
                         topRow.appendChild(prizeImg);
                         dungeonSlot.addEventListener('click', () => cycleDungeonPrize(itemKey, dungeonSlot));
@@ -540,7 +555,7 @@ function createTracker() {
                 bonkBox.className = 'stat-box stat-bonk';
                 bonkBox.innerHTML = '<span class="stat-label">BONKS</span><span class="stat-value" id="toh-bonk-count">0</span>';
                 // CT small key counter — Key Sanity only, shown above checks
-                const _ksCheck = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+                const _ksCheck = ['keysanity','mapcompasskeys'].includes(new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
                 if (_ksCheck) {
                     const ctKeyBox = document.createElement('div');
                     ctKeyBox.className = 'stat-box stat-ctkey';
@@ -602,7 +617,8 @@ function createTracker() {
 
 function cycleDungeonPrize(dungeonKey, slot) {
     const dungeon = dungeons[dungeonKey];
-    const ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+    const _diMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+    const ksMode = ['keysanity','mapcompass','mapcompasskeys'].includes(_diMode);
     const prizeImages = ksMode
         ? ['unknown0.png', 'crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png']
         : ['crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png'];
@@ -632,7 +648,7 @@ function updateDungeonCountDisplay(dungeonKey) {
             const keyCountSpan = slot.querySelector('.key-count');
             if (keyCountSpan) {
                 keyCountSpan.textContent = `${dungeon.smallKeyCount}/${dungeon.maxSmallKeys}`;
-                const _ksForKey = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+                const _ksForKey = ['keysanity','mapcompasskeys'].includes(new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
                 keyCountSpan.style.color = (_ksForKey && allKeysCollected) ? '#2ecc71' : '';
             }
         }
@@ -705,6 +721,26 @@ function broadcastItemSnap() {
     snap.mmMedallion  = (window.trackerItems && window.trackerItems.mmMedallion)  || 0;
     snap.trMedallion  = (window.trackerItems && window.trackerItems.trMedallion)  || 0;
     snap.ctSmallKeys  = (window.trackerItems && window.trackerItems.ctSmallKeys)  || 0;
+    snap.spSmallKeys  = (window.trackerItems && window.trackerItems.spSmallKeys)  || 0;
+    snap.dpSmallKeys  = (window.trackerItems && window.trackerItems.dpSmallKeys)  || 0;
+    snap.tohSmallKeys  = (window.trackerItems && window.trackerItems.tohSmallKeys)  || 0;
+    snap.podSmallKeys  = (window.trackerItems && window.trackerItems.podSmallKeys)  || 0;
+    snap.ttSmallKeys  = (window.trackerItems && window.trackerItems.ttSmallKeys)  || 0;
+    snap.ipSmallKeys  = (window.trackerItems && window.trackerItems.ipSmallKeys)  || 0;
+    snap.mmSmallKeys  = (window.trackerItems && window.trackerItems.mmSmallKeys)  || 0;
+    snap.trSmallKeys  = (window.trackerItems && window.trackerItems.trSmallKeys)  || 0;
+    snap.swSmallKeys  = (window.trackerItems && window.trackerItems.swSmallKeys)  || 0;
+    snap.gtSmallKeys  = (window.trackerItems && window.trackerItems.gtSmallKeys)  || 0;
+    snap.epBigKey     = (window.trackerItems && window.trackerItems.epBigKey)     || 0;
+    snap.dpBigKey     = (window.trackerItems && window.trackerItems.dpBigKey)     || 0;
+    snap.tohBigKey     = (window.trackerItems && window.trackerItems.tohBigKey)     || 0;
+    snap.podBigKey     = (window.trackerItems && window.trackerItems.podBigKey)     || 0;
+    snap.ttBigKey     = (window.trackerItems && window.trackerItems.ttBigKey)     || 0;
+    snap.ipBigKey     = (window.trackerItems && window.trackerItems.ipBigKey)     || 0;
+    snap.mmBigKey     = (window.trackerItems && window.trackerItems.mmBigKey)     || 0;
+    snap.trBigKey     = (window.trackerItems && window.trackerItems.trBigKey)     || 0;
+    snap.spBigKey     = (window.trackerItems && window.trackerItems.spBigKey)     || 0;
+    snap.swBigKey     = (window.trackerItems && window.trackerItems.swBigKey)     || 0;
     // Include bigkey states so map can show yellow when dungeon accessible but bigkey missing
     window._itemsBc.postMessage({ type: 'items', data: snap });
 }
@@ -954,20 +990,27 @@ function processRoomData(data) {
             }
             
             // Calculate items = total chests - dungeon items - small keys
-            // In Key Sanity mode, map/compass/bigkey/keys ARE items — don't subtract them
-            const ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+            // Subtract only items that are NOT shuffled into the general pool for this mode
+            const diMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+            const ksMode = diMode === 'keysanity';
+            const mcMode = diMode === 'mapcompass';
+            const mckMode = diMode === 'mapcompasskeys';
             let items;
             if (ksMode) {
-                // All chests count as items
+                // KS: everything shuffled — count all chests raw
                 items = chestsOpened;
+            } else if (mckMode) {
+                // MCK: map/compass/keys shuffled but big key stays — subtract big key only
+                const bigKey = dungeon.bigkeyState > 0 ? 1 : 0;
+                items = chestsOpened - bigKey;
             } else {
                 let dungeonItems = 0;
-                if (dungeon.compassState > 0) dungeonItems++;
-                if (dungeon.mapState > 0) dungeonItems++;
+                if (!mcMode && dungeon.compassState > 0) dungeonItems++; // compass is shuffled in MC+
+                if (!mcMode && dungeon.mapState > 0) dungeonItems++;     // map is shuffled in MC+
                 if (dungeon.bigkeyState > 0) dungeonItems++;
                 // Use the high-water mark of small keys ever held so that using a key
                 // doesn't cause the chest subtraction to drop and inflate the item count.
-                // In standard mode, cap at maxSmallKeys to prevent over-counting when
+                // In standard/MC mode, cap at maxSmallKeys to prevent over-counting when
                 // the floor item (0x04) also increments the SRAM small key counter.
                 const smallKeys = dungeon.smallKeyMax || dungeon.smallKeyCount;
                 const smallKeySubtract = Math.min(smallKeys, dungeon.maxSmallKeys);
@@ -1201,6 +1244,28 @@ function processInventoryData(data) {
         snap.mmMedallion = (window.trackerItems && window.trackerItems.mmMedallion) || 0;
         snap.trMedallion = (window.trackerItems && window.trackerItems.trMedallion) || 0;
         snap.ctSmallKeys = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
+        snap.spSmallKeys = (window.trackerItems && window.trackerItems.spSmallKeys) || 0;
+        snap.dpSmallKeys  = (window.trackerItems && window.trackerItems.dpSmallKeys)  || 0;
+        snap.tohSmallKeys  = (window.trackerItems && window.trackerItems.tohSmallKeys)  || 0;
+        snap.podSmallKeys  = (window.trackerItems && window.trackerItems.podSmallKeys)  || 0;
+        snap.ttSmallKeys  = (window.trackerItems && window.trackerItems.ttSmallKeys)  || 0;
+        snap.ipSmallKeys  = (window.trackerItems && window.trackerItems.ipSmallKeys)  || 0;
+        snap.mmSmallKeys  = (window.trackerItems && window.trackerItems.mmSmallKeys)  || 0;
+        snap.trSmallKeys  = (window.trackerItems && window.trackerItems.trSmallKeys)  || 0;
+        snap.swSmallKeys  = (window.trackerItems && window.trackerItems.swSmallKeys)  || 0;
+        snap.gtSmallKeys  = (window.trackerItems && window.trackerItems.gtSmallKeys)  || 0;
+        snap.epBigKey     = (window.trackerItems && window.trackerItems.epBigKey)     || 0;
+        snap.dpBigKey     = (window.trackerItems && window.trackerItems.dpBigKey)     || 0;
+        snap.tohBigKey     = (window.trackerItems && window.trackerItems.tohBigKey)     || 0;
+        snap.podBigKey     = (window.trackerItems && window.trackerItems.podBigKey)     || 0;
+        snap.ttBigKey     = (window.trackerItems && window.trackerItems.ttBigKey)     || 0;
+        snap.ipBigKey     = (window.trackerItems && window.trackerItems.ipBigKey)     || 0;
+        snap.mmBigKey     = (window.trackerItems && window.trackerItems.mmBigKey)     || 0;
+        snap.trBigKey     = (window.trackerItems && window.trackerItems.trBigKey)     || 0;
+        snap.spBigKey     = (window.trackerItems && window.trackerItems.spBigKey)     || 0;
+        snap.swBigKey     = (window.trackerItems && window.trackerItems.swBigKey)     || 0;
+    snap.spBigKey     = (window.trackerItems && window.trackerItems.spBigKey)     || 0;
+    snap.swBigKey     = (window.trackerItems && window.trackerItems.swBigKey)     || 0;
 
 
         // Count obtained prizes from dungeon slots for check logic
@@ -1282,6 +1347,45 @@ function processInventoryData(data) {
             ctKeyEl.style.color = ctKeys >= 2 ? '#2ecc71' : '';
         }
     }
+    // SP small key count (SRAM 0xF5F4E5 = inv offset 0x1a5) — KS/MCK map logic
+    if (0x1a5 < data.length) {
+        if (!window.trackerItems) window.trackerItems = {};
+        const spRaw = data[0x1a5];
+        const spPrev = window.trackerItems.spSmallKeysMax || 0;
+        const spKeys = Math.max(spRaw, spPrev);
+        window.trackerItems.spSmallKeysMax = spKeys;
+        window.trackerItems.spSmallKeys = spKeys;
+    }
+    // Remaining dungeon small key counts — KS/MCK map logic (high water mark)
+    const _skDungeons = [
+        { key: 'dp',  offset: 0x1a3 },
+        { key: 'toh', offset: 0x1aa },
+        { key: 'pod', offset: 0x1a6 },
+        { key: 'tt',  offset: 0x1ab },
+        { key: 'ip',  offset: 0x1a9 },
+        { key: 'mm',  offset: 0x1a7 },
+        { key: 'tr',  offset: 0x1ac },
+        { key: 'sw',  offset: 0x1a8 },
+        { key: 'gt',  offset: 0x1ad },
+    ];
+    if (!window.trackerItems) window.trackerItems = {};
+    _skDungeons.forEach(function(d) {
+        if (d.offset < data.length) {
+            const raw = data[d.offset];
+            const prev = window.trackerItems[d.key + 'SmallKeysMax'] || 0;
+            const val = Math.max(raw, prev);
+            window.trackerItems[d.key + 'SmallKeysMax'] = val;
+            window.trackerItems[d.key + 'SmallKeys'] = val;
+        }
+    });
+    // Big key states — read from dungeon bigkeyState (already tracked via SRAM in processRoomData)
+    // Expose on trackerItems for map logic
+    const _bkDungeons = ['ep','dp','toh','pod','sp','sw','tt','ip','mm','tr'];
+    _bkDungeons.forEach(function(k) {
+        if (dungeons[k]) {
+            window.trackerItems[k + 'BigKey'] = dungeons[k].bigkeyState || 0;
+        }
+    });
 }
 
 function updateItemState(itemKey, state) {
