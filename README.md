@@ -21,7 +21,6 @@ ______________________________________________________________________
 <h2> Descriptions/Instructions</h2>
 <p>A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
 
-Quick Setup Guide: [Quick Setup](https://github.com/hutchch/blob/main/Hutch-ALTTPR%20Tracker.pdf)<br>
 User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR-Tracker-User-Guide.pdf)
 
 </p>
