@@ -415,9 +415,14 @@ function createTracker() {
                         const prizeImg = document.createElement('img');
                         prizeImg.className = 'prize-img';
                         const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
-                        const _isShuffled = ['keysanity','mapcompass','mapcompasskeys'].includes(_ksMode);
+                        const _isShuffled = ['keysanity','mapcompass','mapcompasskeys','other'].includes(_ksMode);
                         prizeImg.src = `${BASE_URL}/${_isShuffled ? 'unknown0.png' : 'crystal0.png'}`;
                         prizeImg.alt = 'Prize';
+                        prizeImg.addEventListener('contextmenu', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            togglePrizeObtained(itemKey, dungeonSlot);
+                        });
                         dungeonContent.appendChild(prizeImg);
                         dungeonSlot.addEventListener('click', () => cycleDungeonPrize(itemKey, dungeonSlot));
                     }
@@ -435,9 +440,14 @@ function createTracker() {
                         const prizeImg = document.createElement('img');
                         prizeImg.className = 'prize-img';
                         const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
-                        const _isShuffled = ['keysanity','mapcompass','mapcompasskeys'].includes(_ksMode);
+                        const _isShuffled = ['keysanity','mapcompass','mapcompasskeys','other'].includes(_ksMode);
                         prizeImg.src = `${BASE_URL}/${_isShuffled ? 'unknown0.png' : 'crystal0.png'}`;
                         prizeImg.alt = 'Prize';
+                        prizeImg.addEventListener('contextmenu', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            togglePrizeObtained(itemKey, dungeonSlot);
+                        });
                         topRow.appendChild(prizeImg);
                         dungeonSlot.addEventListener('click', () => cycleDungeonPrize(itemKey, dungeonSlot));
                     }
@@ -496,11 +506,13 @@ function createTracker() {
                 dungeonSlot.appendChild(itemsContainer);
                 
                 // Add small key and item count displays
+                const _diModeSlot = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+                const _isOtherMode = _diModeSlot === 'other';
                 const countsContainer = document.createElement('div');
                 countsContainer.className = isPendantDungeon ? 'dungeon-counts-pendant' : 'dungeon-counts';
                 
-                // Small key count with icon (only if maxSmallKeys > 0)
-                if (dungeons[itemKey].maxSmallKeys > 0) {
+                // Small key count with icon (only if maxSmallKeys > 0 and not Other mode)
+                if (!_isOtherMode && dungeons[itemKey].maxSmallKeys > 0) {
                     const keyContainer = document.createElement('div');
                     keyContainer.className = 'count-item';
                     
@@ -516,10 +528,53 @@ function createTracker() {
                     
                     keyContainer.appendChild(keyImg);
                     keyContainer.appendChild(keyCount);
+                    keyContainer.style.cursor = 'pointer';
+                    keyContainer.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        if (deviceAttached) return;
+                        const d = dungeons[itemKey];
+                        if (d.smallKeyCount < d.maxSmallKeys) {
+                            d.smallKeyCount++;
+                            if (d.smallKeyCount > (d.smallKeyMax || 0)) d.smallKeyMax = d.smallKeyCount;
+                            updateDungeonCountDisplay(itemKey);
+                        }
+                    });
+                    keyContainer.addEventListener('contextmenu', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (deviceAttached) return;
+                        const d = dungeons[itemKey];
+                        if (d.smallKeyCount > 0) {
+                            d.smallKeyCount--;
+                            updateDungeonCountDisplay(itemKey);
+                        }
+                    });
                     countsContainer.appendChild(keyContainer);
                 }
                 
-                // Non-dungeon item count with icon
+                // Non-dungeon item count with icon (hidden in Other mode)
+                if (_isOtherMode) {
+                    // Other mode: clickable chest toggles completion
+                    const otherContainer = document.createElement('div');
+                    otherContainer.className = 'count-item';
+                    const otherChest = document.createElement('img');
+                    otherChest.className = 'count-icon other-chest';
+                    otherChest.src = `${BASE_URL}/chest0.png`;
+                    otherChest.alt = 'Items';
+                    otherChest.style.cursor = 'pointer';
+                    otherChest.style.width = '16px';
+                    otherChest.style.height = '16px';
+                    otherChest.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const d = dungeons[itemKey];
+                        d.otherCleared = !d.otherCleared;
+                        otherChest.src = `${BASE_URL}/${d.otherCleared ? 'chest00.png' : 'chest0.png'}`;
+                        updateDungeonCountDisplay(itemKey);
+                        if (typeof broadcastPrizes === 'function') setTimeout(broadcastPrizes, 50);
+                    });
+                    otherContainer.appendChild(otherChest);
+                    countsContainer.appendChild(otherContainer);
+                } else {
                 const itemContainer = document.createElement('div');
                 itemContainer.className = 'count-item';
                 
@@ -535,7 +590,28 @@ function createTracker() {
                 
                 itemContainer.appendChild(chestImg);
                 itemContainer.appendChild(itemCount);
+                itemContainer.style.cursor = 'pointer';
+                itemContainer.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (deviceAttached) return;
+                    const d = dungeons[itemKey];
+                    if (d.itemCount < d.maxItems) {
+                        d.itemCount++;
+                        updateDungeonCountDisplay(itemKey);
+                    }
+                });
+                itemContainer.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (deviceAttached) return;
+                    const d = dungeons[itemKey];
+                    if (d.itemCount > 0) {
+                        d.itemCount--;
+                        updateDungeonCountDisplay(itemKey);
+                    }
+                });
                 countsContainer.appendChild(itemContainer);
+                } // end !_isOtherMode item count
                 
                 dungeonSlot.appendChild(countsContainer);
 
@@ -615,10 +691,24 @@ function createTracker() {
     });
 }
 
+function togglePrizeObtained(dungeonKey, slot) {
+    const prizeImg = slot.querySelector('.prize-img');
+    if (!prizeImg) return;
+    const src = prizeImg.src;
+    // Toggle between dim (0.png) and bright (1.png) versions of current prize
+    if (src.includes('0.png')) {
+        prizeImg.src = src.replace('0.png', '1.png');
+    } else {
+        prizeImg.src = src.replace('1.png', '0.png');
+    }
+    updateDungeonCountDisplay(dungeonKey);
+    if (typeof window.onPrizeCycled === 'function') window.onPrizeCycled();
+}
+
 function cycleDungeonPrize(dungeonKey, slot) {
     const dungeon = dungeons[dungeonKey];
     const _diMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
-    const ksMode = ['keysanity','mapcompass','mapcompasskeys'].includes(_diMode);
+    const ksMode = ['keysanity','mapcompass','mapcompasskeys','other'].includes(_diMode);
     const prizeImages = ksMode
         ? ['unknown0.png', 'crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png']
         : ['crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png'];
@@ -637,7 +727,7 @@ function updateDungeonCountDisplay(dungeonKey) {
     const slot = document.querySelector(`[data-dungeon-key="${dungeonKey}"]`);
     
     if (slot) {
-        // Calculate status first
+        // Calculate status first — needed by key count color and completion logic
         const allItemsCollected = dungeon.itemCount >= dungeon.maxItems;
         const allKeysCollected  = dungeon.maxSmallKeys > 0
             ? dungeon.smallKeyCount >= dungeon.maxSmallKeys
@@ -653,22 +743,35 @@ function updateDungeonCountDisplay(dungeonKey) {
             }
         }
         
-        // Update item count
+        // Update item count and chest icon
         const itemCountSpan = slot.querySelector('.item-count');
         if (itemCountSpan) {
             itemCountSpan.textContent = `${dungeon.itemCount}/${dungeon.maxItems}`;
+            // Switch chest icon to chest00.png when all items collected
+            const chestIcon = slot.querySelector('.count-icon[alt="Items"]');
+            if (chestIcon) {
+                chestIcon.src = `${BASE_URL}/${dungeon.itemCount >= dungeon.maxItems ? 'chest00.png' : 'chest0.png'}`;
+            }
         }
 
-        // Check if prize is collected (1.png = obtained/bright)
+        // Check completion status (1.png = obtained/bright)
         const prizeImg = slot.querySelector('.prize-img');
         const prizeCollected = prizeImg && prizeImg.src.includes('1.png');
 
         const ksMode2 = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
+        const _isOther = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'other';
 
         // Remove all completion classes first
         slot.classList.remove('completed-items', 'completed-full');
 
-        if (allItemsCollected && prizeCollected) {
+        if (_isOther) {
+            // Other mode: green border when chest clicked AND prize collected
+            if (dungeon.otherCleared && prizeCollected) {
+                slot.classList.add('completed-full');
+            } else if (dungeon.otherCleared) {
+                slot.classList.add('completed-items');
+            }
+        } else if (allItemsCollected && prizeCollected) {
             // Green — all items + prize collected (both modes)
             slot.classList.add('completed-full');
         } else if (allItemsCollected && !ksMode2) {
@@ -909,18 +1012,11 @@ function startSRAMReading() {
                 Operands: [(SAVEDATA_START + 0x340).toString(16), '1ae']
             }));
 
-            // Read room/event data in TWO chunks of 0x280 each (matches original tracker)
-            // Chunk 1: F5F000 + 0x000, length 0x280 (rooms 0x000-0x27F)
+            // Read full room/event data as single 0x500 read to guarantee ordering
             ws.send(JSON.stringify({
                 Opcode: 'GetAddress',
                 Space: 'SNES',
-                Operands: [(SAVEDATA_START).toString(16), '280']
-            }));
-            // Chunk 2: F5F000 + 0x280, length 0x280 (rooms 0x280-0x4FF, includes NPC 0x410/0x411)
-            ws.send(JSON.stringify({
-                Opcode: 'GetAddress',
-                Space: 'SNES',
-                Operands: [(SAVEDATA_START + 0x280).toString(16), '280']
+                Operands: [(SAVEDATA_START).toString(16), '500']
             }));
         }
     }, 1000);

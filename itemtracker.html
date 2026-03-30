@@ -46,7 +46,7 @@ try { window._itemsBc = new BroadcastChannel('alttp-tracker'); } catch(e) {}
   document.addEventListener('DOMContentLoaded', function() {
     var lbl = document.getElementById('item-mode-label');
     if (lbl) {
-      var modeLabels = { standard: 'STD', mapcompass: 'MC', mapcompasskeys: 'MCK', keysanity: 'KS' };
+      var modeLabels = { standard: 'STD', mapcompass: 'MC', mapcompasskeys: 'MCK', keysanity: 'KS', other: 'O' };
       lbl.textContent = modeLabels[window._dungeonItemsMode] || 'STD';
     }
   });
@@ -69,8 +69,8 @@ window.addEventListener('load', function() {
       if (chromeW <= 0) chromeW = 16;
       if (chromeH <= 0) chromeH = 40;
       // body.scrollWidth/Height report pre-zoom logical pixels — multiply by scale
-      var w = Math.ceil(body.scrollWidth  * s) + chromeW;
-      var h = Math.ceil(body.scrollHeight * s) + chromeH;
+      var w = Math.ceil(body.scrollWidth  * s) + chromeW + 20;
+      var h = Math.ceil(body.scrollHeight * s) + chromeH + 20;
       window.resizeTo(w, h);
     } catch(e) {}
 
@@ -94,9 +94,10 @@ function broadcastPrizes() {
       else if (src.includes('redcrystal'))   name = 'redcrystal';
       else if (src.includes('crystal'))      name = 'crystal';
       prizes[key] = {
-        name:     name,
-        obtained: src.includes('1.png'),
-        mapState: dungeons[key] ? (dungeons[key].mapState || 0) : 0
+        name:        name,
+        obtained:    src.includes('1.png'),
+        mapState:    dungeons[key] ? (dungeons[key].mapState || 0) : 0,
+        otherCleared: dungeons[key] ? (dungeons[key].otherCleared || false) : false
       };
     });
     var mm = window.trackerItems ? (window.trackerItems.mmMedallion || 0) : 0;

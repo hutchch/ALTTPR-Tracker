@@ -66,13 +66,13 @@ function createLauncher() {
 }
 
 // ── Item Tracker ──────────────────────────────────────────────────────────────
-function openItemTracker(scale, wsHost, wsPort, bg) {
+function openItemTracker(scale, wsHost, wsPort, bg, dungeonItems) {
   if (itemWin && !itemWin.isDestroyed()) { itemWin.focus(); return; }
   const s = parseFloat(scale) || 1.0;
   const isTransparent = bg === 'transparent';
   const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', transparent: '#00000000' };
   itemWin = new BrowserWindow({
-    width: Math.ceil(460 * s), height: Math.ceil(360 * s),
+    width: Math.ceil(500 * s), height: Math.ceil(620 * s),
     resizable: true,
     title: 'Item Tracker',
     backgroundColor: isTransparent ? undefined : (bgColors[bg] || '#000000'),
@@ -92,20 +92,20 @@ function openItemTracker(scale, wsHost, wsPort, bg) {
     }
   });
   itemWin.setMenuBarVisibility(false);
-  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}`;
+  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}`;
   itemWin.loadURL(toFileUrl('itemtracker.html') + q);
   itemWin.on('closed', () => { itemWin = null; });
 }
 
 // ── Map ───────────────────────────────────────────────────────────────────────
-function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode) {
+function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, dungeonItems) {
   if (mapWin && !mapWin.isDestroyed()) { mapWin.focus(); return; }
   const pct = parseInt(zoom) || 100;
   const size = Math.round(512 * pct / 100);
   const isVert = layout === 'vertical';
   mapWin = new BrowserWindow({
-    width: isVert ? size + 20 : size * 2 + 32,
-    height: size + 92,
+    width:  isVert ? size + 60 : size * 2 + 80,
+    height: isVert ? size * 2 + 360 : size + 360,
     resizable: true,
     title: 'Map',
     backgroundColor: '#0d0d0d',
@@ -117,7 +117,7 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode) {
     }
   });
   mapWin.setMenuBarVisibility(false);
-  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}`;
+  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}`;
   mapWin.loadURL(toFileUrl('map.html') + q);
   mapWin.on('closed', () => { mapWin = null; });
 }
@@ -156,8 +156,8 @@ function openTimer(wsHost, wsPort, color, bg) {
 // ── IPC ───────────────────────────────────────────────────────────────────────
 ipcMain.on('launch', (event, opts) => {
   store.set('settings', opts);
-  if (opts.which === 'items' || opts.which === 'both') openItemTracker(opts.scale, opts.wsHost, opts.wsPort, opts.trackerBg);
-  if (opts.which === 'map'   || opts.which === 'both') openMap(opts.zoom, opts.layout, opts.enemizer, opts.gtCrystals, opts.wsHost, opts.wsPort, opts.gamemode);
+  if (opts.which === 'items' || opts.which === 'both') openItemTracker(opts.scale, opts.wsHost, opts.wsPort, opts.trackerBg, opts.dungeonItems);
+  if (opts.which === 'map'   || opts.which === 'both') openMap(opts.zoom, opts.layout, opts.enemizer, opts.gtCrystals, opts.wsHost, opts.wsPort, opts.gamemode, opts.dungeonItems);
   if (opts.which === 'timer') openTimer(opts.wsHost, opts.wsPort, opts.timerColor, opts.timerBg);
 });
 

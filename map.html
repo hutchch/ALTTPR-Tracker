@@ -41,10 +41,11 @@ body {
 /* ── Scroll area ── */
 #maps-outer {
   flex: 1;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: #000;
   min-height: 0;
-  padding-left: 12px;
+  padding: 8px 8px 12px 12px;
 }
 #maps { display: inline-flex; flex-direction: row; gap: 12px; }
 #maps.vertical { flex-direction: column; }
@@ -869,10 +870,10 @@ var PRIZE_CYCLE = PRIZE_CYCLE_STANDARD;
 // Apply Key Sanity prize defaults
 (function() {
   // Initialise mapObtained on all dungeons
-  Object.keys(DUNGEONS).forEach(function(key) { DUNGEONS[key].mapObtained = false; });
+  Object.keys(DUNGEONS).forEach(function(key) { DUNGEONS[key].mapObtained = false; DUNGEONS[key].otherCleared = false; });
   var p = new URLSearchParams(window.location.search);
   var diMode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
-  var ksMode = ['keysanity','mapcompass','mapcompasskeys'].includes(diMode);
+  var ksMode = ['keysanity','mapcompass','mapcompasskeys','other'].includes(diMode);
   if (ksMode) {
     PRIZE_CYCLE = PRIZE_CYCLE_KEYSANITY;
     // Set all non-fixed dungeons to unknown (prize index 0 in KS cycle)
@@ -1009,7 +1010,7 @@ function refreshDungeonImg(key) {
   // Key Sanity: if prize is unknown but dungeon map is obtained, show map1.png as hint
   var settings = window.trackerSettings || {};
   var diModeMap = settings.dungeonItems || 'standard';
-  if (['keysanity','mapcompass','mapcompasskeys'].includes(diModeMap)) {
+  if (['keysanity','mapcompass','mapcompasskeys','other'].includes(diModeMap)) {
     var cycle = PRIZE_CYCLE[def.prize];
     if (cycle && cycle.name === 'unknown' && def.mapObtained) {
       img.src = 'items/map1.png';
@@ -1026,7 +1027,18 @@ window.refreshMapLogic = function() {
   Object.keys(DUNGEONS).forEach(function(key) {
     var def = DUNGEONS[key];
     var el  = dngEls[key];
-    if (def.fullyCleared) {
+    var diMode = (window.trackerSettings && window.trackerSettings.dungeonItems) || 'standard';
+    if (diMode === 'other') {
+      // Other mode: boss beaten + chest clicked → cleared; boss beaten only → boss-cleared (light blue)
+      if (def.cleared && def.otherCleared) {
+        el.className = 'dng cleared';
+      } else if (def.cleared) {
+        el.className = 'dng boss-cleared';
+      } else {
+        var c = COLOR_CLASS[window.dungeonColor(key)] || 'unavail';
+        el.className = 'dng ' + c;
+      }
+    } else if (def.fullyCleared) {
       // All items + boss done — go dark
       el.className = 'dng cleared';
     } else if (def.cleared) {
@@ -1168,7 +1180,8 @@ try {
           DUNGEONS[key].img        = PRIZE_CYCLE[idx].img;
           DUNGEONS[key].imgCleared = PRIZE_CYCLE[idx].imgCleared;
           DUNGEONS[key].prizeObtained = pz[key].obtained || false;
-          DUNGEONS[key].mapObtained   = pz[key].mapState === 1;
+          DUNGEONS[key].mapObtained    = pz[key].mapState === 1;
+          DUNGEONS[key].otherCleared   = pz[key].otherCleared || false;
           refreshDungeonImg(key);
         });
         // Pendant/crystal counts from obtained prizes only
@@ -1238,8 +1251,10 @@ function resizeWindowToMap() {
   // Fall back to fixed estimate if browser reports 0 (e.g. before first paint)
   if (chromeW <= 0) chromeW = 16;
   if (chromeH <= 0) chromeH = CHROME_H;
-  var w = (isVert ? size + 20 : size * 2 + 32) + chromeW;
-  var h = size + chromeH;
+  // topbar ~30px + bottombar ~24px + maps-outer padding ~28px + buffer = ~100px content chrome
+  var contentChrome = 100;
+  var w = (isVert ? size + 28 : size * 2 + 40) + chromeW;
+  var h = (isVert ? size * 2 + 12 + contentChrome : size + contentChrome) + chromeH;
   try { window.resizeTo(w, h); } catch(e) {}
 }
 
