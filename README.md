@@ -11,6 +11,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Map/Compass
    - Map/Compass/Small key
    - Key Sanity
+   - Other
 
 Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
 </p>
