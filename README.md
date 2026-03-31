@@ -1,4 +1,4 @@
-<h1>ALTTPR Tracker (v1.1.2 release)</h1>
+<h1>ALTTPR Tracker (v1.1.2a release)</h1>
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
