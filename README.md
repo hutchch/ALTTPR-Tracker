@@ -96,7 +96,7 @@ Map
 - 12 dungeon markers with prize images, boss-cleared state, and logic coloring
 - Check logic — each dot colored by item requirements:
     - 🟢 Green = accessible now
-    - 🟡 Yellow = possible but dark room
+    - 🟡 Yellow = possible but may not be able to complete
     - 🟠 Orange = visible/reachable but unattainable yet
     - 🔴 Red = missing required items
 - Region logic — DW NW/East/South access, Death Mountain climbing, medallion checks for MM/TR
