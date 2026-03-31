@@ -295,6 +295,33 @@ body {
     margin-right: 4px;
 }
 
+.newgame-btn {
+    height: 13px;
+    font-size: 8px;
+    line-height: 13px;
+    text-align: center;
+    padding: 0 5px;
+    background: transparent;
+    color: #c0392b;
+    border: 1px solid #7b241c;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.2s, background-color 0.2s;
+    font-family: Arial, sans-serif;
+    flex-shrink: 0;
+    margin-left: 3px;
+    white-space: nowrap;
+}
+
+.newgame-btn:hover {
+    background-color: #7b241c;
+    color: #ffffff;
+}
+
+.newgame-btn:active {
+    transform: scale(0.9);
+}
+
 .reconnect-btn {
     width: 13px;
     height: 13px;

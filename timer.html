@@ -387,13 +387,17 @@ var KNOWN_MODES = [
   0x0E, // Item get screen
   0x0F, // Attract mode / demo
   0x10, // Credits
+  0x11, // Mode transition
+  0x12, // Mode transition
+  0x13, // Mode transition
   0x14, // Inventory screen
+  0x15, // Mode transition
   0x16, // Save and quit
   0x17, // Pause screen
   0x18, // Death sequence
   0x19, // Triforce room (handled separately)
   0x1A, // Victory
-  0x1B, // Game ending
+  0x1B, // Game ending / select spawn
 ];
 
 function setConnStatus(text, cls) {
@@ -437,6 +441,7 @@ function handleMessage(evt) {
     if (evt.data instanceof ArrayBuffer) {
       if (_pendingRead) {
         _pendingRead = false;
+        if (_pendingReadTimer) { clearTimeout(_pendingReadTimer); _pendingReadTimer = null; }
         var gm = new Uint8Array(evt.data)[0];
         if (GAMEPLAY_MODES.indexOf(gm) !== -1) {
           // In-game — start timer
@@ -512,9 +517,13 @@ function handleMessage(evt) {
   } catch(e) {}
 }
 
+var _pendingReadTimer = null;
+
 function pollGamemode() {
   if (!_ws || _ws.readyState !== WebSocket.OPEN || !_deviceAttached || _pendingRead) return;
   _pendingRead = true;
+  // Safety: if response never arrives, clear pendingRead after 2 seconds
+  _pendingReadTimer = setTimeout(function() { _pendingRead = false; _pendingReadTimer = null; }, 2000);
   _ws.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: [GAMEMODE_SRAM, '01'] }));
 }
 

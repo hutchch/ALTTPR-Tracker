@@ -1502,6 +1502,78 @@ function updateItemState(itemKey, state) {
     }
 }
 
+function resetItemTracker() {
+    // Reset all item states to default
+    Object.keys(items).forEach(function(key) {
+        items[key].currentState = 0;
+        const slot = document.querySelector(`[data-item-key="${key}"]`);
+        if (!slot) return;
+        if (items[key].isGoMode) {
+            slot.style.color = items[key].states[0].color;
+            slot.style.background = 'transparent';
+        } else {
+            const img = slot.querySelector('img');
+            if (img) { img.src = items[key].states[0].img; img.alt = items[key].states[0].name; }
+        }
+        if (['bombos','ether','quake'].includes(key)) {
+            items[key].medallionLabel = '';
+            const lbl = slot.querySelector('.medallion-label');
+            if (lbl) lbl.textContent = '';
+        }
+    });
+
+    // Reset all dungeon states
+    const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+    const _isShuffled = ['keysanity','mapcompass','mapcompasskeys','other'].includes(_ksMode);
+    Object.keys(dungeons).forEach(function(key) {
+        const d = dungeons[key];
+        d.smallKeyCount = 0;
+        d.smallKeyMax   = 0;
+        d.itemCount     = 0;
+        d.bigkeyState   = 0;
+        d.compassState  = 0;
+        d.mapState      = 0;
+        d.prizeState    = 0;
+        d.otherCleared  = false;
+        const slot = document.querySelector(`[data-dungeon-key="${key}"]`);
+        if (!slot) return;
+        // Reset prize image
+        const prizeImg = slot.querySelector('.prize-img');
+        if (prizeImg) prizeImg.src = `${BASE_URL}/${_isShuffled ? 'unknown0.png' : 'crystal0.png'}`;
+        // Reset bigkey/compass/map icons
+        const bigkeyImg = slot.querySelector('.bigkey-img');
+        if (bigkeyImg) bigkeyImg.src = `${BASE_URL}/bigkey0.png`;
+        const compassImg = slot.querySelector('.compass-img');
+        if (compassImg) compassImg.src = `${BASE_URL}/compass0.png`;
+        const mapImg = slot.querySelector('.map-img');
+        if (mapImg) mapImg.src = `${BASE_URL}/map0.png`;
+        // Reset other chest
+        const otherChest = slot.querySelector('.other-chest');
+        if (otherChest) otherChest.src = `${BASE_URL}/chest0.png`;
+        updateDungeonCountDisplay(key);
+    });
+
+    // Reset SRAM state so autotracking picks up fresh
+    previousSRAM = null;
+    previousRoomData = null;
+    roomChunk1 = null;
+    roomChunk1Time = 0;
+    if (window.trackerItems) {
+        window.trackerItems.crystals     = 0;
+        window.trackerItems.pendants     = 0;
+        window.trackerItems.greenPendant = 0;
+        window.trackerItems.redCrystal   = 0;
+        window.trackerItems.ctSmallKeys  = 0;
+        window.trackerItems.ctSmallKeysMax = 0;
+        window.trackerItems.spSmallKeys  = 0;
+        window.trackerItems.spSmallKeysMax = 0;
+    }
+
+    // Broadcast reset to map
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+    if (typeof broadcastPrizes === 'function') setTimeout(broadcastPrizes, 50);
+}
+
 function manualReconnect() {
     const btn = document.getElementById('item-reconnect-btn') || document.querySelector('.reconnect-btn');
     if (btn) { btn.classList.add('reconnecting'); btn.disabled = true; }
