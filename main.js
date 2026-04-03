@@ -44,7 +44,7 @@ function toFileUrl(rel) {
 // ── Launcher ──────────────────────────────────────────────────────────────────
 function createLauncher() {
   launcherWin = new BrowserWindow({
-    width: 580, height: 1000,
+    width: 580, height: 950,
     minWidth: 580, minHeight: 700,
     resizable: false,
     useContentSize: true,
