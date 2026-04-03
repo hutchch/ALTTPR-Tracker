@@ -7,9 +7,10 @@ html, body {
 body {
     background-color: #000000;
     font-family: Arial, sans-serif;
+    padding-top: 8px;
     padding-bottom: 40px;
     display: flex;
-    justify-content: flex-start;
+    justify-content: center;
     align-items: flex-start;
 }
 
@@ -81,7 +82,7 @@ body {
 /* Dungeon slot styles */
 .dungeon-slot {
     position: relative;
-    width: 48px;
+    width: 52px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -90,7 +91,7 @@ body {
     background-color: transparent;
     border: 1px solid #555;
     border-radius: 3px;
-    padding: 2px;
+    padding: 2px 1px;
     transition: border-color 0.3s;
 }
 
@@ -143,8 +144,8 @@ body {
 }
 
 .prize-img {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
@@ -154,7 +155,7 @@ body {
 .dungeon-items {
     display: flex;
     flex-direction: row;
-    gap: 1px;
+    gap: 2px;
     align-items: center;
     justify-content: center;
 }
@@ -164,8 +165,8 @@ body {
 }
 
 .bigkey-img, .compass-img, .map-img {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
