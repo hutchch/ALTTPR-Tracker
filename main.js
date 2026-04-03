@@ -4,6 +4,10 @@ const url  = require('url');
 const fs   = require('fs');
 const Store = require('electron-store');
 
+// Fix Windows DPI scaling causing window resize on move
+app.commandLine.appendSwitch('high-dpi-support', '1');
+app.commandLine.appendSwitch('force-device-scale-factor', '1');
+
 const store = new Store();
 
 let launcherWin = null;
@@ -47,6 +51,7 @@ function createLauncher() {
     width: 860, height: 1000,
     minWidth: 1160, minHeight: 700,
     resizable: false,
+    useContentSize: true,
     title: 'Hutch-ALTTPR Tracker',
     backgroundColor: '#0d0d0d',
     webPreferences: {
@@ -74,6 +79,7 @@ function openItemTracker(scale, wsHost, wsPort, bg, dungeonItems) {
   itemWin = new BrowserWindow({
     width: Math.ceil(500 * s), height: Math.ceil(620 * s),
     resizable: true,
+    useContentSize: true,
     title: 'Item Tracker',
     backgroundColor: isTransparent ? undefined : (bgColors[bg] || '#000000'),
     transparent: isTransparent,
@@ -107,6 +113,7 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
     width:  isVert ? size + 60 : size * 2 + 80,
     height: isVert ? size * 2 + 360 : size + 360,
     resizable: true,
+    useContentSize: true,
     title: 'Map',
     backgroundColor: '#0d0d0d',
     webPreferences: {
@@ -130,6 +137,7 @@ function openTimer(wsHost, wsPort, color, bg) {
   timerWin = new BrowserWindow({
     width: 300, height: 220,
     resizable: true,
+    useContentSize: true,
     title: 'Timer',
     backgroundColor: isTransparent ? undefined : (bgColors[bg] || '#000000'),
     transparent: isTransparent,
