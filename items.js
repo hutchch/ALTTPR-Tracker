@@ -778,6 +778,8 @@ function updateDungeonCountDisplay(dungeonKey) {
             // Standard: blue when all items collected
             slot.classList.add('completed-items');
         }
+        // Notify map of completion state change
+        if (typeof broadcastPrizes === 'function') setTimeout(broadcastPrizes, 50);
     }
 }
 
@@ -896,7 +898,7 @@ function connectWebSocket() {
             console.log('WebSocket disconnected');
             updateConnectionStatus('Disconnected');
             deviceAttached = false;
-    _gamemodeValid = false;
+            _gamemodeValid = false;
             if (readTimer) { clearInterval(readTimer); readTimer = null; }
             _scheduleReconnect();
         };
@@ -1084,6 +1086,10 @@ function processRoomData(data) {
                     chestsOpened++;
                 }
             }
+
+            // High-water mark: chest count never goes down (handles flickering SRAM on BizHawk etc.)
+            chestsOpened = Math.max(chestsOpened, dungeons[key].chestsMax || 0);
+            dungeons[key].chestsMax = chestsOpened;
             
             // Calculate items = total chests - dungeon items - small keys
             // Subtract only items that are NOT shuffled into the general pool for this mode
@@ -1394,23 +1400,6 @@ function processInventoryData(data) {
         snap.pendants     = pendantCount;
         snap.greenPendant = greenPendantCount;
         window._itemsBc.postMessage({ type: 'items', data: snap });
-
-        // Broadcast dungeon completion state (boss beaten + all items collected)
-        var dungeonSnap = {};
-        Object.keys(dungeons).forEach(function(key) {
-            var d = dungeons[key];
-            var slot = document.querySelector('[data-dungeon-key="' + key + '"]');
-            var prizeCollected = false;
-            if (slot) {
-                var prizeImg = slot.querySelector('.prize-img');
-                prizeCollected = prizeImg && prizeImg.src.includes('1.png');
-            }
-            dungeonSnap[key] = {
-                allItems: d.itemCount >= d.maxItems,
-                prizeCollected: prizeCollected
-            };
-        });
-        window._itemsBc.postMessage({ type: 'dungeonComplete', data: dungeonSnap });
     }
 
     // Check count (SRAM 0xF5F423 = inv offset 0xE3) and death count (0xF5F449 = inv offset 0x109)
@@ -1530,6 +1519,7 @@ function resetItemTracker() {
         d.smallKeyCount = 0;
         d.smallKeyMax   = 0;
         d.itemCount     = 0;
+        d.chestsMax     = 0;
         d.bigkeyState   = 0;
         d.compassState  = 0;
         d.mapState      = 0;
@@ -1569,7 +1559,10 @@ function resetItemTracker() {
         window.trackerItems.spSmallKeysMax = 0;
     }
 
-    // Broadcast reset to map
+    // Broadcast reset to map (guard prevents infinite loop)
+    // Only broadcast if we weren't triggered BY a newgame message (avoid loop)
+    if (!window._itemsResettingGame && window._itemsBc) window._itemsBc.postMessage({ type: 'newgame' });
+    setTimeout(function() {}, 0); // yield before snap
     if (window.broadcastItemSnap) window.broadcastItemSnap();
     if (typeof broadcastPrizes === 'function') setTimeout(broadcastPrizes, 50);
 }

@@ -26,6 +26,22 @@
 // ── Set up BroadcastChannel so items.js can broadcast to map ──────────────────
 try { window._itemsBc = new BroadcastChannel('alttp-tracker'); } catch(e) {}
 
+// ── Listen for newgame from map on a separate channel instance ────────────────
+var _itemsResettingGame = false;
+try {
+  var _itemsReceiveBc = new BroadcastChannel('alttp-tracker');
+  _itemsReceiveBc.onmessage = function(e) {
+    if (e.data && e.data.type === 'newgame') {
+      if (_itemsResettingGame) return;
+      if (typeof resetItemTracker === 'function') {
+        _itemsResettingGame = true;
+        resetItemTracker();
+        setTimeout(function() { _itemsResettingGame = false; }, 1000);
+      }
+    }
+  };
+} catch(e) {}
+
 // ── Load host/port from launcher settings before items.js connectWebSocket ────
 (function() {
   var host = localStorage.getItem('alttp-ws-host') || 'localhost';
@@ -95,10 +111,12 @@ function broadcastPrizes() {
       else if (src.includes('redcrystal'))   name = 'redcrystal';
       else if (src.includes('crystal'))      name = 'crystal';
       prizes[key] = {
-        name:        name,
-        obtained:    src.includes('1.png'),
-        mapState:    dungeons[key] ? (dungeons[key].mapState || 0) : 0,
-        otherCleared: dungeons[key] ? (dungeons[key].otherCleared || false) : false
+        name:         name,
+        obtained:     src.includes('1.png'),
+        mapState:     dungeons[key] ? (dungeons[key].mapState || 0) : 0,
+        otherCleared: dungeons[key] ? (dungeons[key].otherCleared || false) : false,
+        allItems:     dungeons[key] ? (dungeons[key].itemCount >= dungeons[key].maxItems) : false,
+        bossCleared:  dungeons[key] ? (dungeons[key].bossDefeated || false) : false
       };
     });
     var mm = window.trackerItems ? (window.trackerItems.mmMedallion || 0) : 0;

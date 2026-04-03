@@ -416,6 +416,10 @@ body {
     color: #fff;
     gap: 4px;
     justify-content: flex-end;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: -1px;
+    margin-bottom: -3px;
 }
 
 .stat-ctkey .stat-label {

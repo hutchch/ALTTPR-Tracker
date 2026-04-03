@@ -893,7 +893,13 @@ var checkState = {};
 try { localStorage.removeItem('alttp-checks'); } catch(e) {}
 function saveCheckState() { try { localStorage.setItem('alttp-checks', JSON.stringify(checkState)); } catch(e) {} }
 
+var _resettingGame = false;
 function resetChecks() {
+  if (_resettingGame) return;
+  _resettingGame = true;
+  // Broadcast to item tracker
+  try { if (window._bc) window._bc.postMessage({ type: 'newgame' }); } catch(e) {}
+  setTimeout(function() { _resettingGame = false; }, 2000);
   checkState = {};
   saveCheckState();
   // Reset prize-derived item counts
@@ -1179,9 +1185,13 @@ try {
           DUNGEONS[key].prize      = idx;
           DUNGEONS[key].img        = PRIZE_CYCLE[idx].img;
           DUNGEONS[key].imgCleared = PRIZE_CYCLE[idx].imgCleared;
-          DUNGEONS[key].prizeObtained = pz[key].obtained || false;
+          DUNGEONS[key].prizeObtained  = pz[key].obtained || false;
           DUNGEONS[key].mapObtained    = pz[key].mapState === 1;
           DUNGEONS[key].otherCleared   = pz[key].otherCleared || false;
+          // Set fullyCleared: all items collected AND boss beaten (prize obtained)
+          if (pz[key].allItems !== undefined) {
+            DUNGEONS[key].fullyCleared = pz[key].allItems && pz[key].obtained;
+          }
           refreshDungeonImg(key);
         });
         // Pendant/crystal counts from obtained prizes only
@@ -1216,6 +1226,9 @@ try {
         break;
       case 'status':
         setConnStatus(e.data.text, e.data.cls);
+        break;
+      case 'newgame':
+        if (!_resettingGame) resetChecks();
         break;
     }
   };
