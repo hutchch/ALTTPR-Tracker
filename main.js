@@ -4,10 +4,6 @@ const url  = require('url');
 const fs   = require('fs');
 const Store = require('electron-store');
 
-// Fix Windows DPI scaling causing window resize on move
-app.commandLine.appendSwitch('high-dpi-support', '1');
-app.commandLine.appendSwitch('force-device-scale-factor', '1');
-
 const store = new Store();
 
 let launcherWin = null;
@@ -48,8 +44,8 @@ function toFileUrl(rel) {
 // ── Launcher ──────────────────────────────────────────────────────────────────
 function createLauncher() {
   launcherWin = new BrowserWindow({
-    width: 860, height: 1000,
-    minWidth: 1160, minHeight: 700,
+    width: 580, height: 1000,
+    minWidth: 580, minHeight: 700,
     resizable: false,
     useContentSize: true,
     title: 'Hutch-ALTTPR Tracker',
