@@ -1119,6 +1119,8 @@ function processRoomData(data) {
                 items = chestsOpened - dungeonItems - smallKeySubtract;
             }
             if (items < 0) items = 0;
+            // High-water mark on itemCount too — prevents dip during prize/boss sequences
+            items = Math.max(items, dungeons[key].itemCount || 0);
             
             // Update if changed
             if (items !== dungeon.itemCount) {
