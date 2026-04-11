@@ -38,6 +38,8 @@ For best results here is the launch order that was tested.
 5. Start the game
 
 ______________________________________________________________________
+<img width="1216" height="1489" alt="image" src="https://github.com/user-attachments/assets/c12950a3-bfef-4584-abca-94db134dea47" />
+
 Features
 - Item Tracker — click to cycle all items, weapons, and equipment through their states
 - Dual overworld maps — Light World and Dark World with color-coded logic dots for every check
@@ -110,9 +112,9 @@ UI / Display
 - Zoom: 70%–150% in 10% steps (± buttons on map toolbar)
 - Window auto-resizes to fit maps when zoom or layout changes
 - Launch Both opens both windows simultaneously (single click gesture — avoids popup blocker)
-- 12px black gap between LW and DW maps
 - Legend bar showing all 5 check states
 - Connection status indicator (green/yellow/red)
+
 
 Horizontal:
 <img width="1060" height="959" alt="image" src="https://github.com/user-attachments/assets/a86a2e49-c7c6-4eef-badf-463df188b98c" />
