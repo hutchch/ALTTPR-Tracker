@@ -3,15 +3,16 @@
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
 
- - Currently this is a selectable (1-7) crystal Ganon Tower
- - Standard or open game start.
- - Either normal or enemizer.
  - Dungeon Item Shuffle
    - Standard
    - Map/Compass
    - Map/Compass/Small key
    - Key Sanity
    - Other
+ - Selectable (1-7) crystal Ganon Tower
+ - Standard or open game start.
+ - Enemizer or normal mode.
+ - Sword or Swordless (v1.1.5 release).
 
 Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
 </p>
@@ -46,13 +47,11 @@ Features
 - Dungeon markers — shows accessibility, boss status, and prize state for all 12 dungeons
 - Medallion assignment — right-click Bombos/Ether/Quake to mark MM, TR, or BOTH requirements
 - Autotracking — connects to QUsb2Snes / SNI (ws://localhost:23074) to update items and dungeon state automatically
-- No install required — runs entirely in the browser, locally
 - Stat counters for Checks, Deaths and Bonks.
 
 1. Open the program and click Launch Both to open the Item Tracker and Map windows
 2. Left-click items to mark them obtained; right-click to cycle backward
 3. Right-click Bombos, Ether, or Quake to assign dungeon medallion requirements (MM / TR / BOTH)
-   NOTE: There may be instances where the medallion has to be remarked in order for the map to update.  
 4. Click dungeon prize icons to cycle prize type (Crystal → Red Crystal → Pendant → Green Pendant)
 5. Map dots and dungeon boxes update automatically based on your items
 
@@ -63,6 +62,17 @@ Color Reference
 
 For best gaming experience, set Retroarch not to pause the game.  Under Settings -> User Interface, and turn off the pause content settings.
 <img width="1798" height="602" alt="image" src="https://github.com/user-attachments/assets/9a5d9e2c-b0d6-4e75-a3bc-5939ac62c63b" />
+
+Manual Tracking - This option for non web-socket and user manual tracking. 
+- Left-click items to mark them obtained; right-click to cycle backward
+   - This updates the logic on the map
+- Map can be clicked to clear the check. 
+- Dungeon items can be marked with a left click.
+- Dungeon prizes can be cycled with a left click.
+   - Right click will mark the dungeon prize as obtained.
+- Dungeon small keys can chests can be increased with a left click.
+   - Decrease using a right click (This will be overwritten if the game is connected for autotracking).
+  
 
 ______________________________________________________________________
 
