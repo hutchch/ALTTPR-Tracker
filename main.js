@@ -44,7 +44,7 @@ function toFileUrl(rel) {
 // ── Launcher ──────────────────────────────────────────────────────────────────
 function createLauncher() {
   launcherWin = new BrowserWindow({
-    width: 580, height: 950,
+    width: 580, height: 990,
     minWidth: 580, minHeight: 700,
     resizable: false,
     useContentSize: true,
@@ -100,7 +100,7 @@ function openItemTracker(scale, wsHost, wsPort, bg, dungeonItems) {
 }
 
 // ── Map ───────────────────────────────────────────────────────────────────────
-function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, dungeonItems) {
+function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, dungeonItems, swordless) {
   if (mapWin && !mapWin.isDestroyed()) { mapWin.focus(); return; }
   const pct = parseInt(zoom) || 100;
   const size = Math.round(512 * pct / 100);
@@ -120,7 +120,7 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
     }
   });
   mapWin.setMenuBarVisibility(false);
-  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}`;
+  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}`;
   mapWin.loadURL(toFileUrl('map.html') + q);
   mapWin.on('closed', () => { mapWin = null; });
 }
@@ -161,7 +161,7 @@ function openTimer(wsHost, wsPort, color, bg) {
 ipcMain.on('launch', (event, opts) => {
   store.set('settings', opts);
   if (opts.which === 'items' || opts.which === 'both') openItemTracker(opts.scale, opts.wsHost, opts.wsPort, opts.trackerBg, opts.dungeonItems);
-  if (opts.which === 'map'   || opts.which === 'both') openMap(opts.zoom, opts.layout, opts.enemizer, opts.gtCrystals, opts.wsHost, opts.wsPort, opts.gamemode, opts.dungeonItems);
+  if (opts.which === 'map'   || opts.which === 'both') openMap(opts.zoom, opts.layout, opts.enemizer, opts.gtCrystals, opts.wsHost, opts.wsPort, opts.gamemode, opts.dungeonItems, opts.swordless);
   if (opts.which === 'timer') openTimer(opts.wsHost, opts.wsPort, opts.timerColor, opts.timerBg);
 });
 
