@@ -361,6 +361,8 @@ function dungeonColor(key) {
   };
 
   var settings = window.trackerSettings || {};
+  var swordless = settings.swordless === 'yes';
+
   switch (key) {
     case 'ep': {
       // Non-enemizer: bow required to beat Armos Knights
@@ -416,9 +418,9 @@ function dungeonColor(key) {
       return it.lamp ? 'green' : 'yellow';
 
     case 'ct': {
-      // Red until lamp AND (master sword OR cape)
+      // Red until lamp AND (master sword OR cape OR [swordless] hammer)
       if (!it.lamp) return 'red';
-      if (!(it.sword >= 2 || it.cape)) return 'red';
+      if (!(it.sword >= 2 || it.cape || (swordless && it.hammer))) return 'red';
       
       if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
         var ctKeys = (it.ctSmallKeys) || 0;
@@ -466,7 +468,8 @@ function dungeonColor(key) {
                    (it.hammer && it.gloves >= 1) ||
                    (it.agahnim && it.hookshot && (it.hammer || it.gloves >= 1 || it.flippers));
       if (!dwNWSW) return 'red';
-      // Yellow without firerod; green with firerod
+      // Non-swordless: sword required — yellow if accessible but no sword
+      if (!swordless && !it.sword) return 'yellow';
       if (settings.dungeonItems === 'keysanity') {
         if (!it.swBigKey) return 'yellow';
       }
@@ -495,7 +498,8 @@ function dungeonColor(key) {
       // Red until moonpearl + flippers + titansMitt + (bombos or firerod to melt ice)
       if (!it.moonpearl || !it.flippers || it.gloves < 2) return 'red';
       if (!it.bombos && !it.firerod) return 'red';
-      // Yellow without hammer (needed to progress fully); green with hammer
+      // Swordless: hammer required to progress (replaces sword for barriers)
+      if (swordless && !it.hammer) return 'yellow';
       if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
         var ipKeys = (it.ipSmallKeys) || 0;
         if (ipKeys < 1) return 'yellow';
@@ -515,6 +519,9 @@ function dungeonColor(key) {
         if (it.mmMedallion === 0) return 'red'; // unknown and don't have all 3
         if (!hasMedallion('mm')) return 'red';  // wrong one marked
       }
+      // Non-swordless: sword required to enter; swordless: hammer required
+      if (!swordless && !it.sword) return 'red';
+      if (swordless && !it.hammer) return 'red';
       if (settings.dungeonItems === 'keysanity') {
         if (!it.mmBigKey) return 'yellow';
       }
@@ -529,6 +536,8 @@ function dungeonColor(key) {
         if (it.trMedallion === 0) return 'red'; // unknown and don't have all 3
         if (!hasMedallion('tr')) return 'red';  // wrong one marked
       }
+      // Non-swordless: sword required to enter
+      if (!swordless && !it.sword) return 'red';
       if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
         var trKeys = (it.trSmallKeys) || 0;
         if (trKeys < 4) return 'yellow';
@@ -590,7 +599,10 @@ function checkLogic(it) {
   var dwSouth = dwNW || (aga && pearl && hammer);
 
   function medColor(dkey) {
-    if (!sword1) return 'red';
+    var sl = (window.trackerSettings && window.trackerSettings.swordless === 'yes');
+    // Non-swordless: sword required; swordless: hammer required
+    if (!sl && !sword1) return 'red';
+    if (sl && !hammer) return 'red';
     var req = (dkey === 'mm') ? it.mmMedallion : it.trMedallion;
     if (req === 0) {
       if (bombos && ether && quake) return 'green';
@@ -651,9 +663,16 @@ function checkLogic(it) {
     70:  function() { return flippers ? 'green' : 'red'; },
     71:  function() {
            if (!book||!climbDM||!(mirror||(hookshot&&hammer))) return 'red';
-           return sword2 ? (DMlight?'green':'yellow') : 'orange';
+           var sl = window.trackerSettings && window.trackerSettings.swordless === 'yes';
+           var weapon = sl ? hammer : sword2;
+           return weapon ? (DMlight?'green':'yellow') : 'orange';
          },
-    72:  function() { if (!book||!mirror||!dwSouth) return 'red'; return sword2?'green':'orange'; },
+    72:  function() {
+           if (!book||!mirror||!dwSouth) return 'red';
+           var sl = window.trackerSettings && window.trackerSettings.swordless === 'yes';
+           var weapon = sl ? hammer : sword2;
+           return weapon ? 'green' : 'orange';
+         },
     73:  function() { return (dwEast&&glove) ? 'green' : 'red'; },
     74:  function() { return (flippers||glove) ? 'green' : 'red'; },
     75:  function() { if (!climbDM) return 'red'; return lamp ? 'green' : 'yellow'; },
@@ -709,13 +728,15 @@ function checkLogic(it) {
     109: function() {
            var settings = window.trackerSettings || {};
            if (!['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) return null;
-           return (sword2 || cape) ? 'green' : 'red';
+           var sl = settings.swordless === 'yes';
+           return (sword2 || cape || (sl && hammer)) ? 'green' : 'red';
          },
     110: function() {
            var settings = window.trackerSettings || {};
            if (!['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) return null;
            if (!lamp) return 'red';
-           if (!(sword2 || cape)) return 'red';
+           var sl = settings.swordless === 'yes';
+           if (!(sword2 || cape || (sl && hammer))) return 'red';
            var ctKeys = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
            return ctKeys >= 1 ? 'green' : 'red';
          },
@@ -1322,6 +1343,7 @@ function changeZoom(dir) {
   window.trackerSettings.gtCrystals = parseInt(p.get('gtcrystals') || localStorage.getItem('alttp-gt-crystals') || '7');
   window.trackerSettings.gamemode      = p.get('gamemode')      || localStorage.getItem('alttp-gamemode')      || 'standard';
   window.trackerSettings.dungeonItems  = p.get('dungeonitems')  || localStorage.getItem('alttp-dungeon-items')  || 'standard';
+  window.trackerSettings.swordless     = p.get('swordless')     || localStorage.getItem('alttp-swordless')     || 'no';
 
   // Restore zoom index
   var pct  = parseInt(p.get('scale') || p.get('zoom') || '0') ||

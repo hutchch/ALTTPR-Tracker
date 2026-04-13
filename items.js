@@ -469,6 +469,9 @@ function createTracker() {
                     const d = dungeons[itemKey];
                     d.bigkeyState = d.bigkeyState ? 0 : 1;
                     bigkeyImg.src = `${BASE_URL}/bigkey${d.bigkeyState}.png`;
+                    if (!window.trackerItems) window.trackerItems = {};
+                    window.trackerItems[itemKey + 'BigKey'] = d.bigkeyState;
+                    if (window.broadcastItemSnap) window.broadcastItemSnap();
                 });
                 itemsContainer.appendChild(bigkeyImg);
 
@@ -536,7 +539,10 @@ function createTracker() {
                         if (d.smallKeyCount < d.maxSmallKeys) {
                             d.smallKeyCount++;
                             if (d.smallKeyCount > (d.smallKeyMax || 0)) d.smallKeyMax = d.smallKeyCount;
+                            if (!window.trackerItems) window.trackerItems = {};
+                            window.trackerItems[itemKey + 'SmallKeys'] = d.smallKeyCount;
                             updateDungeonCountDisplay(itemKey);
+                            if (window.broadcastItemSnap) window.broadcastItemSnap();
                         }
                     });
                     keyContainer.addEventListener('contextmenu', function(e) {
@@ -546,7 +552,10 @@ function createTracker() {
                         const d = dungeons[itemKey];
                         if (d.smallKeyCount > 0) {
                             d.smallKeyCount--;
+                            if (!window.trackerItems) window.trackerItems = {};
+                            window.trackerItems[itemKey + 'SmallKeys'] = d.smallKeyCount;
                             updateDungeonCountDisplay(itemKey);
+                            if (window.broadcastItemSnap) window.broadcastItemSnap();
                         }
                     });
                     countsContainer.appendChild(keyContainer);
