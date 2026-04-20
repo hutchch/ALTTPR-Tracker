@@ -14,6 +14,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Standard
    - Open
    - Inverted (Coming Soon)
+   - Retro (Coming Soon)
  - Enemizer or normal mode.
  - Sword or Swordless (v1.1.5 release).
 
