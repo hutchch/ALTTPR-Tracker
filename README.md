@@ -10,7 +10,10 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Key Sanity
    - Other
  - Selectable (1-7) crystal Ganon Tower
- - Standard or open game start.
+ - Selecable Game start mode
+   - Standard
+   - Open
+   - Inverted (Coming Soon)
  - Enemizer or normal mode.
  - Sword or Swordless (v1.1.5 release).
 
@@ -144,7 +147,7 @@ Key Sanity Completionist:
 
 Item Counts:
 
-<img width="400" height="400" alt="image" src="https://github.com/user-attachments/assets/b422e137-a5b6-4b45-893d-b50088e1af53" />
+<img width="329" height="329" alt="image" src="https://github.com/user-attachments/assets/204645c2-06df-4e9c-af54-6d6899e32860" />
 
 Logic
 <img width="1163" height="1000" alt="image" src="https://github.com/user-attachments/assets/22d2cc5f-d273-4571-bc4b-c246be144a63" />
