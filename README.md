@@ -147,7 +147,7 @@ Key Sanity Completionist:
 
 Item Counts:
 
-<img width="329" height="329" alt="image" src="https://github.com/user-attachments/assets/204645c2-06df-4e9c-af54-6d6899e32860" />
+<img width="357" height="334" alt="image" src="https://github.com/user-attachments/assets/3bca064e-404e-4d56-9ef9-a4e0606fa41c" />
 
 Logic
 <img width="1163" height="1000" alt="image" src="https://github.com/user-attachments/assets/22d2cc5f-d273-4571-bc4b-c246be144a63" />
