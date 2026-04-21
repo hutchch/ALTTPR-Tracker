@@ -87,6 +87,7 @@
 | Paradox Cave | DW DM + Moon Pearl + (Titans+Hammer OR Hookshot) + DMlight |
 | Floating Island | DW DM + Moon Pearl + (Titans+Hammer OR Hookshot) + DMlight |
 | Spectacle Rock | DW DM + Hammer (orange without hammer) |
+| Ether Tablet | DW DM + Hammer  + Book + weapon |
 | Spectacle Rock Cave | LW DM (Pearl+Glove) |
 | Hookshot Cave Bottom | DW DM + (Hookshot OR Boots) |
 | Hookshot Cave Top (3) | DW DM + Hookshot |
@@ -98,9 +99,9 @@
 | Desert West Ledge | LW Village (orange) → + Book (green) |
 | Lake Hylia Island | LW Village + Flippers |
 | Graveyard Ledge | LW Village |
+| Kings Tomb | LW Village + Boots + Titans |
 | Bumper Cave Ledge | LW Village + Mirror + Cape |
 | Floating Island | DW DM + Pearl + Titans+Hammer/Hookshot |
-| Ether Tablet | LW Village + LW DM Hammer + Book + weapon |
 | Bombos Tablet | LW Village + Book + weapon |
 | Magic Bat | Powder + Hammer |
 | Pyramid | DW East (Hammer OR Flute+LW OR Flippers) |
@@ -135,18 +136,18 @@
 
 ## Key Sanity / MCK Additional Requirements (All Modes)
 
-| Dungeon | Small Keys | Big Key |
-|---------|-----------|---------|
-| DP | 1 | KS only |
-| TOH | 1 | KS only |
-| CT | 2 | — |
-| POD | 6 | KS only |
-| SP | 1 | KS only |
-| SW | — | KS only |
-| TT | 1 | KS only |
-| IP | 1 | KS only |
-| MM | — | KS only |
-| TR | 4 | KS only |
+| Dungeon | Small Keys | Big Key | Note |
+|---------|-----------|---------|------------------------------------------------|
+| DP | 1 | KS only | |
+| TOH | 1 | KS only | |
+| CT | 2 | — | |
+| POD | 6 | KS only | 5 Small Keys Possible |
+| SP | 1 | KS only | |
+| SW | — | KS only | |
+| TT | 1 | KS only | |
+| IP | 2 | KS only | 1 Small Keys + Cane of Samaria Possible |
+| MM | — | KS only | |
+| TR | 4 | KS only | 3 Small Keys Possible |
 
 ---
 
