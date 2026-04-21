@@ -117,7 +117,7 @@
 | **HC** | LW | LW Village | Lamp |
 | **CT/Aga1** | DW DM (GT position) | DW DM + Lamp + Sword/Hammer/Cape | 2 small keys (KS/MCK) |
 | **POD** | DW | DW East + Hammer + Lamp + Bow | Hammer + Lamp + Bow |
-| **SP** | DW | Mirror + Flippers + DW South | Hookshot |
+| **SP** | DW | Mirror + Flippers + Hammer+ DW South | Hookshot |
 | **SW** | DW | Always | Firerod (+ Sword) |
 | **TT** | DW | Always | Hammer |
 | **IP** | DW | Flippers + Bombos/Firerod | Hammer |
