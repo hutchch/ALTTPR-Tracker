@@ -380,7 +380,7 @@ function dungeonColor(key) {
   // LW access in inverted — two tiers:
   // lwDM: Death Mountain portal (glove/flute + pearl)
   // lwVillage: Village portal (hammer+glove, titans mitt, or aga+hookshot route) — general LW access
-  var lwDM      = !inverted || (it.moonpearl && it.gloves >= 1);
+  var lwDM      = !inverted || (it.moonpearl && it.hammer && ((it.gloves >= 1 && it.hookshot) || (it.gloves >= 2 && it.hammer)));
   var lwVillage = !inverted || (
     it.moonpearl &&
     (it.agahnim || it.gloves >= 2 || (it.gloves >= 1 && it.hammer))
@@ -559,6 +559,8 @@ function dungeonColor(key) {
       if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
         var ipKeys = (it.ipSmallKeys) || 0;
         if (ipKeys < 1) return 'yellow';
+        // Green requires 2 keys, OR 1 key + somaria
+        if (ipKeys < 2 && !it.somaria) return 'yellow';
       }
       if (settings.dungeonItems === 'keysanity') {
         if (!it.ipBigKey) return 'yellow';
@@ -700,18 +702,16 @@ function checkLogic(it) {
   function worst(a,b) { return ORD[a] < ORD[b] ? a : b; }
 
   return {
-    0:   function() { if (!boots) return 'red'; return (titan||(dwNW&&mirror)) ? 'green' : 'red'; },
+    0:   function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return (titan && boots) ? 'green' : 'red';
+           if (!boots) return 'red'; return (titan||(dwNW&&mirror)) ? 'green' : 'red';
+         },
     1:   function() { return 'green'; },
     2:   function() { return 'green'; },
     3:   function() { // Spiral Cave
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) {
-             var dwDM = glove || (flute && lwAccess);
-             if (!dwDM) return 'red';
-             if (!pearl) return 'red';
-             if (!(titan && hammer) && !hookshot) return 'red';
-             return DMlight ? 'green' : 'yellow';
-           }
+           if (_inv) return DMlight ? 'green' : 'yellow';
            if (!eastDM) return 'red';
            return DMlight ? 'green' : 'yellow';
          },
@@ -759,13 +759,7 @@ function checkLogic(it) {
     16:  function() { return dwSouth ? 'green' : 'red'; },
     17:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) {
-             var dwDM = glove || (flute && lwAccess);
-             if (!dwDM) return 'red';
-             if (!pearl) return 'red';
-             if (!(titan && hammer) && !hookshot) return 'red';
-             return DMlight ? 'green' : 'yellow';
-           }
+           if (_inv) return DMlight ? 'green' : 'yellow';
            if (!eastDM) return 'red'; return DMlight ? 'green' : 'yellow';
          },
     18:  function() { return boots ? 'green' : 'red'; },
@@ -811,8 +805,9 @@ function checkLogic(it) {
            var sl = window.trackerSettings && window.trackerSettings.swordless === 'yes';
            var weapon = sl ? hammer : sword2;
            if (_inv) {
-             // Inverted: LW DM access (pearl+glove) + hammer + book
-             if (!lwAccess || !hammer || !book) return 'red';
+             // Inverted: top-left LW DM access gated by outer block (pearl+glove+hookshot OR pearl+titans+hammer)
+             // Additionally needs book + master sword (or hammer swordless)
+             if (!book) return 'red';
              return weapon ? (DMlight?'green':'yellow') : 'orange';
            }
            if (!book||!climbDM||!(mirror||(hookshot&&hammer))) return 'red';
@@ -865,6 +860,8 @@ function checkLogic(it) {
     86:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
+             // Inverted: top-left LW DM access gated by outer block
+             // Hammer still needed to actually reach the rock
              if (!hammer) return 'orange';
              return DMlight ? 'green' : 'yellow';
            }
@@ -873,13 +870,7 @@ function checkLogic(it) {
          },
     87:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) {
-             var dwDM = glove || (flute && lwAccess);
-             if (!dwDM) return 'red';
-             if (!pearl) return 'red';
-             if (!(titan && hammer) && !hookshot) return 'red';
-             return DMlight ? 'green' : 'yellow';
-           }
+           if (_inv) return DMlight ? 'green' : 'yellow';
            if (!eastDM) return 'red';
            return (mirror&&pearl&&titan) ? (DMlight?'green':'yellow') : 'orange';
          },
@@ -1004,16 +995,19 @@ window.checkColor = function(id) {
       var aga    = it.agahnim >= 1;
       var hook   = it.hookshot >= 1;
       var flip   = it.flippers >= 1;
-      // DM portal: pearl + glove (left side). Right side also needs hammer or hookshot.
       var lwDMAccess      = pearl && glove;
-      var lwDMEastAccess  = glove && pearl && ((titan && hammer) || hook);
+      var lwDMNoPearl     = glove;
+      var lwDMTopLeft     = pearl && hammer && ((glove && hook) || (titan && hammer));
+      var lwDMEastAccess  = pearl && glove && (titan || hook);
       var lwVillageAccess = pearl && (aga || titan || (glove && hammer));
     if (id === 109 || id === 110) { /* fall through to checkLogic — DW DM access not gated here */ }
     else {
-      var _leftDM  = [71, 75, 79];
-      var _rightDM = [3, 17, 86, 87];
-      var lwAccess = (_leftDM.indexOf(id) !== -1)  ? lwDMAccess :
-                     (_rightDM.indexOf(id) !== -1) ? lwDMEastAccess :
+      var _leftDMNoPearl = [75, 79, 86];
+      var _topLeftDM = [71];
+      var _rightDM = [3, 17, 87];
+      var lwAccess = (_leftDMNoPearl.indexOf(id) !== -1) ? lwDMNoPearl :
+                     (_topLeftDM.indexOf(id) !== -1)     ? lwDMTopLeft :
+                     (_rightDM.indexOf(id) !== -1)       ? lwDMEastAccess :
                      lwVillageAccess;
       if (!lwAccess) return 'red';
     }
@@ -1430,7 +1424,7 @@ window.refreshMapLogic = function() {
     var aga2    = it.agahnim >= 1;
     var hook2   = it.hookshot >= 1;
     var flip2   = it.flippers >= 1;
-    var lwDMok      = glove2 && pearl2 && ((titan2 && hammer2) || hook2);  // Right side LW DM: DW DM + pearl + (titans+hammer OR hookshot)
+    var lwDMok      = pearl2 && hammer2 && ((glove2 && hook2) || (titan2 && hammer2));  // Top-left LW DM
     var lwVillageOk = pearl2 && (aga2 || titan2 || (glove2 && hammer2));
     var lwOk = lwVillageOk;  // general LW access
     // Bottle Merchant (65) is LW — needs portal access
