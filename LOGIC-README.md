@@ -69,12 +69,13 @@
 | **LW Village Portal** | Moon Pearl + (Aga1 defeated OR Titans Mitt OR Glove+Hammer) |
 | **LW DM Portal (left side)** | Moon Pearl + Glove |
 | **LW DM right side** | DW DM access + Moon Pearl + (Titans Mitt+Hammer OR Hookshot) |
+| **LW DM Top** | DW DM access + Moon Pearl + Hammer (Titans Mitt Or Gloves+hookshot) |
 
 ### DW Access Routes (Inverted)
 
 | Region | Requirements |
 |--------|-------------|
-| DW Death Mountain | Glove OR (Flute + LW Village Access) |
+| DW Death Mountain | Glove + Lamp OR (Flute + LW Village Access) |
 | DW East | Hammer OR (Flute + LW Village Access) OR Flippers |
 | DW North West | Always accessible (home world) |
 | DW South | Always accessible (home world) |
@@ -86,8 +87,8 @@
 | Spiral Cave | DW DM + Moon Pearl + (Titans+Hammer OR Hookshot) + DMlight |
 | Paradox Cave | DW DM + Moon Pearl + (Titans+Hammer OR Hookshot) + DMlight |
 | Floating Island | DW DM + Moon Pearl + (Titans+Hammer OR Hookshot) + DMlight |
-| Spectacle Rock | DW DM + Hammer (orange without hammer) |
-| Ether Tablet | DW DM + Hammer  + Book + weapon |
+| Spectacle Rock | LW Top DM + Hammer (orange without hammer) |
+| Ether Tablet | LW Top DM + Hammer  + Book + weapon |
 | Spectacle Rock Cave | LW DM (Pearl+Glove) |
 | Hookshot Cave Bottom | DW DM + (Hookshot OR Boots) |
 | Hookshot Cave Top (3) | DW DM + Hookshot |
