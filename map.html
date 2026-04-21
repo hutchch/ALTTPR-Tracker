@@ -383,9 +383,7 @@ function dungeonColor(key) {
   var lwDM      = !inverted || (it.moonpearl && it.gloves >= 1);
   var lwVillage = !inverted || (
     it.moonpearl &&
-    (it.gloves >= 2 ||
-     (it.gloves >= 1 && it.hammer) ||
-     (it.agahnim && it.hookshot && (it.hammer || it.gloves >= 1 || it.flippers)))
+    (it.agahnim || it.gloves >= 2 || (it.gloves >= 1 && it.hammer))
   );
   var lwAccess = lwVillage; // default general LW access
 
@@ -402,11 +400,9 @@ function dungeonColor(key) {
     }
 
     case 'dp':
-      // Inverted: DP is in LW — requires LW access
+      // Inverted: DP is in LW — requires LW access + book only (mirror route not available in inverted)
       if (!lwAccess) return 'red';
-      // Red until (Book or (Mirror + Flute + TitansMitt))
-      // Yellow if accessible but missing boots, gloves, or lamp/firerod; green with all
-      var hasAccess = it.book || (it.mirror && it.flute && it.gloves >= 2);
+      var hasAccess = inverted ? it.book : (it.book || (it.mirror && it.flute && it.gloves >= 2));
       if (!hasAccess) return 'red';
       if (!it.boots || !it.gloves || (!it.lamp && !it.firerod)) return 'yellow';
       if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
@@ -455,7 +451,21 @@ function dungeonColor(key) {
       return it.lamp ? 'green' : 'yellow';
 
     case 'ct': {
-      // Inverted: CT is in LW — requires LW access
+      if (inverted) {
+        // Inverted: Aga1 is in GT (DW Death Mountain) — needs to climb DW DM
+        // DW is home world so no pearl needed; glove to reach DM, or flute (needs LW village access to activate)
+        var dwDMAccess = it.gloves >= 1 || (it.flute >= 1 && lwVillage);
+        if (!dwDMAccess) return 'red';
+        // Aga1 requires lamp + any sword or hammer (or cape, or swordless hammer)
+        if (!it.lamp) return 'red';
+        if (!(it.sword >= 1 || it.hammer || it.cape)) return 'red';
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var ctKeys = (it.ctSmallKeys) || 0;
+          return ctKeys >= 2 ? 'green' : 'red';
+        }
+        return 'green';
+      }
+      // Standard/open: CT is in LW — requires LW access
       if (!lwAccess) return 'red';
       // Red until lamp AND (master sword OR cape OR [swordless] hammer)
       if (!it.lamp) return 'red';
@@ -473,7 +483,7 @@ function dungeonColor(key) {
       // But still need DW east access route
       if (!inverted && !it.moonpearl) return 'red';
       var dwEastPOD = inverted
-        ? (it.hammer || (it.gloves >= 2 && it.flippers))
+        ? (it.hammer || (it.flute >= 1 && lwVillage) || it.flippers)
         : (it.moonpearl && (it.agahnim || (it.gloves >= 2 && it.flippers) || (it.hammer && it.gloves >= 1)));
       if (!dwEastPOD) return 'red';
       if (!it.hammer || !it.lamp || !it.bow) return 'yellow';
@@ -539,9 +549,10 @@ function dungeonColor(key) {
     }
 
     case 'ip':
-      // Inverted: DW is home world — no moonpearl needed
+      // Inverted: DW is home world — no moonpearl or titans mitt needed
       if (!inverted && !it.moonpearl) return 'red';
-      if (!it.flippers || it.gloves < 2) return 'red';
+      if (!it.flippers) return 'red';
+      if (!inverted && it.gloves < 2) return 'red';
       if (!it.bombos && !it.firerod) return 'red';
       // Swordless: hammer required to progress
       if (swordless && !it.hammer) return 'red';
@@ -555,12 +566,18 @@ function dungeonColor(key) {
       return it.hammer ? 'green' : 'yellow';
 
     case 'mm':
-      // Inverted: DW is home world — no moonpearl needed
-      if (!it.flute || it.gloves < 2) return 'red';
+      // Inverted: DW is home world — no moonpearl or titans mitt needed
+      // Access via flute (needs LW village access) or mirror + LW village access
+      if (inverted) {
+        var mmAccess = (it.flute && lwVillage) || (it.mirror && lwVillage);
+        if (!mmAccess) return 'red';
+      } else {
+        if (!it.flute || it.gloves < 2) return 'red';
+      }
       if (!it.boots && !it.hookshot) return 'red';
       var hasAllMeds = it.bombos && it.ether && it.quake;
       if (!hasAllMeds) {
-        if (it.mmMedallion === 0) return 'red';
+        if (!it.mmMedallion) return 'red';
         if (!hasMedallion('mm')) return 'red';
       }
       // Non-swordless: sword required; swordless: hammer required
@@ -572,12 +589,15 @@ function dungeonColor(key) {
       return (it.somaria && it.lamp) ? 'green' : 'yellow';
 
     case 'tr':
-      // Inverted: DW is home world — no moonpearl needed
+      // Inverted: DW is home world — no moonpearl, hammer, or titans mitt needed
+      // But TR is on DW Death Mountain — needs glove or flute to climb
       if (!inverted && !it.moonpearl) return 'red';
-      if (!it.hammer || it.gloves < 2 || !it.somaria) return 'red';
+      if (!inverted && (!it.hammer || it.gloves < 2)) return 'red';
+      if (inverted && !it.gloves && !(it.flute >= 1 && lwVillage)) return 'red';
+      if (!it.somaria) return 'red';
       var hasAllMedsTR = it.bombos && it.ether && it.quake;
       if (!hasAllMedsTR) {
-        if (it.trMedallion === 0) return 'red';
+        if (!it.trMedallion) return 'red';
         if (!hasMedallion('tr')) return 'red';
       }
       // Non-swordless: sword required to enter
@@ -593,6 +613,11 @@ function dungeonColor(key) {
 
     case 'gt': {
       var req = (window.trackerSettings && window.trackerSettings.gtCrystals) || 7;
+      if (inverted) {
+        // Inverted: Ganon is in CT location (LW) — needs LW village portal access + crystal count
+        if (!lwVillage) return 'red';
+        return it.crystals >= req ? 'green' : 'red';
+      }
       return it.crystals >= req ? 'green' : 'red';
     }
 
@@ -645,13 +670,13 @@ function checkLogic(it) {
     ? true
     : pearl && (titan || (glove && hammer) || (aga && hookshot && (hammer || glove || flippers)));
   var dwEast  = inv
-    ? (aga || (hammer && glove) || (titan && flippers))
+    ? (hammer || (flute && lwAccess) || flippers)
     : pearl && (aga || (hammer && glove) || (titan && flippers));
   var dwSouth = inv
     ? true
     : (pearl && (titan || (glove && hammer) || (aga && hookshot && (hammer || glove || flippers))) || (aga && pearl && hammer));
   var lwAccess = inv
-    ? (pearl && (titan || (glove && hammer) || (aga && hookshot && (hammer || glove || flippers))))
+    ? (pearl && (aga || titan || (glove && hammer)))
     : true;
 
   function medColor(dkey) {
@@ -678,11 +703,27 @@ function checkLogic(it) {
     0:   function() { if (!boots) return 'red'; return (titan||(dwNW&&mirror)) ? 'green' : 'red'; },
     1:   function() { return 'green'; },
     2:   function() { return 'green'; },
-    3:   function() { // Spiral Cave: same access as Paradox Cave — eastDM
+    3:   function() { // Spiral Cave
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) {
+             var dwDM = glove || (flute && lwAccess);
+             if (!dwDM) return 'red';
+             if (!pearl) return 'red';
+             if (!(titan && hammer) && !hookshot) return 'red';
+             return DMlight ? 'green' : 'yellow';
+           }
            if (!eastDM) return 'red';
            return DMlight ? 'green' : 'yellow';
          },
     4:   function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) {
+             var dwDM = glove || (flute && lwAccess);
+             if (!dwDM) return 'red';
+             if (!pearl) return 'red';
+             if (!(titan && hammer) && !hookshot) return 'red';
+             return DMlight ? 'green' : 'yellow';
+           }
            if (!pearl||!hammer||!titan||!somaria||!mirror) return 'red';
            var m=medColor('tr'); if(m==='red') return 'red';
            return (!firerod||!DMlight) ? worst(m,'yellow') : worst(m,'green');
@@ -694,12 +735,16 @@ function checkLogic(it) {
     9:   function() { return bomb ? 'green' : 'red'; },
     10:  function() {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
-           if (_inv) return (flute&&titan) ? 'green' : 'red';
+           if (_inv) return ((flute && lwAccess) || (mirror && lwAccess)) ? 'green' : 'red';
            return (pearl&&flute&&titan) ? 'green' : 'red';
          },
     11:  function() {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
-           if (_inv) { if (!eastDM) return 'red'; return DMlight?'green':'yellow'; }
+           if (_inv) {
+             var dwDM = glove || (flute && lwAccess);
+             if (!dwDM) return 'red';
+             return DMlight ? 'green' : 'yellow';
+           }
            if (!pearl||!titan||!eastDM) return 'red'; return DMlight ? 'green' : 'yellow';
          },
     12:  function() { return bomb ? 'green' : 'red'; },
@@ -712,20 +757,39 @@ function checkLogic(it) {
     14:  function() { return bomb ? 'green' : 'red'; },
     15:  function() { return bomb ? 'green' : 'red'; },
     16:  function() { return dwSouth ? 'green' : 'red'; },
-    17:  function() { if (!eastDM) return 'red'; return DMlight ? 'green' : 'yellow'; },
+    17:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) {
+             var dwDM = glove || (flute && lwAccess);
+             if (!dwDM) return 'red';
+             if (!pearl) return 'red';
+             if (!(titan && hammer) && !hookshot) return 'red';
+             return DMlight ? 'green' : 'yellow';
+           }
+           if (!eastDM) return 'red'; return DMlight ? 'green' : 'yellow';
+         },
     18:  function() { return boots ? 'green' : 'red'; },
     19:  function() { return bomb ? 'green' : 'red'; },
     20:  function() { return bomb ? 'green' : 'red'; },
     21:  function() {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
-           if (_inv) { if (!eastDM) return 'red'; if (hookshot||(mirror&&hammer&&boots)) return DMlight?'green':'yellow'; return 'red'; }
+           if (_inv) {
+             var dwDM = glove || (flute && lwAccess);
+             if (!dwDM) return 'red';
+             if (hookshot || boots) return DMlight?'green':'yellow';
+             return 'red';
+           }
            if (!pearl||!titan) return 'red';
            if (hookshot||(mirror&&hammer&&boots)) return DMlight ? 'green' : 'yellow';
            return 'red';
          },
     22:  function() {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
-           if (_inv) { if (!eastDM||!hookshot) return 'red'; return DMlight?'green':'yellow'; }
+           if (_inv) {
+             var dwDM = glove || (flute && lwAccess);
+             if (!dwDM || !hookshot) return 'red';
+             return DMlight?'green':'yellow';
+           }
            if (!pearl||!titan||!hookshot) return 'red'; return DMlight ? 'green' : 'yellow';
          },
     63:  function() { return 'green'; },
@@ -743,15 +807,26 @@ function checkLogic(it) {
     69:  function() { return (pearl&&titan) ? 'green' : 'red'; },
     70:  function() { return flippers ? 'green' : 'red'; },
     71:  function() {
-           if (!book||!climbDM||!(mirror||(hookshot&&hammer))) return 'red';
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
            var sl = window.trackerSettings && window.trackerSettings.swordless === 'yes';
            var weapon = sl ? hammer : sword2;
+           if (_inv) {
+             // Inverted: LW DM access (pearl+glove) + hammer + book
+             if (!lwAccess || !hammer || !book) return 'red';
+             return weapon ? (DMlight?'green':'yellow') : 'orange';
+           }
+           if (!book||!climbDM||!(mirror||(hookshot&&hammer))) return 'red';
            return weapon ? (DMlight?'green':'yellow') : 'orange';
          },
     72:  function() {
-           if (!book||!mirror||!dwSouth) return 'red';
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
            var sl = window.trackerSettings && window.trackerSettings.swordless === 'yes';
            var weapon = sl ? hammer : sword2;
+           if (_inv) {
+             if (!lwAccess || !book) return 'red';
+             return weapon ? 'green' : 'orange';
+           }
+           if (!book||!mirror||!dwSouth) return 'red';
            return weapon ? 'green' : 'orange';
          },
     73:  function() { return (dwEast&&glove) ? 'green' : 'red'; },
@@ -760,28 +835,84 @@ function checkLogic(it) {
     76:  function() { return mushroom ? 'green' : 'red'; },
     77:  function() { return 'green'; },
     78:  function() { return (aga&&boots) ? 'green' : 'orange'; },
-    79:  function() { if (!climbDM) return 'red'; return DMlight ? 'green' : 'yellow'; },
-    80:  function() { if (!mirror) return 'red'; return (dwNW||(aga&&pearl&&hammer))?'green':'red'; },
-    81:  function() { return (dwNW&&mirror) ? 'green' : 'red'; },
-    82:  function() { return (flute&&titan&&mirror) ? 'green' : 'red'; },
+    79:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) {
+             // Inverted: LW DM access (glove) already gated by outer checkColor — no hammer needed
+             return DMlight ? 'green' : 'yellow';
+           }
+           if (!climbDM) return 'red';
+           return DMlight ? 'green' : 'yellow';
+         },
+    80:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return lwAccess ? 'green' : 'red';
+           if (!mirror) return 'red'; return (dwNW||(aga&&pearl&&hammer))?'green':'red';
+         },
+    81:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return lwAccess ? 'green' : 'red';
+           return (dwNW&&mirror) ? 'green' : 'red';
+         },
+    82:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return lwAccess ? 'green' : 'red';
+           return (flute&&titan&&mirror) ? 'green' : 'red';
+         },
     83:  function() { return (pearl&&titan&&hammer) ? 'green' : 'red'; },
     84:  function() { return boots ? 'green' : 'orange'; },
     85:  function() { return 'green'; },
-    86:  function() { if (!climbDM) return 'red'; return mirror?(DMlight?'green':'yellow'):'orange'; },
+    86:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) {
+             if (!hammer) return 'orange';
+             return DMlight ? 'green' : 'yellow';
+           }
+           if (!climbDM) return 'red';
+           return mirror ? (DMlight ? 'green' : 'yellow') : 'orange';
+         },
     87:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) {
+             var dwDM = glove || (flute && lwAccess);
+             if (!dwDM) return 'red';
+             if (!pearl) return 'red';
+             if (!(titan && hammer) && !hookshot) return 'red';
+             return DMlight ? 'green' : 'yellow';
+           }
            if (!eastDM) return 'red';
            return (mirror&&pearl&&titan) ? (DMlight?'green':'yellow') : 'orange';
          },
     88:  function() { return (bomb || boots) ? 'green' : 'red'; },
-    89:  function() { return (book||(titan&&flute&&mirror)) ? 'green' : 'orange'; },
+    89:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) {
+             if (!lwAccess) return 'red';
+             return book ? 'green' : 'orange';
+           }
+           return (book||(titan&&flute&&mirror)) ? 'green' : 'orange';
+         },
     90:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return (lwAccess && flippers) ? 'green' : 'orange';
            if (!flippers) return 'orange';
            return (pearl&&mirror&&(aga||titan||(glove&&hammer))) ? 'green' : 'orange';
          },
-    91:  function() { if (!dwNW) return 'red'; return (cape&&glove)?'green':'orange'; },
+    91:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) {
+             // Inverted: Bumper Cave ledge is in DW but needs LW village portal + glove + mirror
+             if (!lwAccess) return 'red';
+             if (!glove)    return 'red';
+             if (!mirror)   return 'orange';
+             return 'green';
+           }
+           if (!dwNW) return 'red';
+           return (cape && glove) ? 'green' : 'orange';
+         },
     92:  function() {
            var inv3 = window.trackerSettings && window.trackerSettings.inverted;
-           if (inv3) return (hammer || (it.gloves >= 2 && it.flippers)) ? 'green' : 'red';
+           if (inv3) return dwEast ? 'green' : 'red';
            return (aga||dwEast) ? 'green' : 'red';
          },
     93:  function() { return dwSouth ? 'green' : 'red'; },
@@ -796,7 +927,11 @@ function checkLogic(it) {
     97:  function() { return 'green'; },
     98:  function() { return 'green'; },
     99:  function() { return 'green'; },
-    100: function() { if (!powder) return 'red'; return (hammer||(dwNW&&mirror))?'green':'red'; },
+    100: function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return (powder && hammer) ? 'green' : 'red';
+           if (!powder) return 'red'; return (hammer||(dwNW&&mirror))?'green':'red';
+         },
     101: function() { return (pearl&&titan) ? 'green' : 'red'; },
     102: function() {
            var rc=window.trackerItems?(window.trackerItems.redCrystal||0):0;
@@ -816,15 +951,27 @@ function checkLogic(it) {
            var settings = window.trackerSettings || {};
            if (!['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) return null;
            var sl = settings.swordless === 'yes';
+           var inv = settings.inverted;
+           if (inv) {
+             var dwDMInv = glove || (flute && lwAccess);
+             return dwDMInv ? 'green' : 'yellow';
+           }
            return (sword2 || cape || (sl && hammer)) ? 'green' : 'red';
          },
     110: function() {
            var settings = window.trackerSettings || {};
            if (!['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) return null;
-           if (!lamp) return 'red';
+           var inv = settings.inverted;
            var sl = settings.swordless === 'yes';
-           if (!(sword2 || cape || (sl && hammer))) return 'red';
            var ctKeys = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
+           if (inv) {
+             // Inverted: DW DM access + lamp + 1 small key
+             var dwDMInv = glove || (flute && lwAccess);
+             if (!dwDMInv || !lamp) return 'red';
+             return ctKeys >= 1 ? 'green' : 'red';
+           }
+           if (!lamp) return 'red';
+           if (!(sword2 || cape || (sl && hammer))) return 'red';
            return ctKeys >= 1 ? 'green' : 'red';
          },
     105: function() { return flippers ? 'green' : 'red'; },
@@ -857,15 +1004,37 @@ window.checkColor = function(id) {
       var aga    = it.agahnim >= 1;
       var hook   = it.hookshot >= 1;
       var flip   = it.flippers >= 1;
-      // DM portal: pearl + glove. Village portal: pearl + hammer+glove / titan / aga+hook
+      // DM portal: pearl + glove (left side). Right side also needs hammer or hookshot.
       var lwDMAccess      = pearl && glove;
-      var lwVillageAccess = pearl && (titan || (glove && hammer) || (aga && hook && (hammer || glove || flip)));
-      // DM-area LW checks use DM portal; all others need village portal
-      var _dmChecks = [3, 17, 71, 75, 79, 86, 87];
-      var lwAccess = (_dmChecks.indexOf(id) !== -1) ? lwDMAccess : lwVillageAccess;
+      var lwDMEastAccess  = glove && pearl && ((titan && hammer) || hook);
+      var lwVillageAccess = pearl && (aga || titan || (glove && hammer));
+    if (id === 109 || id === 110) { /* fall through to checkLogic — DW DM access not gated here */ }
+    else {
+      var _leftDM  = [71, 75, 79];
+      var _rightDM = [3, 17, 86, 87];
+      var lwAccess = (_leftDM.indexOf(id) !== -1)  ? lwDMAccess :
+                     (_rightDM.indexOf(id) !== -1) ? lwDMEastAccess :
+                     lwVillageAccess;
       if (!lwAccess) return 'red';
     }
+    }
     // DW checks (world==='dw') fall through to checkLogic normally
+    // Exception: Bumper Cave (91) in inverted requires LW village portal access
+    if (id === 91) {
+      var pearl  = it.moonpearl >= 1;
+      var titan  = it.gloves >= 2;
+      var glove  = it.gloves >= 1;
+      var hammer = it.hammer >= 1;
+      var aga    = it.agahnim >= 1;
+      var hook   = it.hookshot >= 1;
+      var flip   = it.flippers >= 1;
+      var mirror = it.mirror >= 1;
+      var cape   = it.cape >= 1;
+      var lwVillageAccess = pearl && (aga || titan || (glove && hammer));
+      if (!lwVillageAccess) return 'orange';
+      if (!mirror || !cape) return 'orange';
+      return 'green';
+    }
   }
   var fn = checkLogic(it)[id];
   return fn ? fn() : 'green';
@@ -1096,6 +1265,9 @@ CHECKS.forEach(function(c) {
   var id = c[0], lft = c[1], top = c[2], name = c[3], world = c[4];
   // In inverted mode: Link's House (id=2) goes on DW map
   if (_inverted && id === 2) world = 'dw';
+  // In inverted: CT checks (109/110) follow Aga1 to DW map, left/right of CT marker (57, 2)
+  if (_inverted && id === 109) { world = 'dw'; lft = 51.0; top = 2.0; }
+  if (_inverted && id === 110) { world = 'dw'; lft = 63.0; top = 2.0; }
   var d = document.createElement('div');
   d.className = dotClass(id);
   d.style.left = lft + '%';
@@ -1117,14 +1289,21 @@ CHECKS.forEach(function(c) {
 var dngEls = {};
 Object.keys(DUNGEONS).forEach(function(key) {
   var def = DUNGEONS[key];
+  // In inverted: CT (Aga1) moves to DW at GT's position; GT (Ganon) moves to LW at CT's position
+  var dngWorld = def.world;
+  var dngLeft  = def.left;
+  var dngTop   = def.top;
+  var dngImg   = def.img;
+  if (_inverted && key === 'ct') { dngWorld = 'dw'; dngLeft = 57.00; dngTop = 2.0;   dngImg = 'map/boss10.png';   }
+  if (_inverted && key === 'gt') { dngWorld = 'lw'; dngLeft = 50.00; dngTop = 52.6;  dngImg = 'map/agahnim0.png'; }
   var el  = document.createElement('div');
   el.className = 'dng unavail';
-  el.style.left = def.left + '%';
-  el.style.top  = def.top  + '%';
+  el.style.left = dngLeft + '%';
+  el.style.top  = dngTop  + '%';
 
   var img = document.createElement('img');
   // Start with uncollected (dim) image
-  img.src = def.img;
+  img.src = dngImg;
   img.alt = def.label;
   el.appendChild(img);
 
@@ -1135,15 +1314,17 @@ Object.keys(DUNGEONS).forEach(function(key) {
   el.addEventListener('mouseenter', function(e) { showTip(def.label + ' — ' + dngStatusText(key), e); });
   el.addEventListener('mousemove',  moveTip);
   el.addEventListener('mouseleave', hideTip);
-  // In inverted mode: keep dungeons on their physical map positions
-  // (EP/DP/TOH/etc stay on LW map image, POD/SP/etc stay on DW map image)
-  // Logic changes handle accessibility, not visual position
-  var dngWorld = def.world;
   (dngWorld === 'lw' ? lwEl : dwEl).appendChild(el);
   dngEls[key] = el;
 });
 
-// Cycle through crystal/pendant types on click
+// In inverted: CT and GT markers are at swapped positions — swap dngEls so
+// all downstream logic (refreshDungeonImg, refreshMapLogic) hits the right element
+if (_inverted) {
+  var _tmpEl = dngEls['ct'];
+  dngEls['ct'] = dngEls['gt'];
+  dngEls['gt'] = _tmpEl;
+}
 function cyclePrize(key) {
   var def = DUNGEONS[key];
   def.prize = (def.prize + 1) % PRIZE_CYCLE.length;
@@ -1157,16 +1338,35 @@ function refreshDungeonImg(key) {
   var def = DUNGEONS[key];
   var img = dngEls[key].querySelector('img');
   if (!img) return;
-  // CT (Agahnim): hide image entirely when cleared — box matches standard cleared style
+  var inv = window.trackerSettings && window.trackerSettings.inverted;
+
+  if (inv && key === 'gt') {
+    // Aga1 element (DW): show agahnim0 normally, agahnim1 when cleared, hide if fullyCleared
+    if (def.fullyCleared) { img.style.display = 'none'; return; }
+    img.style.display = '';
+    img.src = def.cleared ? 'map/agahnim1.png' : 'map/agahnim0.png';
+    return;
+  }
+  if (inv && key === 'ct') {
+    // Ganon element (LW): always boss10, hide when fullyCleared
+    if (def.fullyCleared) { img.style.display = 'none'; return; }
+    img.style.display = '';
+    img.src = 'map/boss10.png';
+    return;
+  }
+
+  // Standard: CT (Agahnim) hide image when cleared
   if (key === 'ct' && def.fullyCleared) {
     img.style.display = 'none';
     return;
   }
   img.style.display = '';
   // Key Sanity: if prize is unknown but dungeon map is obtained, show map1.png as hint
+  // Skip for CT/GT in inverted — they have fixed boss images, not prize cycles
   var settings = window.trackerSettings || {};
   var diModeMap = settings.dungeonItems || 'standard';
-  if (['keysanity','mapcompass','mapcompasskeys','other'].includes(diModeMap)) {
+  var skipMapHint = inv && (key === 'ct' || key === 'gt');
+  if (!skipMapHint && ['keysanity','mapcompass','mapcompasskeys','other'].includes(diModeMap)) {
     var cycle = PRIZE_CYCLE[def.prize];
     if (cycle && cycle.name === 'unknown' && def.mapObtained) {
       img.src = 'items/map1.png';
@@ -1230,8 +1430,8 @@ window.refreshMapLogic = function() {
     var aga2    = it.agahnim >= 1;
     var hook2   = it.hookshot >= 1;
     var flip2   = it.flippers >= 1;
-    var lwDMok      = pearl2 && glove2;  // DM portal
-    var lwVillageOk = pearl2 && (titan2 || (glove2 && hammer2) || (aga2 && hook2 && (hammer2 || glove2 || flip2)));
+    var lwDMok      = glove2 && pearl2 && ((titan2 && hammer2) || hook2);  // Right side LW DM: DW DM + pearl + (titans+hammer OR hookshot)
+    var lwVillageOk = pearl2 && (aga2 || titan2 || (glove2 && hammer2));
     var lwOk = lwVillageOk;  // general LW access
     // Bottle Merchant (65) is LW — needs portal access
     if (dotById[65] && !checkState[65]) dotById[65].className = lwOk ? 'dot available' : 'dot unavail';
@@ -1241,13 +1441,36 @@ window.refreshMapLogic = function() {
     _bomb.forEach(function(id) {
       if (dotById[id] && !checkState[id]) dotById[id].className = hasBomb ? 'dot available' : 'dot unavail';
     });
-    // LW dungeons (ep,dp,toh,hc,ct) require portal access in inverted
-    // EP,DP,HC,CT need village portal; TOH needs DM portal
-    ['ep','dp','hc','ct'].forEach(function(key) {
+    // LW dungeons (ep,dp,hc) require village portal access in inverted
+    // Note: after dngEls swap, dngEls['gt'] = Aga1 (DW), dngEls['ct'] = Ganon (LW)
+    // So Ganon (ct key) needs village portal + crystal gate; Aga1 (gt key) needs DW DM gate
+    ['ep','dp','hc'].forEach(function(key) {
       var el = dngEls[key];
       if (!el || DUNGEONS[key].cleared || DUNGEONS[key].fullyCleared) return;
       if (!lwVillageOk) el.className = 'dng unavail';
     });
+    // Ganon (visually at CT/LW position, accessed via dngEls['ct'] after swap) — village portal + crystals
+    (function() {
+      var el = dngEls['ct'];
+      if (!el || DUNGEONS['ct'].cleared || DUNGEONS['ct'].fullyCleared) return;
+      var req = (window.trackerSettings && window.trackerSettings.gtCrystals) || 7;
+      var crystals = (window.trackerItems && window.trackerItems.crystals) || 0;
+      el.className = (lwVillageOk && crystals >= req) ? 'dng available' : 'dng unavail';
+    })();
+    // Aga1 (visually at GT/DW position, accessed via dngEls['gt'] after swap) — DW DM access + lamp + weapon
+    (function() {
+      var el = dngEls['gt'];
+      if (!el || DUNGEONS['gt'].cleared || DUNGEONS['gt'].fullyCleared) return;
+      var dwDMAccess = glove2 || (window.trackerItems && window.trackerItems.flute >= 1 && lwVillageOk);
+      var lamp2   = window.trackerItems && window.trackerItems.lamp;
+      var sword2  = window.trackerItems && window.trackerItems.sword >= 1;
+      var cape2   = window.trackerItems && window.trackerItems.cape;
+      var weapon2 = sword2 || hammer2 || cape2;
+      var diMode  = window.trackerSettings && window.trackerSettings.dungeonItems;
+      var ctKeys  = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
+      var keysOk  = ['keysanity','mapcompasskeys'].includes(diMode) ? ctKeys >= 2 : true;
+      el.className = (dwDMAccess && lamp2 && weapon2 && keysOk) ? 'dng available' : 'dng unavail';
+    })();
     // TOH is on Death Mountain — DM portal (glove+pearl) + hammer required
     (function() {
       var el = dngEls['toh'];
@@ -1280,14 +1503,40 @@ window.onRoomsUpdated = function(data) {
   Object.keys(DUNGEONS).forEach(function(key) {
     var def = DUNGEONS[key];
     // CT (Agahnim) uses a different SRAM flag — offset 0x3c5 >= 3
+    // In inverted: CT is Aga1 (DW DM) — use GT's bossOffset instead; GT is Ganon (LW) — use CT's SRAM flag
     if (key === 'ct') {
-      if (0x3c5 < data.length && data[0x3c5] >= 3 && !def.cleared) {
-        def.cleared = true;
-        def.fullyCleared = true;
-        refreshDungeonImg(key);
-        window.refreshMapLogic();
+      var inv = window.trackerSettings && window.trackerSettings.inverted;
+      if (inv) {
+        // Aga1 cleared via GT bossOffset (0x01b)
+        if (0x01b < data.length && (data[0x01b] & 0x08) !== 0 && !def.cleared) {
+          def.cleared = true;
+          def.fullyCleared = true;
+          refreshDungeonImg(key);
+          window.refreshMapLogic();
+        }
+      } else {
+        if (0x3c5 < data.length && data[0x3c5] >= 3 && !def.cleared) {
+          def.cleared = true;
+          def.fullyCleared = true;
+          refreshDungeonImg(key);
+          window.refreshMapLogic();
+        }
       }
       return;
+    }
+    // GT (Ganon) in inverted is at CT location — use CT's SRAM flag (0x3c5 >= 3)
+    // Must always return early in inverted to prevent generic loop firing on GT's bossOffset (0x01b = same as Aga1)
+    if (key === 'gt') {
+      var inv = window.trackerSettings && window.trackerSettings.inverted;
+      if (inv) {
+        if (0x3c5 < data.length && data[0x3c5] >= 3 && !def.cleared) {
+          def.cleared = true;
+          def.fullyCleared = true;
+          refreshDungeonImg(key);
+          window.refreshMapLogic();
+        }
+        return; // always return — don't fall through to generic bossOffset loop
+      }
     }
     if (def.bossOffset === null || def.bossOffset === undefined || def.bossOffset >= data.length) return;
     if ((data[def.bossOffset] & 0x08) !== 0 && !def.cleared) {
@@ -1349,8 +1598,9 @@ try {
         window.trackerItems.trBigKey     = snap.trBigKey     !== undefined ? snap.trBigKey     : (window.trackerItems.trBigKey || 0);
         window.trackerItems.spBigKey     = snap.spBigKey     !== undefined ? snap.spBigKey     : (window.trackerItems.spBigKey || 0);
         window.trackerItems.swBigKey     = snap.swBigKey     !== undefined ? snap.swBigKey     : (window.trackerItems.swBigKey || 0);
-        // Agahnim defeated → mark CT fully cleared (no items remain after boss)
-        if (snap.agahnim && !DUNGEONS.ct.cleared) {
+        // Agahnim defeated → mark CT fully cleared (standard mode only)
+        // In inverted, Aga1 is at CT position on DW — cleared via SRAM boss flag, not agahnim item
+        if (snap.agahnim && !DUNGEONS.ct.cleared && !(window.trackerSettings && window.trackerSettings.inverted)) {
           DUNGEONS.ct.cleared = true;
           DUNGEONS.ct.fullyCleared = true;
           refreshDungeonImg('ct');
@@ -1367,6 +1617,11 @@ try {
         break;
       case 'prizes':
         var pz = e.data.data;
+        // In inverted: item tracker broadcasts under physical dungeon keys, but CT and GT have swapped
+        // locations on the map — remap pz['ct']↔pz['gt'] so state applies to the right marker
+        if (window.trackerSettings && window.trackerSettings.inverted && pz['ct'] && pz['gt']) {
+          var _tmp = pz['ct']; pz['ct'] = pz['gt']; pz['gt'] = _tmp;
+        }
         // Update medallion assignments if included in message
         if (window.trackerItems) {
           if (e.data.mmMedallion !== undefined) window.trackerItems.mmMedallion = e.data.mmMedallion;
@@ -1374,11 +1629,25 @@ try {
         }
         Object.keys(pz).forEach(function(key) {
           if (!DUNGEONS[key]) return;
+          // In inverted, CT and GT have fixed boss images — skip prize cycle image updates
+          var inv = window.trackerSettings && window.trackerSettings.inverted;
+          if (inv && (key === 'ct' || key === 'gt')) {
+            // Only update cleared state, not prize/image
+            if (pz[key].allItems !== undefined) {
+              DUNGEONS[key].fullyCleared = pz[key].allItems && pz[key].obtained;
+            }
+            DUNGEONS[key].prizeObtained = pz[key].obtained || false;
+            refreshDungeonImg(key);
+            return;
+          }
           var prizeName = pz[key].name || 'unknown';
           var idx = prizeIndexByName(prizeName);
           DUNGEONS[key].prize      = idx;
-          DUNGEONS[key].img        = PRIZE_CYCLE[idx].img;
-          DUNGEONS[key].imgCleared = PRIZE_CYCLE[idx].imgCleared;
+          // Don't overwrite img/imgCleared for fixed-prize dungeons (CT/GT)
+          if (DUNGEONS[key].prize !== -2) {
+            DUNGEONS[key].img        = PRIZE_CYCLE[idx].img;
+            DUNGEONS[key].imgCleared = PRIZE_CYCLE[idx].imgCleared;
+          }
           DUNGEONS[key].prizeObtained  = pz[key].obtained || false;
           DUNGEONS[key].mapObtained    = pz[key].mapState === 1;
           DUNGEONS[key].otherCleared   = pz[key].otherCleared || false;
