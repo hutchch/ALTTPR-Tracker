@@ -719,9 +719,7 @@ function checkLogic(it) {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
              var dwDM = glove || (flute && lwAccess);
-             if (!dwDM) return 'red';
-             if (!pearl) return 'red';
-             if (!(titan && hammer) && !hookshot) return 'red';
+             if (!dwDM || !hammer) return 'red';
              return DMlight ? 'green' : 'yellow';
            }
            if (!pearl||!hammer||!titan||!somaria||!mirror) return 'red';
@@ -860,9 +858,10 @@ function checkLogic(it) {
     86:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
-             // Inverted: top-left LW DM access gated by outer block
-             // Hammer still needed to actually reach the rock
-             if (!hammer) return 'orange';
+             if (!glove) return 'red';
+             // Top-left LW DM access: pearl + hammer + (glove+hookshot OR titans+hammer)
+             var topLeft = pearl && hammer && ((glove && hookshot) || (titan && hammer));
+             if (!topLeft) return 'orange';
              return DMlight ? 'green' : 'yellow';
            }
            if (!climbDM) return 'red';
@@ -945,7 +944,7 @@ function checkLogic(it) {
            var inv = settings.inverted;
            if (inv) {
              var dwDMInv = glove || (flute && lwAccess);
-             return dwDMInv ? 'green' : 'yellow';
+             return dwDMInv ? 'green' : 'red';
            }
            return (sword2 || cape || (sl && hammer)) ? 'green' : 'red';
          },
@@ -1005,6 +1004,7 @@ window.checkColor = function(id) {
       var _leftDMNoPearl = [75, 79, 86];
       var _topLeftDM = [71];
       var _rightDM = [3, 17, 87];
+      // 86 (Spectacle Rock) handled entirely in checkLogic — visible from left DM but needs top-left to reach
       var lwAccess = (_leftDMNoPearl.indexOf(id) !== -1) ? lwDMNoPearl :
                      (_topLeftDM.indexOf(id) !== -1)     ? lwDMTopLeft :
                      (_rightDM.indexOf(id) !== -1)       ? lwDMEastAccess :
@@ -1259,6 +1259,8 @@ CHECKS.forEach(function(c) {
   var id = c[0], lft = c[1], top = c[2], name = c[3], world = c[4];
   // In inverted mode: Link's House (id=2) goes on DW map
   if (_inverted && id === 2) world = 'dw';
+  // In inverted: Old Man (75) moves to DW map at same position
+  if (_inverted && id === 75) world = 'dw';
   // In inverted: CT checks (109/110) follow Aga1 to DW map, left/right of CT marker (57, 2)
   if (_inverted && id === 109) { world = 'dw'; lft = 51.0; top = 2.0; }
   if (_inverted && id === 110) { world = 'dw'; lft = 63.0; top = 2.0; }
@@ -1410,6 +1412,26 @@ window.refreshMapLogic = function() {
   if (!['keysanity','mapcompasskeys'].includes(_diMode)) {
     if (dotById[109]) dotById[109].className = 'dot hidden';
     if (dotById[110]) dotById[110].className = 'dot hidden';
+  } else if (window.trackerSettings && window.trackerSettings.inverted) {
+    // In inverted KS/MCK: force correct colors for 109/110 based on DW DM access
+    var _it     = window.trackerItems || {};
+    var _glove  = _it.gloves >= 1;
+    var _titan  = _it.gloves >= 2;
+    var _flute  = _it.flute >= 1;
+    var _pearl  = _it.moonpearl >= 1;
+    var _aga    = _it.agahnim >= 1;
+    var _ham    = _it.hammer >= 1;
+    var _lamp   = _it.lamp >= 1 || _it.lamp === true;
+    var _lwAcc  = _pearl && (_aga || _titan || (_glove && _ham));
+    var _dwDM   = _glove || (_flute && _lwAcc);
+    var _DMlight = _lamp || _flute;
+    var _ctKeys = (_it.ctSmallKeys) || 0;
+    if (dotById[109] && !checkState[109]) {
+      dotById[109].className = _dwDM ? (_DMlight ? 'dot available' : 'dot possible') : 'dot unavail';
+    }
+    if (dotById[110] && !checkState[110]) {
+      dotById[110].className = (_dwDM && _lamp && _ctKeys >= 1) ? 'dot available' : 'dot unavail';
+    }
   }
   // Inverted mode: force DW village checks green regardless of checkLogic
   if (window.trackerSettings && window.trackerSettings.inverted) {
