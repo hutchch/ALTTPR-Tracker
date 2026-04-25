@@ -13,7 +13,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Selecable Game start mode
    - Standard
    - Open
-   - Inverted (Coming Soon)
+   - Inverted (v1.1.6 - Currently building and testing)
  - Enemizer or normal mode.
  - Sword or Swordless (v1.1.5 release).
 
