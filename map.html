@@ -591,11 +591,35 @@ function dungeonColor(key) {
       return (it.somaria && it.lamp) ? 'green' : 'yellow';
 
     case 'tr':
-      // Inverted: DW is home world — no moonpearl, hammer, or titans mitt needed
-      // But TR is on DW Death Mountain — needs glove or flute to climb
+      // Inverted: DW is home world — no moonpearl, hammer, or titans mitt needed for front entrance
+      // Back entrance: DW DM + pearl + (titans+hammer OR hookshot) + somaria + mirror → yellow
       if (!inverted && !it.moonpearl) return 'red';
       if (!inverted && (!it.hammer || it.gloves < 2)) return 'red';
-      if (inverted && !it.gloves && !(it.flute >= 1 && lwVillage)) return 'red';
+      if (inverted) {
+        // Check backdoor access
+        var dwDMAccess = it.gloves >= 1 || (it.flute >= 1 && lwVillage);
+        var backEntrance = dwDMAccess && it.moonpearl && ((it.gloves >= 2 && it.hammer) || it.hookshot) && it.mirror;
+        // Front entrance
+        var frontEntrance = (it.gloves >= 1 || (it.flute >= 1 && lwVillage)) && it.somaria;
+        if (!frontEntrance && !backEntrance) return 'red';
+        // Front entrance needs medallion + sword
+        if (frontEntrance) {
+          var hasAllMedsTRf = it.bombos && it.ether && it.quake;
+          if (!hasAllMedsTRf) {
+            if (!it.trMedallion) { if (!backEntrance) return 'red'; }
+            else if (!hasMedallion('tr')) { if (!backEntrance) return 'red'; }
+          }
+          if (!swordless && !it.sword) { if (!backEntrance) return 'red'; }
+        }
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var trKeys = (it.trSmallKeys) || 0;
+          if (trKeys < 4) return 'yellow';
+        }
+        if (settings.dungeonItems === 'keysanity') {
+          if (!it.trBigKey) return 'yellow';
+        }
+        return (it.firerod && it.lamp) ? 'green' : 'yellow';
+      }
       if (!it.somaria) return 'red';
       var hasAllMedsTR = it.bombos && it.ether && it.quake;
       if (!hasAllMedsTR) {
@@ -718,8 +742,9 @@ function checkLogic(it) {
     4:   function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
-             var dwDM = glove || (flute && lwAccess);
-             if (!dwDM || !hammer) return 'red';
+             // Right side LW DM access gated by outer block (pearl+glove+titans OR hookshot)
+             // Hammer required for chest
+             if (!hammer) return 'red';
              return DMlight ? 'green' : 'yellow';
            }
            if (!pearl||!hammer||!titan||!somaria||!mirror) return 'red';
@@ -796,7 +821,11 @@ function checkLogic(it) {
     66:  function() { return (it.greenPendant >= 1) ? 'green' : 'red'; },
     67:  function() { return dwSouth ? 'green' : 'red'; },
     68:  function() { return bottle1 ? 'green' : 'red'; },
-    69:  function() { return (pearl&&titan) ? 'green' : 'red'; },
+    69:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return (hammer && mirror && lwAccess) ? 'green' : 'red';
+           return (pearl&&titan) ? 'green' : 'red';
+         },
     70:  function() { return flippers ? 'green' : 'red'; },
     71:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
@@ -852,7 +881,11 @@ function checkLogic(it) {
            if (_inv) return lwAccess ? 'green' : 'red';
            return (flute&&titan&&mirror) ? 'green' : 'red';
          },
-    83:  function() { return (pearl&&titan&&hammer) ? 'green' : 'red'; },
+    83:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return (hammer && mirror && lwAccess) ? 'green' : 'red';
+           return (pearl&&titan&&hammer) ? 'green' : 'red';
+         },
     84:  function() { return boots ? 'green' : 'orange'; },
     85:  function() { return 'green'; },
     86:  function() {
@@ -922,7 +955,11 @@ function checkLogic(it) {
            if (_inv) return (powder && hammer) ? 'green' : 'red';
            if (!powder) return 'red'; return (hammer||(dwNW&&mirror))?'green':'red';
          },
-    101: function() { return (pearl&&titan) ? 'green' : 'red'; },
+    101: function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return (hammer && mirror && lwAccess) ? 'green' : 'red';
+           return (pearl&&titan) ? 'green' : 'red';
+         },
     102: function() {
            var rc=window.trackerItems?(window.trackerItems.redCrystal||0):0;
            if (rc<2) return 'red';
@@ -1003,7 +1040,7 @@ window.checkColor = function(id) {
     else {
       var _leftDMNoPearl = [75, 79, 86];
       var _topLeftDM = [71];
-      var _rightDM = [3, 17, 87];
+      var _rightDM = [3, 4, 17, 87];
       // 86 (Spectacle Rock) handled entirely in checkLogic — visible from left DM but needs top-left to reach
       var lwAccess = (_leftDMNoPearl.indexOf(id) !== -1) ? lwDMNoPearl :
                      (_topLeftDM.indexOf(id) !== -1)     ? lwDMTopLeft :
