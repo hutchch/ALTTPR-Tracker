@@ -142,18 +142,18 @@
 
 ## Key Sanity / MCK Additional Requirements (All Modes)
 
-| Dungeon | Small Keys | Big Key |
-|---------|-----------|---------|
-| DP | 1 | KS only |
-| TOH | 1 | KS only |
-| CT | 2 | — |
-| POD | 6 | KS only |
-| SP | 1 | KS only |
-| SW | — | KS only |
-| TT | 1 | KS only |
-| IP | 2 keys OR 1 key + Somaria | KS only |
-| MM | — | KS only |
-| TR | 4 | KS only |
+| Dungeon | Small Keys | Big Key | Notes |
+|---------|-----------|---------|-----------|
+| DP | 1 | KS only | |
+| TOH | 1 | KS only | |
+| CT | 2 | — | |
+| POD | 6 | KS only | Possible with 5 Small Keys |
+| SP | 1 | KS only | |
+| SW | — | KS only | |
+| TT | 1 | KS only | |
+| IP | 2 keys OR 1 key + Somaria | KS only | |
+| MM | — | KS only | |
+| TR | 4 | KS only | Possible with 3 Small Keys |
 
 ---
 
