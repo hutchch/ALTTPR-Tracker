@@ -1,4 +1,4 @@
-<h1>ALTTPR Tracker (v1.1.5 release)</h1>
+<h1>ALTTPR Tracker (v1.1.6 release)</h1>
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
@@ -13,7 +13,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Selecable Game start mode
    - Standard
    - Open
-   - Inverted (v1.1.6 - Currently building and testing)
+   - Inverted (v1.1.6 release)
  - Enemizer or normal mode.
  - Sword or Swordless (v1.1.5 release).
 
