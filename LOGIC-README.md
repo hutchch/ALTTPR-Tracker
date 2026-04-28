@@ -108,7 +108,7 @@
 | Magic Bat | Powder + Hammer | No mirror needed |
 | Hammer Pegs | Hammer + Mirror + LW Village | — |
 | Blacksmith | Mirror + LW Village | — |
-| Purple Chest | Hammer + Mirror + LW Village | — |
+| Purple Chest | Mirror + LW Village | — |
 | Pyramid | DW East (Hammer OR Flute+LW OR Flippers) | Aga1 defeat does not give DW East access |
 
 ### Dungeons (Inverted)
