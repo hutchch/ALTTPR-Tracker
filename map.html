@@ -823,7 +823,7 @@ function checkLogic(it) {
     68:  function() { return bottle1 ? 'green' : 'red'; },
     69:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) return (hammer && mirror && lwAccess) ? 'green' : 'red';
+           if (_inv) return (mirror && lwAccess) ? 'green' : 'red';
            return (pearl&&titan) ? 'green' : 'red';
          },
     70:  function() { return flippers ? 'green' : 'red'; },
