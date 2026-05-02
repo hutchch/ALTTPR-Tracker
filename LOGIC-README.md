@@ -106,9 +106,9 @@
 | Graveyard Ledge | LW Village | No mirror needed |
 | Bumper Cave Ledge | Always orange; LW Village + Mirror + Cape → green | DW check, always visible |
 | Magic Bat | Powder + Hammer | No mirror needed |
-| Hammer Pegs | Hammer + Mirror + LW Village | — |
-| Blacksmith | Mirror + LW Village | — |
-| Purple Chest | Mirror + LW Village | — |
+| Hammer Pegs | Hammer + Mirror OR Titans Mitts + LW Village | — |
+| Blacksmith | Mirror OR Titans Mitts + LW Village | — |
+| Purple Chest | Mirror OR Titans Mitts + LW Village | — |
 | Pyramid | DW East (Hammer OR Flute+LW OR Flippers) | Aga1 defeat does not give DW East access |
 
 ### Dungeons (Inverted)
