@@ -1,4 +1,4 @@
-<h1>ALTTPR Tracker (v1.1.6a release)</h1>
+<h1>ALTTPR Tracker (v1.1.7 release)</h1>
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
@@ -13,12 +13,16 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Selecable Game start mode
    - Standard
    - Open
-   - Inverted (v1.1.6 release)
- - Enemizer or normal mode.
- - Sword or Swordless (v1.1.5 release).
+   - Inverted
+ - Enemizer or normal mode
+ - Sword or Swordless
 
 Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
 </p>
+
+<img width="1242" height="1525" alt="image" src="https://github.com/user-attachments/assets/c8a4b087-188e-4aed-9ed9-a5c31b0dc6a6" />
+
+
 
 ______________________________________________________________________
 
@@ -42,7 +46,6 @@ For best results here is the launch order that was tested.
 5. Start the game
 
 ______________________________________________________________________
-<img width="1216" height="1489" alt="image" src="https://github.com/user-attachments/assets/c12950a3-bfef-4584-abca-94db134dea47" />
 
 Features
 - Item Tracker — click to cycle all items, weapons, and equipment through their states
