@@ -17,7 +17,11 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Enemizer or normal mode
  - Sword or Swordless
 
+<i>Each mode takes many hours (30-80+ hours) to build.  There are no plans to incorporate Entrance shuffle, ShopSanity, or Retro modes.  My apologies. </i>
+
 Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
+
+Emulator setup can be found uner [Emulator Setup](https://github.com/hutchch/Emulator-Setup)
 </p>
 
 <img width="1242" height="1525" alt="image" src="https://github.com/user-attachments/assets/c8a4b087-188e-4aed-9ed9-a5c31b0dc6a6" />
@@ -66,7 +70,7 @@ Start QUsb2Snes or SNI before launching the tracker. The connection status bar a
 Color Reference
 <img width="660" height="297" alt="image" src="https://github.com/user-attachments/assets/c321533d-26ff-45df-a7fb-d18acc79f840" />
 
-For best gaming experience, set Retroarch not to pause the game.  Under Settings -> User Interface, and turn off the pause content settings.
+For best gaming experience, set the emulator not to pause the game.  (Example with RetroArch) Under Settings -> User Interface, and turn off the pause content settings.
 <img width="1798" height="602" alt="image" src="https://github.com/user-attachments/assets/9a5d9e2c-b0d6-4e75-a3bc-5939ac62c63b" />
 
 Manual Tracking - This option for non web-socket and user manual tracking. 
