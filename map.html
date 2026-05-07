@@ -571,7 +571,7 @@ function dungeonColor(key) {
       // Inverted: DW is home world — no moonpearl or titans mitt needed
       // Access via flute (needs LW village access) or mirror + LW village access
       if (inverted) {
-        var mmAccess = (it.flute && lwVillage) || (it.mirror && lwVillage);
+        var mmAccess = (it.flute >= 1 && lwVillage) || (it.mirror && lwVillage) || (it.agahnim && !it.moonpearl && it.mirror);
         if (!mmAccess) return 'red';
       } else {
         if (!it.flute || it.gloves < 2) return 'red';
@@ -704,6 +704,7 @@ function checkLogic(it) {
   var lwAccess = inv
     ? (pearl && (aga || titan || (glove && hammer)))
     : true;
+  var superBunny = inv && aga && !pearl; // SuperBunny: Aga1 defeated + no moonpearl
 
   function medColor(dkey) {
     var sl = (window.trackerSettings && window.trackerSettings.swordless === 'yes');
@@ -758,7 +759,7 @@ function checkLogic(it) {
     9:   function() { return bomb ? 'green' : 'red'; },
     10:  function() {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
-           if (_inv) return ((flute && lwAccess) || (mirror && lwAccess)) ? 'green' : 'red';
+           if (_inv) return ((flute && lwAccess) || (mirror && lwAccess) || (superBunny && mirror)) ? 'green' : 'red';
            return (pearl&&flute&&titan) ? 'green' : 'red';
          },
     11:  function() {
@@ -814,16 +815,17 @@ function checkLogic(it) {
     65:  function() {
            var inv2 = window.trackerSettings && window.trackerSettings.inverted;
            if (!inv2) return 'green';
-           // Inverted: LW bottle merchant needs portal access
+           // Inverted: LW bottle merchant needs portal access or SuperBunny
            var p2=it.moonpearl>=1,t2=it.gloves>=2,g2=it.gloves>=1,h2=it.hammer>=1,a2=it.agahnim>=1,hk2=it.hookshot>=1,fl2=it.flippers>=1;
-           return (p2&&(t2||(g2&&h2)||(a2&&hk2&&(h2||g2||fl2)))) ? 'green' : 'red';
+           var sb2 = a2 && !p2; // SuperBunny
+           return (p2&&(t2||(g2&&h2)||(a2&&hk2&&(h2||g2||fl2)))) || sb2 ? 'green' : 'red';
          },
     66:  function() { return (it.greenPendant >= 1) ? 'green' : 'red'; },
     67:  function() { return dwSouth ? 'green' : 'red'; },
     68:  function() { return bottle1 ? 'green' : 'red'; },
     69:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) return ((titan || mirror) && lwAccess) ? 'green' : 'red';
+           if (_inv) return ((titan || mirror) && lwAccess) || (superBunny && mirror) ? 'green' : 'red';
            return (pearl&&titan) ? 'green' : 'red';
          },
     70:  function() { return flippers ? 'green' : 'red'; },
@@ -883,7 +885,7 @@ function checkLogic(it) {
          },
     83:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) return (hammer && (titan || mirror) && lwAccess) ? 'green' : 'red';
+           if (_inv) return (hammer && (titan || mirror) && lwAccess) || (superBunny && mirror && hammer) ? 'green' : 'red';
            return (pearl&&titan&&hammer) ? 'green' : 'red';
          },
     84:  function() { return boots ? 'green' : 'orange'; },
@@ -957,7 +959,7 @@ function checkLogic(it) {
          },
     101: function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) return ((titan || mirror) && lwAccess) ? 'green' : 'red';
+           if (_inv) return ((titan || mirror) && lwAccess) || (superBunny && mirror) ? 'green' : 'red';
            return (pearl&&titan) ? 'green' : 'red';
          },
     102: function() {
@@ -1033,10 +1035,13 @@ window.checkColor = function(id) {
       var flip   = it.flippers >= 1;
       var lwDMAccess      = pearl && glove;
       var lwDMNoPearl     = glove;
+      var mirror2 = it.mirror >= 1;
       var lwDMTopLeft     = pearl && hammer && ((glove && hook) || (titan && hammer));
       var lwDMEastAccess  = pearl && glove && (titan || hook);
       var lwVillageAccess = pearl && (aga || titan || (glove && hammer));
     if (id === 109 || id === 110) { /* fall through to checkLogic — DW DM access not gated here */ }
+    else if (id === 65 && aga && !pearl) { /* SuperBunny — Bottle Merchant accessible, fall through */ }
+    else if (id === 101 && !pearl && aga && mirror2) { /* SuperBunny + mirror — Blacksmith accessible */ }
     else {
       var _leftDMNoPearl = [75, 79, 86];
       var _topLeftDM = [71];
@@ -1486,8 +1491,9 @@ window.refreshMapLogic = function() {
     var lwDMok      = pearl2 && hammer2 && ((glove2 && hook2) || (titan2 && hammer2));  // Top-left LW DM
     var lwVillageOk = pearl2 && (aga2 || titan2 || (glove2 && hammer2));
     var lwOk = lwVillageOk;  // general LW access
-    // Bottle Merchant (65) is LW — needs portal access
-    if (dotById[65] && !checkState[65]) dotById[65].className = lwOk ? 'dot available' : 'dot unavail';
+    // Bottle Merchant (65) is LW — needs portal access or SuperBunny (aga+no pearl)
+    var superBunnyOk = aga2 && !pearl2;
+    if (dotById[65] && !checkState[65]) dotById[65].className = (lwOk || superBunnyOk) ? 'dot available' : 'dot unavail';
     _free.forEach(function(id) {
       if (dotById[id] && !checkState[id]) dotById[id].className = 'dot available';
     });
@@ -1764,7 +1770,7 @@ function moveTip(e) {
 
 // ── Zoom + Layout ─────────────────────────────────────────────────────────────
 // Declare zoom state first so resizeWindowToMap can reference it
-var ZOOM_STEPS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
+var ZOOM_STEPS = [70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150];
 var zoomIdx = 1;
 
 // Non-map chrome: topbar (~28px) + bottombar (~24px) + OS window chrome (~40px)

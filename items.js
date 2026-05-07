@@ -213,15 +213,53 @@ const items = {
         ],
         currentState: 0
     },
-    bottle: {
+    bottle1: {
         states: [
-            { img: `${BASE_URL}/bottle0.png`, name: 'No Bottles' },
-            { img: `${BASE_URL}/bottle1.png`, name: '1 Bottle' },
-            { img: `${BASE_URL}/bottle2.png`, name: '2 Bottles' },
-            { img: `${BASE_URL}/bottle3.png`, name: '3 Bottles' },
-            { img: `${BASE_URL}/bottle4.png`, name: '4 Bottles' }
-        ],
-        currentState: 0
+            { img: `${BASE_URL}/bottle0.png`,      name: 'Empty Slot' },
+            { img: `${BASE_URL}/bottle_empty.png`, name: 'Empty Bottle' },
+            { img: `${BASE_URL}/bottle_red.png`,   name: 'Red Potion' },
+            { img: `${BASE_URL}/bottle_green.png`, name: 'Green Potion' },
+            { img: `${BASE_URL}/bottle_blue.png`,  name: 'Blue Potion' },
+            { img: `${BASE_URL}/bottle_fairy.png`, name: 'Fairy' },
+            { img: `${BASE_URL}/bottle_bee.png`,   name: 'Bee' },
+            { img: `${BASE_URL}/bottle_goodbee.png`,      name: 'Good Bee' },
+        ], currentState: 0
+    },
+    bottle2: {
+        states: [
+            { img: `${BASE_URL}/bottle0.png`,      name: 'Empty Slot' },
+            { img: `${BASE_URL}/bottle_empty.png`, name: 'Empty Bottle' },
+            { img: `${BASE_URL}/bottle_red.png`,   name: 'Red Potion' },
+            { img: `${BASE_URL}/bottle_green.png`, name: 'Green Potion' },
+            { img: `${BASE_URL}/bottle_blue.png`,  name: 'Blue Potion' },
+            { img: `${BASE_URL}/bottle_fairy.png`, name: 'Fairy' },
+            { img: `${BASE_URL}/bottle_bee.png`,   name: 'Bee' },
+            { img: `${BASE_URL}/bottle_goodbee.png`,      name: 'Good Bee' },
+        ], currentState: 0
+    },
+    bottle3: {
+        states: [
+            { img: `${BASE_URL}/bottle0.png`,      name: 'Empty Slot' },
+            { img: `${BASE_URL}/bottle_empty.png`, name: 'Empty Bottle' },
+            { img: `${BASE_URL}/bottle_red.png`,   name: 'Red Potion' },
+            { img: `${BASE_URL}/bottle_green.png`, name: 'Green Potion' },
+            { img: `${BASE_URL}/bottle_blue.png`,  name: 'Blue Potion' },
+            { img: `${BASE_URL}/bottle_fairy.png`, name: 'Fairy' },
+            { img: `${BASE_URL}/bottle_bee.png`,   name: 'Bee' },
+            { img: `${BASE_URL}/bottle_goodbee.png`,      name: 'Good Bee' },
+        ], currentState: 0
+    },
+    bottle4: {
+        states: [
+            { img: `${BASE_URL}/bottle0.png`,      name: 'Empty Slot' },
+            { img: `${BASE_URL}/bottle_empty.png`, name: 'Empty Bottle' },
+            { img: `${BASE_URL}/bottle_red.png`,   name: 'Red Potion' },
+            { img: `${BASE_URL}/bottle_green.png`, name: 'Green Potion' },
+            { img: `${BASE_URL}/bottle_blue.png`,  name: 'Blue Potion' },
+            { img: `${BASE_URL}/bottle_fairy.png`, name: 'Fairy' },
+            { img: `${BASE_URL}/bottle_bee.png`,   name: 'Bee' },
+            { img: `${BASE_URL}/bottle_goodbee.png`,      name: 'Good Bee' },
+        ], currentState: 0
     },
     somaria: {
         states: [
@@ -373,7 +411,7 @@ const layout = [
     ['bow', 'boomerang', 'hookshot', 'bomb', 'mushroom', 'powder', 'moonpearl', 'sword', 'ep'],
     ['firerod', 'icerod', 'bombos', 'ether', 'quake', 'boots', 'gloves', 'shield', 'dp'],
     ['lamp', 'hammer', 'shovel', 'flute', 'net', 'book', 'flippers', 'tunic', 'toh'],
-    ['bottle', 'somaria', 'byrna', 'cape', 'mirror', 'halfmagic', 'agahnim', 'gomode', 'stats'],
+    ['bottles', 'somaria', 'byrna', 'cape', 'mirror', 'halfmagic', 'agahnim', 'gomode', 'stats'],
     ['pod', 'sp', 'sw', 'tt', 'ip', 'mm', 'tr', 'gt']
 ];
 
@@ -645,40 +683,49 @@ function createTracker() {
                     const ctKeyBox = document.createElement('div');
                     ctKeyBox.className = 'stat-box stat-ctkey';
                     ctKeyBox.innerHTML = `<span class="stat-label">CT</span><img src="${BASE_URL}/smallkey0.png" class="stat-icon" alt="Key"><span class="stat-value" id="toh-ctkey-count">0/2</span>`;
-                    ctKeyBox.style.cursor = 'pointer';
-                    ctKeyBox.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        if (deviceAttached) return;
-                        if (!window.trackerItems) window.trackerItems = {};
-                        var cur = window.trackerItems.ctSmallKeys || 0;
-                        if (cur < 2) {
-                            window.trackerItems.ctSmallKeys = cur + 1;
-                            var el = document.getElementById('toh-ctkey-count');
-                            if (el) { el.textContent = window.trackerItems.ctSmallKeys + '/2'; el.style.color = window.trackerItems.ctSmallKeys >= 2 ? '#2ecc71' : ''; }
-                            if (window.broadcastItemSnap) window.broadcastItemSnap();
-                        }
-                    });
-                    ctKeyBox.addEventListener('contextmenu', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (deviceAttached) return;
-                        if (!window.trackerItems) window.trackerItems = {};
-                        var cur = window.trackerItems.ctSmallKeys || 0;
-                        if (cur > 0) {
-                            window.trackerItems.ctSmallKeys = cur - 1;
-                            var el = document.getElementById('toh-ctkey-count');
-                            if (el) { el.textContent = window.trackerItems.ctSmallKeys + '/2'; el.style.color = window.trackerItems.ctSmallKeys >= 2 ? '#2ecc71' : ''; }
-                            if (window.broadcastItemSnap) window.broadcastItemSnap();
-                        }
-                    });
                     statsSlot.appendChild(ctKeyBox);
                 }
                 statsSlot.appendChild(checkBox);
                 statsSlot.appendChild(deathBox);
                 statsSlot.appendChild(bonkBox);
                 rowDiv.appendChild(statsSlot);
+            } else if (itemKey === 'bottles') {
+                // 2x2 grid of bottle slots, same footprint as a single item slot (48x48)
+                const bottleGrid = document.createElement('div');
+                bottleGrid.className = 'bottle-grid';
+                bottleGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;width:48px;height:48px;gap:1px;padding:1px;cursor:pointer;';
+
+                ['bottle1','bottle2','bottle3','bottle4'].forEach(function(bKey) {
+                    const cell = document.createElement('div');
+                    cell.dataset.itemKey = bKey;
+                    cell.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;';
+                    const img = document.createElement('img');
+                    img.src = items[bKey].states[0].img;
+                    img.alt = items[bKey].states[0].name;
+                    img.style.cssText = 'width:22px;height:22px;image-rendering:pixelated;';
+                    cell.appendChild(img);
+                    cell.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        cycleItem(bKey, cell);
+                    });
+                    cell.addEventListener('contextmenu', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Right-click cycles backward
+                        const cur = items[bKey].currentState;
+                        const total = items[bKey].states.length;
+                        items[bKey].currentState = (cur - 1 + total) % total;
+                        const img = cell.querySelector('img');
+                        if (img) {
+                            img.src = items[bKey].states[items[bKey].currentState].img;
+                            img.alt = items[bKey].states[items[bKey].currentState].name;
+                        }
+                        if (window.broadcastItemSnap) window.broadcastItemSnap();
+                    });
+                    bottleGrid.appendChild(cell);
+                });
+                rowDiv.appendChild(bottleGrid);
             } else {
-                // Regular item
                 const itemSlot = document.createElement('div');
                 itemSlot.className = 'item-slot';
                 itemSlot.dataset.itemKey = itemKey;
@@ -849,11 +896,14 @@ function broadcastItemSnap() {
     var snap = {};
     var copyKeys = ['bow','boomerang','hookshot','bomb','mushroom','powder','firerod','icerod',
                     'bombos','ether','quake','lamp','hammer','shovel','flute','net','book',
-                    'bottle','somaria','byrna','cape','mirror','boots','gloves','flippers',
+                    'bottle1','bottle2','bottle3','bottle4',
+                    'somaria','byrna','cape','mirror','boots','gloves','flippers',
                     'moonpearl','sword','shield','tunic','agahnim','halfmagic'];
     copyKeys.forEach(function(k) {
         if (items[k]) snap[k] = items[k].currentState;
     });
+    // Derive bottle count for map logic (trackerItems.bottle)
+    snap.bottle = ['bottle1','bottle2','bottle3','bottle4'].filter(k => items[k] && items[k].currentState > 0).length;
     snap.crystals     = (window.trackerItems && window.trackerItems.crystals)     || 0;
     snap.pendants     = (window.trackerItems && window.trackerItems.pendants)     || 0;
     snap.greenPendant = (window.trackerItems && window.trackerItems.greenPendant) || 0;
@@ -1174,39 +1224,40 @@ function processRoomData(data) {
 }
 
 function processInventoryData(data) {
+    try {
     // Data starts at offset 0x340 in SRAM, we read up to 0x38F
     const changed = (offset) => {
         return !previousSRAM || data[offset] !== previousSRAM[offset];
     };
     
+    // newbit: fires when a bit is set that wasn't set before
+    // On first connect (!previousSRAM), read all items regardless to get current state
+    const isFirstRead = !previousSRAM;
     const newbit = (offset, mask) => {
-        return changed(offset) && (data[offset] & mask) !== 0 && (!previousSRAM || (previousSRAM[offset] & mask) === 0);
+        if (isFirstRead) return (data[offset] & mask) !== 0;
+        return changed(offset) && (data[offset] & mask) !== 0 && (previousSRAM[offset] & mask) === 0;
     };
     
+    // Helper: only update if new state >= current (prevents blanking during save/quit menu)
+    const updateIfBetter = (key, newState) => {
+        if (newState >= items[key].currentState) updateItemState(key, newState);
+    };
+
     // Based on autot.js tracking logic
     if (changed(0x00)) { // 0x340 - Bow
         const bowValue = data[0x00];
-        if (bowValue === 0x00) updateItemState('bow', 0);
-        else if (bowValue === 0x01) updateItemState('bow', 1);
-        else if (bowValue === 0x02) updateItemState('bow', 2);
-        else if (bowValue === 0x03) updateItemState('bow', 3);
-        else if (bowValue === 0x04) updateItemState('bow', 3); // Silver arrows
+        const bowState = bowValue === 0x00 ? 0 : bowValue === 0x01 ? 1 : bowValue === 0x02 ? 2 : 3;
+        updateIfBetter('bow', bowState);
     }
     
-    // Boomerang - check randomizer logic first (0x38c)
+    // Boomerang
     if (changed(0x4C)) {
-    //if (changed(0x4C)) { // 0x38C - Randomizer boomerang tracking
         const bits = data[0x4C] & 0xC0;
-        if (bits === 0x80) updateItemState('boomerang', 1); // Blue boomerang
-        else if (bits === 0x40) updateItemState('boomerang', 2); // Red boomerang
-        else if (bits === 0xC0) updateItemState('boomerang', 3); // Both
-        else if (changed(0x01)) { // Fallback to vanilla 0x341
-            updateItemState('boomerang', data[0x01]);
-        }
-    //} else if (changed(0x01)) { // 0x341 - Vanilla boomerang
-    //    updateItemState('boomerang', data[0x01]);
+        if (bits === 0x80) updateIfBetter('boomerang', 1);
+        else if (bits === 0x40) updateIfBetter('boomerang', 2);
+        else if (bits === 0xC0) updateIfBetter('boomerang', 3);
+        else if (changed(0x01)) updateIfBetter('boomerang', data[0x01]);
     }
-    
     if (newbit(0x02, 0x01)) updateItemState('hookshot', 1); // 0x342
     if (changed(0x03)) updateItemState('bomb', data[0x03] > 0 ? 1 : 0); // 0x343
     
@@ -1216,18 +1267,18 @@ function processInventoryData(data) {
         
         // Mushroom tracking
         const mushroomBits = bits38c & 0x28;
-        if (mushroomBits === 0x28) updateItemState('mushroom', 1); // Has mushroom
-        else if (mushroomBits === 0x08) updateItemState('mushroom', 2); // Turned in
-        else updateItemState('mushroom', 0);
+        if (mushroomBits === 0x28) updateItemState('mushroom', 1);
+        else if (mushroomBits === 0x08) updateItemState('mushroom', 2);
+        // Don't zero mushroom — it stays
         
-        // Powder tracking
+        // Powder tracking - never remove
         if (bits38c & 0x10) updateItemState('powder', 1);
         
         // Flute tracking (bits 0x03)
         const fluteState = bits38c & 0x03;
-        if (fluteState === 0x01 || fluteState === 0x03) updateItemState('flute', 2); // Active flute
-        else if (fluteState === 0x02) updateItemState('flute', 1); // Inactive flute
-        else updateItemState('flute', 0);
+        if (fluteState === 0x01 || fluteState === 0x03) updateItemState('flute', 2);
+        else if (fluteState === 0x02) updateIfBetter('flute', 1);
+        // Don't zero flute
         
         // Shovel tracking - once obtained, it stays (bit 0x04)
         if ((bits38c & 0x04) && items.shovel.currentState === 0) {
@@ -1257,35 +1308,40 @@ function processInventoryData(data) {
     if (newbit(0x0D, 0x01)) updateItemState('net', 1); // 0x34D
     if (newbit(0x0E, 0x01)) updateItemState('book', 1); // 0x34E
     
-    // Bottles 0x35C-0x35F
-    let bottleCount = 0;
-    for (let i = 0x1C; i <= 0x1F; i++) {
-        if (data[i] > 0) bottleCount++;
+    // Bottles 0x35C-0x35F — track contents of each bottle individually
+    // SRAM values: 0x00=none, 0x02=empty, 0x03=red, 0x04=green, 0x05=blue, 0x06=fairy, 0x07=bee, 0x08=goodbee
+    const bottleContentMap = { 0x00: 0, 0x02: 1, 0x03: 2, 0x04: 3, 0x05: 4, 0x06: 5, 0x07: 6, 0x08: 7 };
+    const bottleKeys = ['bottle1', 'bottle2', 'bottle3', 'bottle4'];
+    for (let i = 0; i < 4; i++) {
+        const val = data[0x1C + i];
+        const state = bottleContentMap[val] !== undefined ? bottleContentMap[val] : 0;
+        // Only update if obtained (state > 0) or bottle was never obtained
+        if (state > 0 || items[bottleKeys[i]].currentState === 0) {
+            updateItemState(bottleKeys[i], state);
+        }
     }
-    updateItemState('bottle', bottleCount);
+    // Update trackerItems.bottle count for map logic compatibility
+    if (window.trackerItems) {
+        window.trackerItems.bottle = bottleKeys.filter((k, i) => data[0x1C + i] > 0).length;
+    }
     
     if (newbit(0x10, 0x01)) updateItemState('somaria', 1); // 0x350
     if (newbit(0x11, 0x01)) updateItemState('byrna', 1); // 0x351
     if (newbit(0x12, 0x01)) updateItemState('cape', 1); // 0x352
     if (newbit(0x13, 0x02)) updateItemState('mirror', 1); // 0x353
     
-    if (changed(0x14)) updateItemState('gloves', data[0x14]); // 0x354
+    if (changed(0x14)) updateIfBetter('gloves', data[0x14]); // 0x354
     if (newbit(0x15, 0x01)) updateItemState('boots', 1); // 0x355
     if (newbit(0x16, 0x01)) updateItemState('flippers', 1); // 0x356
     if (newbit(0x17, 0x01)) updateItemState('moonpearl', 1); // 0x357
-    if (changed(0x19)) updateItemState('sword', data[0x19] === 0xFF ? 0 : data[0x19]); // 0x359
-    if (changed(0x1A)) updateItemState('shield', data[0x1A]); // 0x35A
-    if (changed(0x1B)) updateItemState('tunic', data[0x1B]); // 0x35B
-    if (changed(0x3B)) updateItemState('halfmagic', data[0x3B] > 0 ? 1 : 0); // 0x37B
+    if (changed(0x19)) updateIfBetter('sword', data[0x19] === 0xFF ? 0 : data[0x19]); // 0x359
+    if (changed(0x1A)) updateIfBetter('shield', data[0x1A]); // 0x35A
+    if (changed(0x1B)) updateIfBetter('tunic', data[0x1B]); // 0x35B
+    if (changed(0x3B)) { if (data[0x3B] > 0) updateItemState('halfmagic', 1); } // 0x37B - never remove halfmagic
     
     // Agahnim tracking (0x3C5 - offset 0x85 from 0x340)
     if (changed(0x85)) {
-        const agaValue = data[0x85];
-        if (agaValue >= 3) {
-            updateItemState('agahnim', 1); // Defeated
-        } else {
-            updateItemState('agahnim', 0); // Alive
-        }
+        if (data[0x85] >= 3) updateItemState('agahnim', 1); // Defeated — never go back to 0
     }
     
     // Small key tracking for dungeons (0x4E0-0x4ED range)
@@ -1293,12 +1349,13 @@ function processInventoryData(data) {
         if (dungeon.smallKeyAddr) {
             const keyOffset = dungeon.smallKeyAddr - 0x340;
             if (keyOffset >= 0 && keyOffset < data.length && changed(keyOffset)) {
-                // Cap key count at maxSmallKeys (hard limit for dungeons like ToH and DP with only 1 key)
                 const rawKeyCount = data[keyOffset];
                 const keyCount = (dungeon.maxSmallKeys > 0) ? Math.min(rawKeyCount, dungeon.maxSmallKeys) : rawKeyCount;
-                if (keyCount !== dungeon.smallKeyCount) {
+                // When autotracking, only increase (protects against save/quit zeroing)
+                // When manual, allow decrease so right-click works
+                const shouldUpdate = deviceAttached ? keyCount > (dungeons[key].smallKeyCount || 0) : keyCount !== dungeons[key].smallKeyCount;
+                if (shouldUpdate) {
                     dungeons[key].smallKeyCount = keyCount;
-                    // Track the high-water mark so used keys don't reduce the chest subtraction
                     if (keyCount > (dungeons[key].smallKeyMax || 0)) {
                         dungeons[key].smallKeyMax = keyCount;
                     }
@@ -1365,6 +1422,8 @@ function processInventoryData(data) {
         }
     }
     
+    } catch(e) { console.error('processInventoryData error:', e); }
+    
     // Store current data for next comparison
     previousSRAM = new Uint8Array(data);
 
@@ -1373,11 +1432,13 @@ function processInventoryData(data) {
         var snap = {};
         var copyKeys = ['bow','boomerang','hookshot','bomb','mushroom','powder','firerod','icerod',
                         'bombos','ether','quake','lamp','hammer','shovel','flute','net','book',
-                        'bottle','somaria','byrna','cape','mirror','boots','gloves','flippers',
+                        'bottle1','bottle2','bottle3','bottle4',
+                        'somaria','byrna','cape','mirror','boots','gloves','flippers',
                         'moonpearl','sword','shield','tunic','agahnim','halfmagic'];
         copyKeys.forEach(function(k) {
             if (items[k]) snap[k] = items[k].currentState;
         });
+        snap.bottle = ['bottle1','bottle2','bottle3','bottle4'].filter(k => items[k] && items[k].currentState > 0).length;
         // Crystal count from trackerItems if available, else from items
         snap.crystals = (window.trackerItems && window.trackerItems.crystals) || 0;
         snap.mmMedallion = (window.trackerItems && window.trackerItems.mmMedallion) || 0;
@@ -1443,16 +1504,18 @@ function processInventoryData(data) {
     const checkEl = document.getElementById('toh-check-count');
     const deathEl = document.getElementById('toh-death-count');
     if (checkEl && 0xE3 < data.length) {
-        checkEl.textContent = data[0xE3];
+        const newChecks = data[0xE3];
+        if (newChecks >= parseInt(checkEl.textContent || '0')) checkEl.textContent = newChecks;
     }
     if (deathEl && 0x10a < data.length) {
         const deaths = data[0x109] | (data[0x10a] << 8);
-        deathEl.textContent = deaths;
+        if (deaths >= parseInt(deathEl.textContent || '0')) deathEl.textContent = deaths;
     }
     // Bonk count (SRAM 0xF5F420 = inv offset 0xE0)
     const bonkEl = document.getElementById('toh-bonk-count');
     if (bonkEl && 0xE0 < data.length) {
-        bonkEl.textContent = data[0xE0];
+        const newBonks = data[0xE0];
+        if (newBonks >= parseInt(bonkEl.textContent || '0')) bonkEl.textContent = newBonks;
     }
     // CT small key count (SRAM 0xF5F4E4 = inv offset 0x1a4) — Key Sanity only
     // Use high water mark so count doesn't drop when keys are used
@@ -1521,6 +1584,7 @@ function updateItemState(itemKey, state) {
     const slot = document.querySelector(`[data-item-key="${itemKey}"]`);
     if (slot) {
         const img = slot.querySelector('img');
+        if (!img) return;
         const newState = item.states[item.currentState];
         img.src = newState.img;
         img.alt = newState.name;
@@ -1580,12 +1644,21 @@ function resetItemTracker() {
         updateDungeonCountDisplay(key);
     });
 
+    // Reset stats display
+    var checkEl = document.getElementById('toh-check-count');
+    var deathEl = document.getElementById('toh-death-count');
+    var bonkEl  = document.getElementById('toh-bonk-count');
+    if (checkEl) checkEl.textContent = '0';
+    if (deathEl) deathEl.textContent = '0';
+    if (bonkEl)  bonkEl.textContent  = '0';
+
     // Reset SRAM state so autotracking picks up fresh
     previousSRAM = null;
     previousRoomData = null;
     roomChunk1 = null;
     roomChunk1Time = 0;
     if (window.trackerItems) {
+        window.trackerItems.bottle       = 0;
         window.trackerItems.crystals     = 0;
         window.trackerItems.pendants     = 0;
         window.trackerItems.greenPendant = 0;
@@ -1653,6 +1726,20 @@ function updateConnectionStatus(status) {
 document.addEventListener('DOMContentLoaded', () => {
     try {
         createTracker();
+        // If swordless mode, replace sword slot image with swordno.png
+        var p = new URLSearchParams(window.location.search);
+        var _swordless = p.get('swordless') || localStorage.getItem('alttp-swordless') || 'no';
+        if (_swordless === 'yes') {
+            var swordSlot = document.querySelector('[data-item-key="sword"]');
+            if (swordSlot) {
+                var swordImg = swordSlot.querySelector('img');
+                if (swordImg) swordImg.src = swordImg.src.replace(/sword\d\.png/, 'swordno.png');
+                // Also update the items definition so cycling keeps swordno as state 0
+                if (items['sword'] && items['sword'].states) {
+                    items['sword'].states[0].img = items['sword'].states[0].img.replace(/sword\d\.png/, 'swordno.png');
+                }
+            }
+        }
         // WebSocket is managed by tracker.js / itemtracker.html
     } catch (error) {
         console.error('Error initializing tracker:', error);
