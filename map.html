@@ -380,7 +380,7 @@ function dungeonColor(key) {
   // LW access in inverted — two tiers:
   // lwDM: Death Mountain portal (glove/flute + pearl)
   // lwVillage: Village portal (hammer+glove, titans mitt, or aga+hookshot route) — general LW access
-  var lwDM      = !inverted || (it.moonpearl && it.hammer && ((it.gloves >= 1 && it.hookshot) || (it.gloves >= 2 && it.hammer)));
+  var lwDM      = !inverted || (it.moonpearl && it.hammer && ((it.gloves >= 1 && it.hookshot) || (it.gloves >= 2 && it.hammer)) && (it.lamp || it.flute >= 1));
   var lwVillage = !inverted || (
     it.moonpearl &&
     (it.agahnim || it.gloves >= 2 || (it.gloves >= 1 && it.hammer))
@@ -483,7 +483,7 @@ function dungeonColor(key) {
       // But still need DW east access route
       if (!inverted && !it.moonpearl) return 'red';
       var dwEastPOD = inverted
-        ? (it.hammer || (it.flute >= 1 && lwVillage) || it.flippers)
+        ? (it.hammer || (it.flute >= 1 && lwVillage) || it.flippers || (it.mirror && lwVillage) || (it.agahnim && !it.moonpearl && it.mirror))
         : (it.moonpearl && (it.agahnim || (it.gloves >= 2 && it.flippers) || (it.hammer && it.gloves >= 1)));
       if (!dwEastPOD) return 'red';
       if (!it.hammer || !it.lamp || !it.bow) return 'yellow';
@@ -618,7 +618,7 @@ function dungeonColor(key) {
         if (settings.dungeonItems === 'keysanity') {
           if (!it.trBigKey) return 'yellow';
         }
-        return (it.firerod && it.lamp) ? 'green' : 'yellow';
+        return (it.firerod && it.lamp && it.somaria) ? 'green' : 'yellow';
       }
       if (!it.somaria) return 'red';
       var hasAllMedsTR = it.bombos && it.ether && it.quake;
@@ -691,20 +691,20 @@ function checkLogic(it) {
   var DMlight = lamp || flute;
   // In inverted mode: DW is home, LW requires pearl + portal access
   var inv = window.trackerSettings.inverted;
+  var lwAccess = inv
+    ? (pearl && (aga || titan || (glove && hammer)))
+    : true;
+  var superBunny = inv && aga && !pearl; // SuperBunny: Aga1 defeated + no moonpearl
   // DW navigation
   var dwNW    = inv
     ? true
     : pearl && (titan || (glove && hammer) || (aga && hookshot && (hammer || glove || flippers)));
   var dwEast  = inv
-    ? (hammer || (flute && lwAccess) || flippers)
+    ? (hammer || (flute && lwAccess) || flippers || (mirror && lwAccess) || (superBunny && mirror))
     : pearl && (aga || (hammer && glove) || (titan && flippers));
   var dwSouth = inv
     ? true
     : (pearl && (titan || (glove && hammer) || (aga && hookshot && (hammer || glove || flippers))) || (aga && pearl && hammer));
-  var lwAccess = inv
-    ? (pearl && (aga || titan || (glove && hammer)))
-    : true;
-  var superBunny = inv && aga && !pearl; // SuperBunny: Aga1 defeated + no moonpearl
 
   function medColor(dkey) {
     var sl = (window.trackerSettings && window.trackerSettings.swordless === 'yes');
@@ -853,7 +853,11 @@ function checkLogic(it) {
            if (!book||!mirror||!dwSouth) return 'red';
            return weapon ? 'green' : 'orange';
          },
-    73:  function() { return (dwEast&&glove) ? 'green' : 'red'; },
+    73:  function() {
+           var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           if (_inv) return (flippers || (mirror && lwAccess) || (superBunny && mirror) || (glove && (hammer || (flute && lwAccess)))) ? 'green' : 'red';
+           return (dwEast&&glove) ? 'green' : 'red';
+         },
     74:  function() { return (flippers||glove) ? 'green' : 'red'; },
     75:  function() { if (!climbDM) return 'red'; return lamp ? 'green' : 'yellow'; },
     76:  function() { return mushroom ? 'green' : 'red'; },
@@ -862,8 +866,9 @@ function checkLogic(it) {
     79:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
-             // Inverted: LW DM access (glove) already gated by outer checkColor — no hammer needed
-             return DMlight ? 'green' : 'yellow';
+             // Inverted: flute only lights DM if LW village access available to activate it
+             var DMlightInv = lamp || (flute && lwAccess);
+             return DMlightInv ? 'green' : 'yellow';
            }
            if (!climbDM) return 'red';
            return DMlight ? 'green' : 'yellow';
@@ -1036,7 +1041,7 @@ window.checkColor = function(id) {
       var lwDMAccess      = pearl && glove;
       var lwDMNoPearl     = glove;
       var mirror2 = it.mirror >= 1;
-      var lwDMTopLeft     = pearl && hammer && ((glove && hook) || (titan && hammer));
+      var lwDMTopLeft     = pearl && hammer && ((glove && hook) || (titan && hammer)) && (it.lamp || it.flute >= 1);
       var lwDMEastAccess  = pearl && glove && (titan || hook);
       var lwVillageAccess = pearl && (aga || titan || (glove && hammer));
     if (id === 109 || id === 110) { /* fall through to checkLogic — DW DM access not gated here */ }
@@ -1488,7 +1493,7 @@ window.refreshMapLogic = function() {
     var aga2    = it.agahnim >= 1;
     var hook2   = it.hookshot >= 1;
     var flip2   = it.flippers >= 1;
-    var lwDMok      = pearl2 && hammer2 && ((glove2 && hook2) || (titan2 && hammer2));  // Top-left LW DM
+    var lwDMok      = pearl2 && hammer2 && ((glove2 && hook2) || (titan2 && hammer2)) && (it.lamp || it.flute >= 1);  // Top-left LW DM needs DMlight
     var lwVillageOk = pearl2 && (aga2 || titan2 || (glove2 && hammer2));
     var lwOk = lwVillageOk;  // general LW access
     // Bottle Merchant (65) is LW — needs portal access or SuperBunny (aga+no pearl)
@@ -1530,11 +1535,15 @@ window.refreshMapLogic = function() {
       var keysOk  = ['keysanity','mapcompasskeys'].includes(diMode) ? ctKeys >= 2 : true;
       el.className = (dwDMAccess && lamp2 && weapon2 && keysOk) ? 'dng available' : 'dng unavail';
     })();
-    // TOH is on Death Mountain — DM portal (glove+pearl) + hammer required
+    // TOH is on Death Mountain — DM portal + hammer + DMlight required
+    // Green needs firerod or lamp (chest in basement); yellow if only flute for DM access
     (function() {
       var el = dngEls['toh'];
       if (!el || DUNGEONS['toh'].cleared || DUNGEONS['toh'].fullyCleared) return;
-      if (!lwDMok || !hammer2) el.className = 'dng unavail';
+      var DMlightOk = it.lamp || it.flute >= 1;
+      if (!lwDMok || !hammer2 || !DMlightOk) { el.className = 'dng unavail'; return; }
+      var firesource = it.lamp || it.firerod;
+      el.className = firesource ? 'dng available' : 'dng possible';
     })();
   }
 };

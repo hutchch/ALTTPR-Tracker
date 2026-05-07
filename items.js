@@ -683,6 +683,32 @@ function createTracker() {
                     const ctKeyBox = document.createElement('div');
                     ctKeyBox.className = 'stat-box stat-ctkey';
                     ctKeyBox.innerHTML = `<span class="stat-label">CT</span><img src="${BASE_URL}/smallkey0.png" class="stat-icon" alt="Key"><span class="stat-value" id="toh-ctkey-count">0/2</span>`;
+                    ctKeyBox.style.cursor = 'pointer';
+                    ctKeyBox.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        if (deviceAttached) return;
+                        if (!window.trackerItems) window.trackerItems = {};
+                        var cur = window.trackerItems.ctSmallKeys || 0;
+                        if (cur < 2) {
+                            window.trackerItems.ctSmallKeys = cur + 1;
+                            var el = document.getElementById('toh-ctkey-count');
+                            if (el) { el.textContent = window.trackerItems.ctSmallKeys + '/2'; el.style.color = window.trackerItems.ctSmallKeys >= 2 ? '#2ecc71' : ''; }
+                            if (window.broadcastItemSnap) window.broadcastItemSnap();
+                        }
+                    });
+                    ctKeyBox.addEventListener('contextmenu', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (deviceAttached) return;
+                        if (!window.trackerItems) window.trackerItems = {};
+                        var cur = window.trackerItems.ctSmallKeys || 0;
+                        if (cur > 0) {
+                            window.trackerItems.ctSmallKeys = cur - 1;
+                            var el = document.getElementById('toh-ctkey-count');
+                            if (el) { el.textContent = window.trackerItems.ctSmallKeys + '/2'; el.style.color = window.trackerItems.ctSmallKeys >= 2 ? '#2ecc71' : ''; }
+                            if (window.broadcastItemSnap) window.broadcastItemSnap();
+                        }
+                    });
                     statsSlot.appendChild(ctKeyBox);
                 }
                 statsSlot.appendChild(checkBox);
