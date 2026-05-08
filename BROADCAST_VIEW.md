@@ -6,6 +6,8 @@ window and is intended for use as an OBS overlay, so it supports a true
 transparent background, a custom image background, and visual effects when
 items are collected.
 
+<img width="743" height="822" alt="image" src="https://github.com/user-attachments/assets/8ca7d4fc-0718-472f-9df6-ecdbd4fd18bf" />
+
 ## Files involved
 
 - `main.js` — Electron main process. Owns the broadcast `BrowserWindow`,
