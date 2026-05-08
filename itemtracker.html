@@ -14,6 +14,7 @@
   <div class="size-group">
     <button class="size-btn" onclick="changeTrackerScale(-0.1)">&#8722;</button>
     <button class="size-btn" onclick="changeTrackerScale(0.1)">+</button>
+    <button class="size-btn" id="item-broadcast-btn" title="Open Broadcast View" onclick="(function(){ var bg=localStorage.getItem('alttp-tracker-bg')||'black'; if(window.electronAPI&&window.electronAPI.launch){ window.electronAPI.launch({which:'broadcast',trackerBg:bg}); } else { window.open('broadcast.html?bg='+bg,'alttp-broadcast','width=500,height=230,resizable=yes'); } })()" style="background:#1a2e4a;color:#7ab8f5;border:1px solid #2a4e7a;padding:0 6px;">📡</button>
   </div>
   <div class="connection-status" id="item-conn-status">○ Disconnected</div>
   <span class="mode-label" id="item-mode-label"></span>
@@ -31,6 +32,10 @@ var _itemsResettingGame = false;
 try {
   var _itemsReceiveBc = new BroadcastChannel('alttp-tracker');
   _itemsReceiveBc.onmessage = function(e) {
+    if (e.data && e.data.type === 'requestSnap') {
+      if (typeof broadcastItemSnap === 'function') broadcastItemSnap();
+      return;
+    }
     if (e.data && e.data.type === 'newgame') {
       if (_itemsResettingGame) return;
       if (typeof resetItemTracker === 'function') {

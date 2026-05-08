@@ -811,6 +811,7 @@ function togglePrizeObtained(dungeonKey, slot) {
     }
     updateDungeonCountDisplay(dungeonKey);
     if (typeof window.onPrizeCycled === 'function') window.onPrizeCycled();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
 }
 
 function cycleDungeonPrize(dungeonKey, slot) {
@@ -828,6 +829,7 @@ function cycleDungeonPrize(dungeonKey, slot) {
     
     // Hook for external listeners (e.g. map window sync)
     if (typeof window.onPrizeCycled === 'function') window.onPrizeCycled();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
 }
 
 function updateDungeonCountDisplay(dungeonKey) {
@@ -860,6 +862,7 @@ function updateDungeonCountDisplay(dungeonKey) {
             if (chestIcon) {
                 chestIcon.src = `${BASE_URL}/${dungeon.itemCount >= dungeon.maxItems ? 'chest00.png' : 'chest0.png'}`;
             }
+            if (window.broadcastItemSnap) window.broadcastItemSnap();
         }
 
         // Check completion status (1.png = obtained/bright)
@@ -957,7 +960,36 @@ function broadcastItemSnap() {
     snap.trBigKey     = (window.trackerItems && window.trackerItems.trBigKey)     || 0;
     snap.spBigKey     = (window.trackerItems && window.trackerItems.spBigKey)     || 0;
     snap.swBigKey     = (window.trackerItems && window.trackerItems.swBigKey)     || 0;
-    // Include bigkey states so map can show yellow when dungeon accessible but bigkey missing
+    snap.gomode = items['gomode'] ? items['gomode'].currentState : 0;
+    // Include dungeon prize and chest data
+    var dngKeys = ['ep','dp','toh','pod','sp','sw','tt','ip','mm','tr','gt'];
+    dngKeys.forEach(function(k) {
+        var d = window.dungeons && window.dungeons[k];
+        if (!d) return;
+        snap[k+'Chests']        = d.itemCount       || 0;
+        snap[k+'MaxChests']     = d.maxItems        || 0;
+        snap[k+'BigKey']        = d.bigkeyState     || 0;
+        snap[k+'Map']           = d.mapState        || 0;
+        snap[k+'Compass']       = d.compassState    || 0;
+        snap[k+'MaxSmallKeys']  = d.maxSmallKeys    || 0;
+        snap[k+'BigKeyOnly']    = !!d.bigkeyOnly;
+        // Get prize from DOM
+        var prizeImg = document.querySelector('[data-dungeon-key="'+k+'"] .prize-img');
+        if (prizeImg) {
+            var src = prizeImg.src || '';
+            var obtained = src.includes('1.png');
+            var prizeName = 'crystal';
+            if      (src.includes('greenpendant')) prizeName = 'greenpendant';
+            else if (src.includes('pendant'))      prizeName = 'pendant';
+            else if (src.includes('redcrystal'))   prizeName = 'redcrystal';
+            else if (src.includes('unknown'))      prizeName = 'unknown';
+            snap[k+'Prize']         = prizeName;
+            snap[k+'PrizeObtained'] = obtained;
+        }
+    });
+    snap.checks = parseInt((document.getElementById('toh-check-count')||{}).textContent||'0');
+    snap.deaths = parseInt((document.getElementById('toh-death-count')||{}).textContent||'0');
+    snap.bonks  = parseInt((document.getElementById('toh-bonk-count') ||{}).textContent||'0');
     window._itemsBc.postMessage({ type: 'items', data: snap });
 }
 window.broadcastItemSnap = broadcastItemSnap;
@@ -1531,17 +1563,26 @@ function processInventoryData(data) {
     const deathEl = document.getElementById('toh-death-count');
     if (checkEl && 0xE3 < data.length) {
         const newChecks = data[0xE3];
-        if (newChecks >= parseInt(checkEl.textContent || '0')) checkEl.textContent = newChecks;
+        if (newChecks >= parseInt(checkEl.textContent || '0')) {
+            checkEl.textContent = newChecks;
+            if (window._itemsBc) window._itemsBc.postMessage({ type: 'stats', checks: newChecks, deaths: parseInt((document.getElementById('toh-death-count')||{}).textContent||'0'), bonks: parseInt((document.getElementById('toh-bonk-count')||{}).textContent||'0') });
+        }
     }
     if (deathEl && 0x10a < data.length) {
         const deaths = data[0x109] | (data[0x10a] << 8);
-        if (deaths >= parseInt(deathEl.textContent || '0')) deathEl.textContent = deaths;
+        if (deaths >= parseInt(deathEl.textContent || '0')) {
+            deathEl.textContent = deaths;
+            if (window._itemsBc) window._itemsBc.postMessage({ type: 'stats', checks: parseInt((document.getElementById('toh-check-count')||{}).textContent||'0'), deaths: deaths, bonks: parseInt((document.getElementById('toh-bonk-count')||{}).textContent||'0') });
+        }
     }
     // Bonk count (SRAM 0xF5F420 = inv offset 0xE0)
     const bonkEl = document.getElementById('toh-bonk-count');
     if (bonkEl && 0xE0 < data.length) {
         const newBonks = data[0xE0];
-        if (newBonks >= parseInt(bonkEl.textContent || '0')) bonkEl.textContent = newBonks;
+        if (newBonks >= parseInt(bonkEl.textContent || '0')) {
+            bonkEl.textContent = newBonks;
+            if (window._itemsBc) window._itemsBc.postMessage({ type: 'stats', checks: parseInt((document.getElementById('toh-check-count')||{}).textContent||'0'), deaths: parseInt((document.getElementById('toh-death-count')||{}).textContent||'0'), bonks: newBonks });
+        }
     }
     // CT small key count (SRAM 0xF5F4E4 = inv offset 0x1a4) — Key Sanity only
     // Use high water mark so count doesn't drop when keys are used

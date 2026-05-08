@@ -6,14 +6,13 @@ const Store = require('electron-store');
 
 const store = new Store();
 
-let launcherWin = null;
-let itemWin     = null;
-let mapWin      = null;
-let timerWin    = null;
+let launcherWin   = null;
+let itemWin       = null;
+let mapWin        = null;
+let timerWin      = null;
+let broadcastWin  = null;
+let broadcastBg   = 'black';
 
-// Find the directory that contains index.html, items/, map/ etc.
-// With asar:false + extraResources copying to app/, this is always __dirname.
-// We verify by checking items/ exists; if not, try resourcesPath/app.
 function findAppRoot() {
   const candidates = [
     __dirname,
@@ -157,12 +156,56 @@ function openTimer(wsHost, wsPort, color, bg) {
   timerWin.on('closed', () => { timerWin = null; });
 }
 
+// ── Broadcast window ──────────────────────────────────────────────────────────
+function createBroadcastWindow(bg, bounds) {
+  const root = getRoot();
+  const isTransparent = bg === 'transparent';
+  const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', transparent: '#00000000' };
+  const opts = {
+    width:  (bounds && bounds.width)  || 520,
+    height: (bounds && bounds.height) || 245,
+    resizable: true,
+    useContentSize: true,
+    title: 'ALTTP Broadcast View',
+    backgroundColor: isTransparent ? undefined : (bgColors[bg] || '#000000'),
+    transparent: isTransparent,
+    titleBarStyle: isTransparent ? (process.platform === 'darwin' ? 'hiddenInset' : 'hidden') : 'default',
+    titleBarOverlay: isTransparent && process.platform !== 'darwin' ? {
+      color: '#00000000',
+      symbolColor: '#ffffff',
+      height: 30
+    } : false,
+    hasShadow: true,
+    webPreferences: {
+      preload: path.join(root, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false,
+    },
+  };
+  if (bounds && bounds.x !== undefined && bounds.y !== undefined) {
+    opts.x = bounds.x;
+    opts.y = bounds.y;
+  }
+  broadcastWin = new BrowserWindow(opts);
+  broadcastWin.setMenuBarVisibility(false);
+  broadcastWin.loadFile(path.join(root, 'broadcast.html'), { query: { bg } });
+  broadcastWin.on('closed', () => { broadcastWin = null; });
+  broadcastBg = bg;
+}
+
+function openBroadcast(bg) {
+  if (broadcastWin && !broadcastWin.isDestroyed()) { broadcastWin.focus(); return; }
+  createBroadcastWindow(bg);
+}
+
 // ── IPC ───────────────────────────────────────────────────────────────────────
 ipcMain.on('launch', (event, opts) => {
   store.set('settings', opts);
   if (opts.which === 'items' || opts.which === 'both') openItemTracker(opts.scale, opts.wsHost, opts.wsPort, opts.trackerBg, opts.dungeonItems);
   if (opts.which === 'map'   || opts.which === 'both') openMap(opts.zoom, opts.layout, opts.enemizer, opts.gtCrystals, opts.wsHost, opts.wsPort, opts.gamemode, opts.dungeonItems, opts.swordless);
   if (opts.which === 'timer') openTimer(opts.wsHost, opts.wsPort, opts.timerColor, opts.timerBg);
+  if (opts.which === 'broadcast') openBroadcast(opts.trackerBg || 'black');
 });
 
 ipcMain.handle('load-settings', () => store.get('settings', {}));
@@ -175,6 +218,34 @@ ipcMain.handle('get-paths', () => {
     mapUrl:      url.pathToFileURL(path.join(root, 'map')).href,
     itemsExists: fs.existsSync(path.join(root, 'items')),
   };
+});
+
+ipcMain.handle('set-broadcast-bg', (event, bg) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  // Only the broadcast window participates in this handler.
+  if (broadcastWin !== win) return;
+
+  const wasTransparent  = broadcastBg === 'transparent';
+  const willBeTransparent = bg === 'transparent';
+
+  // Electron does not allow toggling the `transparent` flag after a window is
+  // created. To switch in or out of transparent mode we need to recreate the
+  // window, preserving its current bounds so the user does not lose position.
+  if (wasTransparent !== willBeTransparent) {
+    const bounds = win.getBounds();
+    setImmediate(() => {
+      if (broadcastWin === win) broadcastWin = null;
+      if (!win.isDestroyed()) win.close();
+      createBroadcastWindow(bg, bounds);
+    });
+    return;
+  }
+
+  // Same transparency mode — just swap the solid background color.
+  const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', image: '#000000' };
+  if (bgColors[bg]) win.setBackgroundColor(bgColors[bg]);
+  broadcastBg = bg;
 });
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
