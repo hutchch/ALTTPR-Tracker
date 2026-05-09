@@ -88,7 +88,8 @@ Broadcast view (introduced in v1.1.9 - In Testing)
 The Broadcast View is a compact, streaming-friendly window that mirrors the state of the main Item Tracker. It is launched on demand from the Item Tracker window and is intended for use as an OBS overlay, so it supports a true transparent background, a custom image background, and visual effects when items are collected.
 
 <img width="519" height="274" alt="image" src="https://github.com/user-attachments/assets/3b9b2a9a-5a8b-4fba-abad-f1b77e0103e5" />
-<img width="324" height="304" alt="image" src="https://github.com/user-attachments/assets/129233c9-806b-491e-8c75-731d46961dd8" />
+<img width="314" height="472" alt="image" src="https://github.com/user-attachments/assets/b95171aa-5102-4376-acd6-38a4ffcceae0" />
+
 
 ______________________________________________________________________
 
