@@ -216,8 +216,14 @@ html[data-bg="transparent"] .bbg-bar * {
   width: 46px;
   transition: background 0.3s, border-color 0.3s;
 }
-.bdng-slot.chests-done { background: #1f3a78; border-color: #5a8eff; }
-.bdng-slot.prize-done  { background: #1d5a1d; border-color: #4dff88; }
+.bdng-slot.chests-done {
+  background: color-mix(in srgb, var(--chests-color, #5a8eff) 35%, #000);
+  border-color: var(--chests-color, #5a8eff);
+}
+.bdng-slot.prize-done {
+  background: color-mix(in srgb, var(--complete-color, #4dff88) 35%, #000);
+  border-color: var(--complete-color, #4dff88);
+}
 .bdng-slot.pendant     { border-color: #2e8b57; }
 
 /* Label centered on its own row */
@@ -402,6 +408,39 @@ html[data-bg="transparent"] .bbg-bar * {
           </div>
         </div>
       </div>
+
+      <div class="settings-section">
+        <h4>Dungeon Background</h4>
+        <div class="sub-label">All Chests Collected</div>
+        <div class="settings-radios">
+          <label><input type="radio" name="chests-color" value="blue"> Blue</label>
+          <label><input type="radio" name="chests-color" value="green"> Green</label>
+          <label><input type="radio" name="chests-color" value="purple"> Purple</label>
+          <label><input type="radio" name="chests-color" value="yellow"> Yellow</label>
+          <label><input type="radio" name="chests-color" value="custom"> Custom</label>
+          <input type="color" class="settings-color-picker" id="opt-chests-custom" value="#5a8eff">
+        </div>
+        <div class="sub-label">Dungeon Complete</div>
+        <div class="settings-radios">
+          <label><input type="radio" name="complete-color" value="green"> Green</label>
+          <label><input type="radio" name="complete-color" value="blue"> Blue</label>
+          <label><input type="radio" name="complete-color" value="purple"> Purple</label>
+          <label><input type="radio" name="complete-color" value="yellow"> Yellow</label>
+          <label><input type="radio" name="complete-color" value="custom"> Custom</label>
+          <input type="color" class="settings-color-picker" id="opt-complete-custom" value="#4dff88">
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Dungeon Items</h4>
+        <div class="settings-radios">
+          <label><input type="checkbox" id="opt-show-map">        Map</label>
+          <label><input type="checkbox" id="opt-show-compass">    Compass</label>
+          <label><input type="checkbox" id="opt-show-smallkeys">  Small Keys</label>
+          <label><input type="checkbox" id="opt-show-bigkey">     Big Key</label>
+          <label><input type="checkbox" id="opt-show-chests">     Chests</label>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -414,7 +453,16 @@ var SETTINGS = {
   fillEnabled:  false,
   fillColor:    'green',     // green | blue | purple | custom
   fillCustom:   '#00aa00',
-  fillEffect:   'none'       // none | falling | starburst
+  fillEffect:   'none',      // none | falling | starburst
+  chestsColor:  'blue',      // blue | green | purple | yellow | custom — All chests collected tint
+  chestsCustom: '#5a8eff',
+  completeColor:'green',     // green | blue | purple | yellow | custom — Dungeon complete tint
+  completeCustom:'#4dff88',
+  showMap:       true,
+  showCompass:   true,
+  showSmallKeys: true,
+  showBigKey:    true,
+  showChests:    true
 };
 
 var FILL_COLORS = {
@@ -423,14 +471,31 @@ var FILL_COLORS = {
   purple: '#b675ff'
 };
 
+var DUNGEON_PRESETS = {
+  blue:   '#5a8eff',
+  green:  '#4dff88',
+  purple: '#b675ff',
+  yellow: '#ffcc44'
+};
+
 function loadSettings() {
   try {
-    SETTINGS.bg          = localStorage.getItem('alttp-broadcast-bg') || SETTINGS.bg;
-    SETTINGS.bgImage     = localStorage.getItem('alttp-broadcast-bg-image') || '';
-    SETTINGS.fillEnabled = localStorage.getItem('alttp-broadcast-fill-enabled') === 'true';
-    SETTINGS.fillColor   = localStorage.getItem('alttp-broadcast-fill-color')  || SETTINGS.fillColor;
-    SETTINGS.fillCustom  = localStorage.getItem('alttp-broadcast-fill-custom') || SETTINGS.fillCustom;
-    SETTINGS.fillEffect  = localStorage.getItem('alttp-broadcast-fill-effect') || SETTINGS.fillEffect;
+    SETTINGS.bg            = localStorage.getItem('alttp-broadcast-bg') || SETTINGS.bg;
+    SETTINGS.bgImage       = localStorage.getItem('alttp-broadcast-bg-image') || '';
+    SETTINGS.fillEnabled   = localStorage.getItem('alttp-broadcast-fill-enabled') === 'true';
+    SETTINGS.fillColor     = localStorage.getItem('alttp-broadcast-fill-color')   || SETTINGS.fillColor;
+    SETTINGS.fillCustom    = localStorage.getItem('alttp-broadcast-fill-custom')  || SETTINGS.fillCustom;
+    SETTINGS.fillEffect    = localStorage.getItem('alttp-broadcast-fill-effect')  || SETTINGS.fillEffect;
+    SETTINGS.chestsColor   = localStorage.getItem('alttp-broadcast-chests-color') || SETTINGS.chestsColor;
+    SETTINGS.chestsCustom  = localStorage.getItem('alttp-broadcast-chests-custom')|| SETTINGS.chestsCustom;
+    SETTINGS.completeColor = localStorage.getItem('alttp-broadcast-complete-color') || SETTINGS.completeColor;
+    SETTINGS.completeCustom= localStorage.getItem('alttp-broadcast-complete-custom')|| SETTINGS.completeCustom;
+    // Default-on flags use !== 'false' so first-run / never-set means visible
+    SETTINGS.showMap       = localStorage.getItem('alttp-broadcast-show-map')        !== 'false';
+    SETTINGS.showCompass   = localStorage.getItem('alttp-broadcast-show-compass')    !== 'false';
+    SETTINGS.showSmallKeys = localStorage.getItem('alttp-broadcast-show-smallkeys')  !== 'false';
+    SETTINGS.showBigKey    = localStorage.getItem('alttp-broadcast-show-bigkey')     !== 'false';
+    SETTINGS.showChests    = localStorage.getItem('alttp-broadcast-show-chests')     !== 'false';
   } catch (e) {}
   // URL bg overrides stored bg
   var p = new URLSearchParams(window.location.search);
@@ -442,11 +507,20 @@ function loadSettings() {
 
 function saveSettings() {
   try {
-    localStorage.setItem('alttp-broadcast-bg',           SETTINGS.bg);
-    localStorage.setItem('alttp-broadcast-fill-enabled', SETTINGS.fillEnabled ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-fill-color',   SETTINGS.fillColor);
-    localStorage.setItem('alttp-broadcast-fill-custom',  SETTINGS.fillCustom);
-    localStorage.setItem('alttp-broadcast-fill-effect',  SETTINGS.fillEffect);
+    localStorage.setItem('alttp-broadcast-bg',             SETTINGS.bg);
+    localStorage.setItem('alttp-broadcast-fill-enabled',   SETTINGS.fillEnabled ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-fill-color',     SETTINGS.fillColor);
+    localStorage.setItem('alttp-broadcast-fill-custom',    SETTINGS.fillCustom);
+    localStorage.setItem('alttp-broadcast-fill-effect',    SETTINGS.fillEffect);
+    localStorage.setItem('alttp-broadcast-chests-color',   SETTINGS.chestsColor);
+    localStorage.setItem('alttp-broadcast-chests-custom',  SETTINGS.chestsCustom);
+    localStorage.setItem('alttp-broadcast-complete-color', SETTINGS.completeColor);
+    localStorage.setItem('alttp-broadcast-complete-custom',SETTINGS.completeCustom);
+    localStorage.setItem('alttp-broadcast-show-map',        SETTINGS.showMap       ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-show-compass',    SETTINGS.showCompass   ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-show-smallkeys',  SETTINGS.showSmallKeys ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-show-bigkey',     SETTINGS.showBigKey    ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-show-chests',     SETTINGS.showChests    ? 'true' : 'false');
   } catch (e) {}
 }
 
@@ -466,6 +540,40 @@ function saveBgImage(dataUrl) {
 function applyFillVariable() {
   var color = SETTINGS.fillColor === 'custom' ? SETTINGS.fillCustom : (FILL_COLORS[SETTINGS.fillColor] || FILL_COLORS.green);
   document.documentElement.style.setProperty('--item-fill-color', color);
+}
+
+// Re-evaluates the small-key row's display state for one dungeon. Combines the
+// per-dungeon "this dungeon has no keys" check (which hides via visibility so
+// rows stay aligned) with the user-level "Small Keys" toggle (which hides via
+// display so the slot collapses entirely).
+function applyKeyRowDisplay(d) {
+  if (!d || !d.keyRow) return;
+  if (!SETTINGS.showSmallKeys) {
+    d.keyRow.style.display = 'none';
+  } else {
+    d.keyRow.style.display = '';
+    d.keyRow.style.visibility = ((d._maxSmallKeys || 0) > 0) ? 'visible' : 'hidden';
+  }
+}
+
+function applyDungeonVisibility() {
+  Object.keys(dngEls).forEach(function(key) {
+    var d = dngEls[key]; if (!d) return;
+    d.map.style.display     = SETTINGS.showMap     ? '' : 'none';
+    d.compass.style.display = SETTINGS.showCompass ? '' : 'none';
+    d.bigkey.style.display  = SETTINGS.showBigKey  ? '' : 'none';
+    // Hide the icons row entirely if both map AND compass are hidden
+    d.iconsRow.style.display = (SETTINGS.showMap || SETTINGS.showCompass) ? '' : 'none';
+    d.chestRow.style.display = SETTINGS.showChests ? '' : 'none';
+    applyKeyRowDisplay(d);
+  });
+}
+
+function applyDungeonColors() {
+  var chests   = SETTINGS.chestsColor   === 'custom' ? SETTINGS.chestsCustom   : (DUNGEON_PRESETS[SETTINGS.chestsColor]   || DUNGEON_PRESETS.blue);
+  var complete = SETTINGS.completeColor === 'custom' ? SETTINGS.completeCustom : (DUNGEON_PRESETS[SETTINGS.completeColor] || DUNGEON_PRESETS.green);
+  document.documentElement.style.setProperty('--chests-color',   chests);
+  document.documentElement.style.setProperty('--complete-color', complete);
 }
 
 function applyBg(bg) {
@@ -521,6 +629,15 @@ function openSettings() {
   document.querySelectorAll('input[name="fill-color"]').forEach(function(r) { r.checked = (r.value === SETTINGS.fillColor); });
   document.querySelectorAll('input[name="fill-effect"]').forEach(function(r) { r.checked = (r.value === SETTINGS.fillEffect); });
   document.getElementById('opt-fill-custom').value = SETTINGS.fillCustom;
+  document.querySelectorAll('input[name="chests-color"]').forEach(function(r) { r.checked = (r.value === SETTINGS.chestsColor); });
+  document.getElementById('opt-chests-custom').value = SETTINGS.chestsCustom;
+  document.querySelectorAll('input[name="complete-color"]').forEach(function(r) { r.checked = (r.value === SETTINGS.completeColor); });
+  document.getElementById('opt-complete-custom').value = SETTINGS.completeCustom;
+  document.getElementById('opt-show-map').checked       = SETTINGS.showMap;
+  document.getElementById('opt-show-compass').checked   = SETTINGS.showCompass;
+  document.getElementById('opt-show-smallkeys').checked = SETTINGS.showSmallKeys;
+  document.getElementById('opt-show-bigkey').checked    = SETTINGS.showBigKey;
+  document.getElementById('opt-show-chests').checked    = SETTINGS.showChests;
   syncFillSubEnabled();
   updateBgImageStatus();
   document.getElementById('settings-overlay').classList.remove('hidden');
@@ -559,6 +676,48 @@ function wireSettingsHandlers() {
       if (!r.checked) return;
       SETTINGS.fillEffect = r.value;
       saveSettings();
+    });
+  });
+
+  // Dungeon Background — All Chests Collected
+  document.querySelectorAll('input[name="chests-color"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      SETTINGS.chestsColor = r.value;
+      saveSettings(); applyDungeonColors();
+    });
+  });
+  document.getElementById('opt-chests-custom').addEventListener('input', function(e) {
+    SETTINGS.chestsCustom = e.target.value;
+    if (SETTINGS.chestsColor === 'custom') applyDungeonColors();
+    saveSettings();
+  });
+  // Dungeon Background — Dungeon Complete
+  document.querySelectorAll('input[name="complete-color"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      SETTINGS.completeColor = r.value;
+      saveSettings(); applyDungeonColors();
+    });
+  });
+  document.getElementById('opt-complete-custom').addEventListener('input', function(e) {
+    SETTINGS.completeCustom = e.target.value;
+    if (SETTINGS.completeColor === 'custom') applyDungeonColors();
+    saveSettings();
+  });
+
+  // Dungeon Items — visibility checkboxes
+  [
+    ['opt-show-map',       'showMap'],
+    ['opt-show-compass',   'showCompass'],
+    ['opt-show-smallkeys', 'showSmallKeys'],
+    ['opt-show-bigkey',    'showBigKey'],
+    ['opt-show-chests',    'showChests']
+  ].forEach(function(pair) {
+    document.getElementById(pair[0]).addEventListener('change', function(e) {
+      SETTINGS[pair[1]] = e.target.checked;
+      saveSettings();
+      applyDungeonVisibility();
     });
   });
 
@@ -668,6 +827,13 @@ var slotEls = {};   // key -> img element (for items)
 var slotContainers = {}; // key -> the .bslot/.bslot-bottles wrapper that gets .filled
 var dngEls  = {};
 
+// Items that should never visually un-obtain mid-game. The SNES can briefly
+// report state 0 (e.g. on save & quit) for things like bombs even though the
+// player has clearly already collected them; on the broadcast we want to
+// avoid the green-then-flash-off ugliness. Cleared on 'newgame'.
+var STICKY_ITEMS = ['bomb'];
+var maxState = {};
+
 function buildRows() {
   function makeSlot(key, rowEl, isRightColumn) {
     if (key === 'bottles') {
@@ -755,9 +921,10 @@ function buildRows() {
 
     dngEls[key] = {
       slot: slot, name: nameEl, prize: prizeImg,
-      map: mapImg, bigkey: bigkeyImg, compass: compassImg,
+      map: mapImg, bigkey: bigkeyImg, compass: compassImg, iconsRow: icons,
       keyRow: keyRow, keyIcon: keyIcon, keyVal: keyVal,
-      chestIcon: chestIcon, chestVal: chestVal
+      chestRow: chestRow, chestIcon: chestIcon, chestVal: chestVal,
+      _maxSmallKeys: 0
     };
     r4.appendChild(slot);
   });
@@ -834,7 +1001,17 @@ function updateMedallions() {
 }
 
 function applySnap(snap) {
-  Object.keys(snap).forEach(function(k) { if (k in state) state[k]=snap[k]; });
+  Object.keys(snap).forEach(function(k) {
+    if (!(k in state)) return;
+    var v = snap[k];
+    // Sticky items: never decrement once we've seen a higher state this game.
+    if (STICKY_ITEMS.indexOf(k) !== -1) {
+      var prev = maxState[k] || 0;
+      if (v > prev) maxState[k] = v;
+      else if (v < prev) v = prev;
+    }
+    state[k] = v;
+  });
 
   ROW1.concat(ROW2).concat(ROW3).forEach(function(key) {
     if (key==='bottles') ['bottle1','bottle2','bottle3','bottle4'].forEach(function(bk){updateItem(bk,state[bk]||0);});
@@ -874,8 +1051,8 @@ function applySnap(snap) {
       d.keyVal.textContent = sc + '/' + sm;
       var sfull = sc >= sm && sm > 0;
       d.keyVal.classList.toggle('full', sfull);
-      // Hide entirely when this dungeon has no small keys
-      d.keyRow.style.visibility = (sm > 0) ? 'visible' : 'hidden';
+      d._maxSmallKeys = sm;
+      applyKeyRowDisplay(d);
     }
     if (bigkey       !== undefined) d.bigkey.src  = BASE+'/bigkey'  + (bigkey       ? '1' : '0') + '.png';
     if (mapState     !== undefined) d.map.src     = BASE+'/map'     + (mapState     ? '1' : '0') + '.png';
@@ -911,6 +1088,7 @@ function applySnap(snap) {
 
 function resetAll() {
   Object.keys(state).forEach(function(k){state[k]=0;});
+  maxState = {};                 // forget sticky items on new game
   applySnap(state);
   ['stat_check','stat_death','stat_bonk'].forEach(function(k){if(slotEls[k])slotEls[k].textContent='0';});
   ROW4.forEach(function(k){
@@ -968,7 +1146,9 @@ try {
 // ── Init ─────────────────────────────────────────────────────────────────
 loadSettings();
 applyFillVariable();
+applyDungeonColors();
 buildRows();
+applyDungeonVisibility();
 applyBg(SETTINGS.bg);
 wireSettingsHandlers();
 
