@@ -78,6 +78,60 @@ body {
 .dot.cleared   { background: rgba(40,40,40,0.85); border: 1.5px solid #555; }
 .dot.hidden    { display: none; pointer-events: none; }
 
+/* ── Check annotations (right-click → tag with item) ── */
+.dot-annotation {
+  position: absolute;
+  top: -4px; right: -4px;
+  width: 16px; height: 16px;
+  pointer-events: none;
+  z-index: 3;
+  filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+  image-rendering: pixelated;
+}
+.dot-annotation.text {
+  display: flex; align-items: center; justify-content: center;
+  background: #000; color: #fff;
+  border-radius: 50%;
+  font-size: 11px; font-weight: bold;
+  font-family: Arial, sans-serif;
+}
+
+#annotation-popup {
+  position: fixed;
+  background: rgba(20, 20, 20, 0.97);
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  z-index: 10000;
+  display: none;
+}
+#annotation-popup.open { display: block; }
+.popup-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 4px 6px;
+  border-bottom: 1px solid #333;
+  margin-bottom: 6px;
+}
+.popup-title { font-size: 11px; color: #ccc; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.popup-clear {
+  font-size: 10px; color: #ff8c8c; background: transparent;
+  border: 1px solid #5a2a2a; border-radius: 3px;
+  padding: 1px 6px; cursor: pointer;
+}
+.popup-clear:hover { background: #3a1414; color: #fff; }
+.popup-grid { display: grid; grid-template-columns: repeat(8, 28px); gap: 2px; }
+.popup-item {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; cursor: pointer;
+  background: #1a1a1a; border: 1px solid transparent;
+  transition: background 0.1s, border-color 0.1s;
+}
+.popup-item:hover { background: #2a3a4a; border-color: #5a8eff; }
+.popup-item img { width: 22px; height: 22px; image-rendering: pixelated; }
+.popup-item.text { font-size: 14px; font-weight: bold; color: #aaa; }
+
 /* ── Dungeon markers ── */
 .dng {
   position: absolute;
@@ -184,6 +238,15 @@ body {
 </div>
 
 <div id="tip"></div>
+
+<!-- Right-click → tag check with an item -->
+<div id="annotation-popup">
+  <div class="popup-header">
+    <span class="popup-title" id="annotation-title">Tag check</span>
+    <button class="popup-clear" id="annotation-clear" type="button">Clear</button>
+  </div>
+  <div class="popup-grid" id="annotation-grid"></div>
+</div>
 
 <script>
 // ── Early settings init — must run before any logic scripts ──────────────────
@@ -1254,6 +1317,10 @@ function resetChecks() {
   setTimeout(function() { _resettingGame = false; }, 2000);
   checkState = {};
   saveCheckState();
+  // Clear right-click annotations and refresh any dots already on the map
+  checkAnnotations = {};
+  saveAnnotations();
+  Object.keys(dotById).forEach(function(id) { renderAnnotation(dotById[id], parseInt(id)); });
   // Reset prize-derived item counts
   window.trackerItems.crystals     = 0;
   window.trackerItems.pendants     = 0;
@@ -1299,6 +1366,155 @@ function dotClass(id) {
   return 'dot ' + (cls[color] || 'available');
 }
 
+// ── Check annotations (right-click → tag with item) ──────────────────────────
+var ANNOTATION_ITEMS = [
+  { key: 'bow',       src: 'items/bow11.png',       alt: 'Bow' },
+  { key: 'boomerang', src: 'items/boomerang11.png', alt: 'Boomerang' },
+  { key: 'hookshot',  src: 'items/hookshot1.png',   alt: 'Hookshot' },
+  { key: 'bomb',      src: 'items/bomb10.png',      alt: 'Bombs' },
+  { key: 'mushroom',  src: 'items/mushroom1.png',   alt: 'Mushroom' },
+  { key: 'powder',    src: 'items/powder10.png',    alt: 'Magic Powder' },
+  { key: 'firerod',   src: 'items/firerod1.png',    alt: 'Fire Rod' },
+  { key: 'icerod',    src: 'items/icerod1.png',     alt: 'Ice Rod' },
+
+  { key: 'bombos',    src: 'items/bombos10.png',    alt: 'Bombos' },
+  { key: 'ether',     src: 'items/ether10.png',     alt: 'Ether' },
+  { key: 'quake',     src: 'items/quake10.png',     alt: 'Quake' },
+  { key: 'lamp',      src: 'items/lamp1.png',       alt: 'Lamp' },
+  { key: 'hammer',    src: 'items/hammer1.png',     alt: 'Hammer' },
+  { key: 'shovel',    src: 'items/shovel1.png',     alt: 'Shovel' },
+  { key: 'flute',     src: 'items/flute11.png',     alt: 'Flute' },
+  { key: 'net',       src: 'items/net1.png',        alt: 'Bug Net' },
+
+  { key: 'book',      src: 'items/book1.png',          alt: 'Book of Mudora' },
+  { key: 'bottle',    src: 'items/bottle_red.png',     alt: 'Bottle' },
+  { key: 'somaria',   src: 'items/caneofsomaria1.png', alt: 'Cane of Somaria' },
+  { key: 'byrna',     src: 'items/caneofbyrna1.png',   alt: 'Cane of Byrna' },
+  { key: 'cape',      src: 'items/cape1.png',          alt: 'Magic Cape' },
+  { key: 'mirror',    src: 'items/mirror1.png',        alt: 'Magic Mirror' },
+  { key: 'halfmagic', src: 'items/halfmagic1.png',     alt: 'Half Magic' },
+  { key: 'moonpearl', src: 'items/moonpearl1.png',     alt: 'Moon Pearl' },
+
+  { key: 'sword',     src: 'items/sword2.png',     alt: 'Sword' },
+  { key: 'shield',    src: 'items/shield2.png',    alt: 'Shield' },
+  { key: 'tunic',     src: 'items/mail2.png',      alt: 'Mail' },
+  { key: 'gloves',    src: 'items/gloves2.png',    alt: 'Gloves' },
+  { key: 'boots',     src: 'items/boots1.png',     alt: 'Pegasus Boots' },
+  { key: 'flippers',  src: 'items/flippers1.png',  alt: 'Flippers' },
+  { key: 'crystal',   src: 'items/crystal1.png',   alt: 'Crystal' },
+  { key: 'pendant',   src: 'items/pendant1.png',   alt: 'Pendant' }
+];
+var ANNOTATION_SPECIAL = [
+  { key: '_unknown', text: '?', alt: 'Unknown' },
+  { key: '_none',    text: '–', alt: 'No item' }
+];
+
+var ANNOTATION_STORE_KEY = 'alttp-check-annotations';
+// Always start fresh on map load — annotations are session-only, mirroring
+// the way checkState wipes itself on each launch.
+var checkAnnotations = {};
+try { localStorage.removeItem(ANNOTATION_STORE_KEY); } catch(e) {}
+
+function saveAnnotations() {
+  try { localStorage.setItem(ANNOTATION_STORE_KEY, JSON.stringify(checkAnnotations)); } catch(e) {}
+}
+
+function findAnnotationItem(key) {
+  for (var i = 0; i < ANNOTATION_ITEMS.length;   i++) if (ANNOTATION_ITEMS[i].key   === key) return ANNOTATION_ITEMS[i];
+  for (var j = 0; j < ANNOTATION_SPECIAL.length; j++) if (ANNOTATION_SPECIAL[j].key === key) return ANNOTATION_SPECIAL[j];
+  return null;
+}
+
+function renderAnnotation(dotEl, checkId) {
+  var existing = dotEl.querySelector('.dot-annotation');
+  if (existing) existing.remove();
+  var key = checkAnnotations[checkId];
+  if (!key) return;
+  var meta = findAnnotationItem(key);
+  if (!meta) return;
+  if (meta.src) {
+    var img = document.createElement('img');
+    img.className = 'dot-annotation';
+    img.src = meta.src; img.alt = meta.alt;
+    dotEl.appendChild(img);
+  } else if (meta.text) {
+    var span = document.createElement('span');
+    span.className = 'dot-annotation text';
+    span.textContent = meta.text;
+    dotEl.appendChild(span);
+  }
+}
+
+// Popup state
+var _annotationPopup, _annotationGrid, _annotationTitle, _annotationClear;
+var _annotationActiveId = null, _annotationActiveDot = null;
+
+function _buildAnnotationPopupGrid() {
+  ANNOTATION_ITEMS.concat(ANNOTATION_SPECIAL).forEach(function(item) {
+    var cell = document.createElement('div');
+    cell.className = 'popup-item' + (item.text ? ' text' : '');
+    cell.title = item.alt;
+    if (item.src) {
+      var img = document.createElement('img');
+      img.src = item.src; img.alt = item.alt;
+      cell.appendChild(img);
+    } else {
+      cell.textContent = item.text;
+    }
+    cell.addEventListener('click', function() {
+      if (_annotationActiveId == null) return;
+      checkAnnotations[_annotationActiveId] = item.key;
+      saveAnnotations();
+      renderAnnotation(_annotationActiveDot, _annotationActiveId);
+      closeAnnotationPopup();
+    });
+    _annotationGrid.appendChild(cell);
+  });
+}
+
+function openAnnotationPopup(dotEl, checkId, x, y) {
+  if (!_annotationPopup) return;
+  _annotationActiveId  = checkId;
+  _annotationActiveDot = dotEl;
+  _annotationTitle.textContent = dotEl.title || ('Check ' + checkId);
+  _annotationPopup.classList.add('open');
+  var pw = _annotationPopup.offsetWidth, ph = _annotationPopup.offsetHeight;
+  var px = Math.min(x, window.innerWidth  - pw - 8);
+  var py = Math.min(y, window.innerHeight - ph - 8);
+  _annotationPopup.style.left = Math.max(8, px) + 'px';
+  _annotationPopup.style.top  = Math.max(8, py) + 'px';
+}
+function closeAnnotationPopup() {
+  if (!_annotationPopup) return;
+  _annotationPopup.classList.remove('open');
+  _annotationActiveId  = null;
+  _annotationActiveDot = null;
+}
+
+(function initAnnotationPopup() {
+  _annotationPopup = document.getElementById('annotation-popup');
+  _annotationGrid  = document.getElementById('annotation-grid');
+  _annotationTitle = document.getElementById('annotation-title');
+  _annotationClear = document.getElementById('annotation-clear');
+  if (!_annotationPopup) return;
+  _buildAnnotationPopupGrid();
+  _annotationClear.addEventListener('click', function() {
+    if (_annotationActiveId == null) return;
+    delete checkAnnotations[_annotationActiveId];
+    saveAnnotations();
+    renderAnnotation(_annotationActiveDot, _annotationActiveId);
+    closeAnnotationPopup();
+  });
+  document.addEventListener('mousedown', function(e) {
+    if (!_annotationPopup.classList.contains('open')) return;
+    if (_annotationPopup.contains(e.target)) return;
+    closeAnnotationPopup();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeAnnotationPopup();
+  });
+})();
+
 // ── Build dots ────────────────────────────────────────────────────────────────
 var _inverted = window.trackerSettings.inverted;
 
@@ -1320,12 +1536,23 @@ CHECKS.forEach(function(c) {
     checkState[id] = !checkState[id];
     d.className = dotClass(id);
     saveCheckState();
+    // Clearing the check also clears any annotation tagged on it
+    if (checkState[id] && checkAnnotations[id]) {
+      delete checkAnnotations[id];
+      saveAnnotations();
+      renderAnnotation(d, id);
+    }
+  });
+  d.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    openAnnotationPopup(d, id, e.clientX, e.clientY);
   });
   d.addEventListener('mouseenter', function(e) { showTip(name, e); });
   d.addEventListener('mousemove',  moveTip);
   d.addEventListener('mouseleave', hideTip);
   (world === 'lw' ? lwEl : dwEl).appendChild(d);
   dotById[id] = d;
+  renderAnnotation(d, id);
 });
 
 // ── Build dungeon markers ─────────────────────────────────────────────────────
@@ -1556,16 +1783,23 @@ function dngStatusText(key) {
 // ── SRAM autotracking via BroadcastChannel ────────────────────────────────────
 window.onRoomsUpdated = function(data) {
   // Auto-clear check dots
-  var dirty = false;
+  var dirty = false, annDirty = false;
   CHECKS.forEach(function(c) {
     var id = c[0];
     if (!checkState[id] && window.SRAM_FLAGS[id] && window.sramCleared(data, window.SRAM_FLAGS[id])) {
       checkState[id] = true;
       if (dotById[id]) dotById[id].className = dotClass(id);
       dirty = true;
+      // Clearing the check also clears any annotation tagged on it
+      if (checkAnnotations[id]) {
+        delete checkAnnotations[id];
+        if (dotById[id]) renderAnnotation(dotById[id], id);
+        annDirty = true;
+      }
     }
   });
-  if (dirty) saveCheckState();
+  if (dirty)    saveCheckState();
+  if (annDirty) saveAnnotations();
 
   // Boss defeat → clear dungeon
   Object.keys(DUNGEONS).forEach(function(key) {
