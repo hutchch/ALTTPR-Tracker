@@ -1,4 +1,4 @@
-<h1>ALTTPR Tracker (v1.1.8 release)</h1>
+<h1>ALTTPR Tracker (v1.1.9 release)</h1>
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
@@ -16,7 +16,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Inverted
  - Enemizer or normal mode
  - Sword or Swordless
- - Item Tracker Broadcast View (Coming Soon)
+ - Item Tracker Broadcast View (Customizable)
 
 <i>Each mode takes many hours (30-80+ hours) to build.  There are no plans to incorporate Entrance shuffle, ShopSanity, or Retro modes.  My apologies. </i>
 
