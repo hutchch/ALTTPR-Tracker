@@ -17,6 +17,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Enemizer or normal mode
  - Sword or Swordless
  - Item Tracker Broadcast View (Customizable)
+ - Item marking on the map
 
 <i>Each mode takes many hours (30-80+ hours) to build.  There are no plans to incorporate Entrance shuffle, ShopSanity, or Retro modes.  My apologies. </i>
 
