@@ -12,6 +12,7 @@ let mapWin        = null;
 let timerWin      = null;
 let broadcastWin  = null;
 let broadcastBg   = 'black';
+let timerBg       = 'black';
 
 function findAppRoot() {
   const candidates = [
@@ -116,6 +117,10 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: false,
+      // The map is often left visible while the user focuses on the game —
+      // disable Chromium's background throttling so auto-tracker updates
+      // keep painting at full speed even when this window isn't focused.
+      backgroundThrottling: false,
     }
   });
   mapWin.setMenuBarVisibility(false);
@@ -125,12 +130,12 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
 }
 
 // ── Timer window ──────────────────────────────────────────────────────────────
-function openTimer(wsHost, wsPort, color, bg) {
-  if (timerWin && !timerWin.isDestroyed()) { timerWin.focus(); return; }
+function createTimerWindow(wsHost, wsPort, color, bg, bounds) {
   const isTransparent = bg === 'transparent';
   const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', transparent: '#00000000' };
-  timerWin = new BrowserWindow({
-    width: 300, height: 220,
+  const opts = {
+    width:  (bounds && bounds.width)  || 300,
+    height: (bounds && bounds.height) || 220,
     resizable: true,
     useContentSize: true,
     title: 'Timer',
@@ -148,12 +153,27 @@ function openTimer(wsHost, wsPort, color, bg) {
       contextIsolation: true,
       nodeIntegration:  false,
       webSecurity:      false,
+      // Critical: the timer's centisecond setInterval is clamped by Chromium
+      // to ~1s when backgrounded. Without this the timer drifts massively
+      // slow whenever the user focuses the game / OBS / another window.
+      backgroundThrottling: false,
     }
-  });
+  };
+  if (bounds && bounds.x !== undefined && bounds.y !== undefined) {
+    opts.x = bounds.x;
+    opts.y = bounds.y;
+  }
+  timerWin = new BrowserWindow(opts);
   timerWin.setMenuBarVisibility(false);
   const q = `?wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&color=${color||'blue'}&bg=${bg||'black'}`;
   timerWin.loadURL(toFileUrl('timer.html') + q);
   timerWin.on('closed', () => { timerWin = null; });
+  timerBg = bg || 'black';
+}
+
+function openTimer(wsHost, wsPort, color, bg) {
+  if (timerWin && !timerWin.isDestroyed()) { timerWin.focus(); return; }
+  createTimerWindow(wsHost, wsPort, color, bg);
 }
 
 // ── Broadcast window ──────────────────────────────────────────────────────────
@@ -181,6 +201,11 @@ function createBroadcastWindow(bg, bounds) {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: false,
+      // Keep timers, BroadcastChannel callbacks, and paints running at full
+      // speed even when the window is hidden behind OBS / the game window.
+      // Without this, Chromium throttles backgrounded windows aggressively
+      // and the broadcast view will stop updating until brought to focus.
+      backgroundThrottling: false,
     },
   };
   if (bounds && bounds.x !== undefined && bounds.y !== undefined) {
@@ -246,6 +271,35 @@ ipcMain.handle('set-broadcast-bg', (event, bg) => {
   const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', image: '#000000' };
   if (bgColors[bg]) win.setBackgroundColor(bgColors[bg]);
   broadcastBg = bg;
+});
+
+ipcMain.handle('set-timer-bg', (event, bg) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || timerWin !== win) return;
+
+  const wasTransparent  = timerBg === 'transparent';
+  const willBeTransparent = bg === 'transparent';
+
+  // Toggling transparency requires a window recreate (Electron limitation).
+  if (wasTransparent !== willBeTransparent) {
+    const bounds = win.getBounds();
+    // Pull current ws/color from the window URL so the recreate matches.
+    const currentUrl = new URL(win.webContents.getURL());
+    const wsHost = currentUrl.searchParams.get('wshost') || 'localhost';
+    const wsPort = currentUrl.searchParams.get('wsport') || '23074';
+    const color  = currentUrl.searchParams.get('color')  || 'blue';
+    setImmediate(() => {
+      if (timerWin === win) timerWin = null;
+      if (!win.isDestroyed()) win.close();
+      createTimerWindow(wsHost, wsPort, color, bg, bounds);
+    });
+    return;
+  }
+
+  // Same transparency mode — just swap the solid background color.
+  const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', custom: '#000000' };
+  if (bgColors[bg]) win.setBackgroundColor(bgColors[bg]);
+  timerBg = bg;
 });
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
