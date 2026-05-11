@@ -85,11 +85,15 @@ Manual Tracking - This option for non web-socket and user manual tracking.
 - Dungeon small keys can chests can be increased with a left click.
    - Decrease using a right click (This will be overwritten if the game is connected for autotracking).
   
-Broadcast view (introduced in v1.1.9 - In Testing) 
+Broadcast view (introduced in v1.1.9) 
 The Broadcast View is a compact, streaming-friendly window that mirrors the state of the main Item Tracker. It is launched on demand from the Item Tracker window and is intended for use as an OBS overlay, so it supports a true transparent background, a custom image background, and visual effects when items are collected.
 
 <img width="519" height="274" alt="image" src="https://github.com/user-attachments/assets/3b9b2a9a-5a8b-4fba-abad-f1b77e0103e5" />
-<img width="322" height="558" alt="image" src="https://github.com/user-attachments/assets/5fdbc896-45b7-4c39-89f0-96da8601af81" />
+Or the classic view (introduced in v1.1.10)
+<img width="385" height="282" alt="image" src="https://github.com/user-attachments/assets/1438a234-fcfb-4ddc-8077-5745d3fc6940" />
+
+<img width="310" height="615" alt="image" src="https://github.com/user-attachments/assets/8880ad04-1bbc-4380-8576-6d2038386120" />
+
 
 
 
