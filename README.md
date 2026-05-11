@@ -91,6 +91,9 @@ The Broadcast View is a compact, streaming-friendly window that mirrors the stat
 <img width="519" height="274" alt="image" src="https://github.com/user-attachments/assets/3b9b2a9a-5a8b-4fba-abad-f1b77e0103e5" />
 Or the classic view (introduced in v1.1.10)
 <img width="385" height="282" alt="image" src="https://github.com/user-attachments/assets/1438a234-fcfb-4ddc-8077-5745d3fc6940" />
+With customization
+<img width="359" height="260" alt="image" src="https://github.com/user-attachments/assets/735b4cda-0f74-4b82-a6b0-72517826d8d4" />
+<img width="358" height="303" alt="image" src="https://github.com/user-attachments/assets/f6dd6d36-8606-406d-bf61-718ecd86d3f8" />
 
 <img width="310" height="615" alt="image" src="https://github.com/user-attachments/assets/8880ad04-1bbc-4380-8576-6d2038386120" />
 
