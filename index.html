@@ -45,7 +45,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 
 <h1>⚔ ALTTP Tracker</h1>
   <p style="text-align: center;">
-  <small>Version 1.1.9</small>
+  <small>Version 1.1.10</small>
 </p>
 <div class="section">
   <h2>Connection</h2>
@@ -177,24 +177,32 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   <h2>Timer</h2>
   <div class="row">
     <label>Number Color</label>
-    <select id="timer-color">
+    <select id="timer-color" style="flex:1;">
       <option value="blue"   selected>Blue</option>
       <option value="green"         >Green</option>
       <option value="red"           >Red</option>
-      <option value="orange"           >Orange</option>
+      <option value="orange"        >Orange</option>
       <option value="purple"        >Purple</option>
       <option value="yellow"        >Yellow</option>
       <option value="pink"          >Pink</option>
+      <option value="custom"        >Custom</option>
     </select>
+    <input type="color" id="timer-color-custom" value="#3498db"
+           title="Used when Number Color is set to Custom"
+           style="flex:0 0 auto;width:32px;height:24px;padding:0;border:1px solid #333;background:transparent;cursor:pointer;">
   </div>
   <div class="row">
     <label>Background</label>
-    <select id="timer-bg">
+    <select id="timer-bg" style="flex:1;">
       <option value="black"       selected>Black</option>
       <option value="grey"               >Grey</option>
       <option value="white"              >White</option>
       <option value="transparent"        >Transparent</option>
+      <option value="custom"             >Custom</option>
     </select>
+    <input type="color" id="timer-bg-custom" value="#222222"
+           title="Used when Background is set to Custom"
+           style="flex:0 0 auto;width:32px;height:24px;padding:0;border:1px solid #333;background:transparent;cursor:pointer;">
   </div>
   <div class="btn-row" style="margin-top:8px;">
     <button class="launch-btn" id="btn-timer" onclick="launchTimer()">⏱ Automatic Timer</button>
@@ -234,6 +242,8 @@ function save() {
   localStorage.setItem('alttp-tracker-bg', document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black');
   localStorage.setItem('alttp-timer-color', document.getElementById('timer-color') ? document.getElementById('timer-color').value : 'blue');
   localStorage.setItem('alttp-timer-bg', document.getElementById('timer-bg') ? document.getElementById('timer-bg').value : 'black');
+  if (document.getElementById('timer-color-custom')) localStorage.setItem('alttp-timer-color-custom', document.getElementById('timer-color-custom').value);
+  if (document.getElementById('timer-bg-custom'))    localStorage.setItem('alttp-timer-bg-custom',    document.getElementById('timer-bg-custom').value);
   var sw = document.querySelector('input[name="swordless"]:checked'); if (sw) localStorage.setItem('alttp-swordless', sw.value);
 }
 
@@ -327,6 +337,12 @@ window.addEventListener('DOMContentLoaded', async function() {
   var slVal = saved.swordless || localStorage.getItem('alttp-swordless') || 'no';
   var slEl = document.querySelector('input[name="swordless"][value="' + slVal + '"]');
   if (slEl) slEl.checked = true;
+
+  // Restore the two custom color pickers used by the timer's Custom options
+  var tcCust = localStorage.getItem('alttp-timer-color-custom');
+  if (tcCust && document.getElementById('timer-color-custom')) document.getElementById('timer-color-custom').value = tcCust;
+  var tbCust = localStorage.getItem('alttp-timer-bg-custom');
+  if (tbCust && document.getElementById('timer-bg-custom'))    document.getElementById('timer-bg-custom').value    = tbCust;
 });
 </script>
 </body>

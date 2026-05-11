@@ -216,6 +216,13 @@ html[data-bg="transparent"] .bbg-bar * {
   width: 46px;
   transition: background 0.3s, border-color 0.3s;
 }
+/* "Dungeon Box" toggle — strip the default container so dungeons look like
+   the items around them. Defined BEFORE the state classes so chests-done /
+   prize-done still take effect (their tints override "no box"). */
+.bdng-slot.no-box {
+  background: transparent;
+  border-color: transparent;
+}
 .bdng-slot.chests-done {
   background: color-mix(in srgb, var(--chests-color, #5a8eff) 35%, #000);
   border-color: var(--chests-color, #5a8eff);
@@ -225,6 +232,22 @@ html[data-bg="transparent"] .bbg-bar * {
   border-color: var(--complete-color, #4dff88);
 }
 .bdng-slot.pendant     { border-color: #2e8b57; }
+
+/* Classic view dungeon slot — compact: just the label + prize.
+   Big-key / map / compass / small-key / chests rows are all hidden. */
+.bdng-slot.classic {
+  width: 40px;
+  padding: 2px;
+  gap: 1px;
+  justify-content: center;
+}
+.bdng-slot.classic .bdng-icons,
+.bdng-slot.classic .bdng-keys-row,
+.bdng-slot.classic .bdng-chests-row,
+.bdng-slot.classic .bdng-bigkey-top { display: none; }
+.bdng-slot.classic .bdng-name { font-size: 10px; line-height: 1.1; }
+.bdng-slot.classic .bdng-prize { width: 18px; height: 18px; }
+.bdng-slot.classic .bdng-top { gap: 0; }
 
 /* Label centered on its own row */
 .bdng-name {
@@ -410,7 +433,19 @@ html[data-bg="transparent"] .bbg-bar * {
       </div>
 
       <div class="settings-section">
+        <h4>View Style</h4>
+        <div class="settings-radios">
+          <label><input type="radio" name="view-style" value="modern"> Modern</label>
+          <label><input type="radio" name="view-style" value="classic"> Classic</label>
+        </div>
+      </div>
+
+      <div class="settings-section">
         <h4>Dungeon Background</h4>
+        <div class="settings-row">
+          <label><input type="checkbox" id="opt-dungeon-fill"> Dungeon Fill</label>
+          <label><input type="checkbox" id="opt-dungeon-box"> Dungeon Box</label>
+        </div>
         <div class="sub-label">All Chests Collected</div>
         <div class="settings-radios">
           <label><input type="radio" name="chests-color" value="blue"> Blue</label>
@@ -462,7 +497,10 @@ var SETTINGS = {
   showCompass:   true,
   showSmallKeys: true,
   showBigKey:    true,
-  showChests:    true
+  showChests:    true,
+  dungeonFillEnabled: true, // When false the chests-done/prize-done tints are suppressed
+  dungeonBoxEnabled:  true, // When false the default dark slot container is hidden — flat dungeons
+  viewStyle:     'modern'   // 'modern' | 'classic'
 };
 
 var FILL_COLORS = {
@@ -496,6 +534,9 @@ function loadSettings() {
     SETTINGS.showSmallKeys = localStorage.getItem('alttp-broadcast-show-smallkeys')  !== 'false';
     SETTINGS.showBigKey    = localStorage.getItem('alttp-broadcast-show-bigkey')     !== 'false';
     SETTINGS.showChests    = localStorage.getItem('alttp-broadcast-show-chests')     !== 'false';
+    SETTINGS.dungeonFillEnabled = localStorage.getItem('alttp-broadcast-dungeon-fill') !== 'false';
+    SETTINGS.dungeonBoxEnabled  = localStorage.getItem('alttp-broadcast-dungeon-box')  !== 'false';
+    SETTINGS.viewStyle     = localStorage.getItem('alttp-broadcast-view-style')      || SETTINGS.viewStyle;
   } catch (e) {}
   // URL bg overrides stored bg
   var p = new URLSearchParams(window.location.search);
@@ -521,6 +562,9 @@ function saveSettings() {
     localStorage.setItem('alttp-broadcast-show-smallkeys',  SETTINGS.showSmallKeys ? 'true' : 'false');
     localStorage.setItem('alttp-broadcast-show-bigkey',     SETTINGS.showBigKey    ? 'true' : 'false');
     localStorage.setItem('alttp-broadcast-show-chests',     SETTINGS.showChests    ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-dungeon-fill',    SETTINGS.dungeonFillEnabled ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-dungeon-box',     SETTINGS.dungeonBoxEnabled  ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-view-style',      SETTINGS.viewStyle);
   } catch (e) {}
 }
 
@@ -566,6 +610,31 @@ function applyDungeonVisibility() {
     d.iconsRow.style.display = (SETTINGS.showMap || SETTINGS.showCompass) ? '' : 'none';
     d.chestRow.style.display = SETTINGS.showChests ? '' : 'none';
     applyKeyRowDisplay(d);
+  });
+}
+
+// Toggle the default container (background + border) on every dungeon slot.
+function applyDungeonBox() {
+  Object.keys(dngEls).forEach(function(key) {
+    var d = dngEls[key]; if (!d) return;
+    d.slot.classList.toggle('no-box', !SETTINGS.dungeonBoxEnabled);
+  });
+}
+
+// Re-evaluate the chests-done / prize-done classes from the current DOM state.
+// Called when the user toggles "Dungeon Fill" so the visual updates without
+// waiting for the next snap.
+function applyDungeonFill() {
+  Object.keys(dngEls).forEach(function(key) {
+    var d = dngEls[key]; if (!d) return;
+    var parts = (d.chestVal.textContent || '0/0').split('/');
+    var c = parseInt(parts[0]) || 0;
+    var m = parseInt(parts[1]) || 0;
+    var allChests = c >= m && m > 0;
+    var prizeDone = (d.prize.src || '').indexOf('1.png') !== -1;
+    var fillOn   = SETTINGS.dungeonFillEnabled;
+    d.slot.classList.toggle('prize-done',  fillOn && allChests && prizeDone);
+    d.slot.classList.toggle('chests-done', fillOn && allChests && !prizeDone);
   });
 }
 
@@ -638,6 +707,9 @@ function openSettings() {
   document.getElementById('opt-show-smallkeys').checked = SETTINGS.showSmallKeys;
   document.getElementById('opt-show-bigkey').checked    = SETTINGS.showBigKey;
   document.getElementById('opt-show-chests').checked    = SETTINGS.showChests;
+  document.getElementById('opt-dungeon-fill').checked   = SETTINGS.dungeonFillEnabled;
+  document.getElementById('opt-dungeon-box').checked    = SETTINGS.dungeonBoxEnabled;
+  document.querySelectorAll('input[name="view-style"]').forEach(function(r) { r.checked = (r.value === SETTINGS.viewStyle); });
   syncFillSubEnabled();
   updateBgImageStatus();
   document.getElementById('settings-overlay').classList.remove('hidden');
@@ -718,6 +790,30 @@ function wireSettingsHandlers() {
       SETTINGS[pair[1]] = e.target.checked;
       saveSettings();
       applyDungeonVisibility();
+    });
+  });
+
+  // Dungeon Fill master toggle
+  document.getElementById('opt-dungeon-fill').addEventListener('change', function(e) {
+    SETTINGS.dungeonFillEnabled = e.target.checked;
+    saveSettings();
+    applyDungeonFill();
+  });
+
+  // Dungeon Box master toggle
+  document.getElementById('opt-dungeon-box').addEventListener('change', function(e) {
+    SETTINGS.dungeonBoxEnabled = e.target.checked;
+    saveSettings();
+    applyDungeonBox();
+  });
+
+  // View Style — swap Modern / Classic layout
+  document.querySelectorAll('input[name="view-style"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      SETTINGS.viewStyle = r.value;
+      saveSettings();
+      rebuildRows();
     });
   });
 
@@ -807,10 +903,36 @@ function imgSrc(key, st) {
 // the player's "starting" version of the item, e.g. green tunic / no upgrade).
 var FILL_SKIP_AT_ZERO_PLUS = {}; // currently empty — fill on state>0 for everything tracked
 
-var ROW1 = ['bow','boomerang','hookshot','bomb','mushroom','powder','firerod','icerod','moonpearl','sword','agahnim'];
-var ROW2 = ['bombos','ether','quake','lamp','hammer','shovel','flute','net','gloves','shield','gomode'];
-var ROW3 = ['book','bottles','somaria','byrna','cape','mirror','halfmagic','boots','flippers','tunic','stats'];
-var ROW4 = ['ep','dp','toh','pod','sp','sw','tt','ip','mm','tr'];
+// Modern layout — current default. 10 items + 1 special right-column slot per
+// row, plus a dedicated bottom row of 10 dungeons.
+var MODERN_ROWS = {
+  row1: ['bow','boomerang','hookshot','bomb','mushroom','powder','firerod','icerod','moonpearl','sword','agahnim'],
+  row2: ['bombos','ether','quake','lamp','hammer','shovel','flute','net','gloves','shield','gomode'],
+  row3: ['book','bottles','somaria','byrna','cape','mirror','halfmagic','boots','flippers','tunic','stats'],
+  row4: ['ep','dp','toh','pod','sp','sw','tt','ip','mm','tr']
+};
+
+// Classic layout — 5 rows × 8 cells. Dungeon slots render in a compact
+// "label + prize" form via the .bdng-slot.classic CSS modifier. Bug net,
+// half magic, and the stats panel are dropped.
+var CLASSIC_ROWS = {
+  row1: ['bow','boomerang','hookshot','bomb','powder','gloves','sword','ep'],
+  row2: ['firerod','icerod','bombos','ether','quake','boots','shield','dp'],
+  row3: ['lamp','hammer','flute','book','moonpearl','flippers','tunic','toh'],
+  row4: ['bottles','somaria','byrna','cape','mirror','mushroom','net','agahnim'],
+  row5: ['pod','sp','sw','tt','ip','mm','tr','gomode']
+};
+
+function activeRows()    { return SETTINGS.viewStyle === 'classic' ? CLASSIC_ROWS : MODERN_ROWS; }
+function isDungeonKey(k) { return ['ep','dp','toh','pod','sp','sw','tt','ip','mm','tr'].indexOf(k) !== -1; }
+
+// Backwards-compatible aliases — JS that walks the modern arrays in applySnap,
+// resetAll, refreshAllFills etc. still gets the right set.
+function currentItemRows() {
+  var R = activeRows();
+  return [R.row1, R.row2, R.row3];
+}
+var ROW4 = MODERN_ROWS.row4;   // dungeons that need state-applied, regardless of layout
 
 var state = {
   bow:0,boomerang:0,hookshot:0,bomb:0,mushroom:0,powder:0,
@@ -834,8 +956,61 @@ var dngEls  = {};
 var STICKY_ITEMS = ['bomb'];
 var maxState = {};
 
+function buildDungeonSlot(key) {
+  var slot = document.createElement('div');
+  slot.className = 'bdng-slot'
+    + (SETTINGS.viewStyle === 'classic' ? ' classic' : '')
+    + (SETTINGS.dungeonBoxEnabled ? '' : ' no-box');
+
+  // Label (centered, on its own row)
+  var nameEl = document.createElement('div'); nameEl.className = 'bdng-name';
+  nameEl.textContent = key.toUpperCase();
+  slot.appendChild(nameEl);
+
+  // Prize + big key, centered, under the label
+  var top = document.createElement('div'); top.className = 'bdng-top';
+  var prizeImg  = document.createElement('img'); prizeImg.className  = 'bdng-prize';      prizeImg.src  = BASE+'/crystal0.png';
+  var bigkeyImg = document.createElement('img'); bigkeyImg.className = 'bdng-bigkey-top'; bigkeyImg.src = BASE+'/bigkey0.png';
+  top.appendChild(prizeImg); top.appendChild(bigkeyImg);
+  slot.appendChild(top);
+
+  // Map / compass, centered
+  var icons = document.createElement('div'); icons.className = 'bdng-icons';
+  var mapImg     = document.createElement('img'); mapImg.src     = BASE+'/map0.png';
+  var compassImg = document.createElement('img'); compassImg.src = BASE+'/compass0.png';
+  icons.appendChild(mapImg); icons.appendChild(compassImg);
+  slot.appendChild(icons);
+
+  // Small keys row
+  var keyRow = document.createElement('div'); keyRow.className = 'bdng-row bdng-keys-row';
+  var keyIcon  = document.createElement('img'); keyIcon.src = BASE+'/smallkey0.png';
+  var keyVal   = document.createElement('span'); keyVal.className = 'bdng-keys'; keyVal.textContent = '0/0';
+  keyRow.appendChild(keyIcon); keyRow.appendChild(keyVal);
+  slot.appendChild(keyRow);
+
+  // Chest row
+  var chestRow = document.createElement('div'); chestRow.className = 'bdng-row bdng-chests-row';
+  var chestIcon = document.createElement('img'); chestIcon.src = BASE+'/chest0.png';
+  var chestVal  = document.createElement('span'); chestVal.className = 'bdng-chests'; chestVal.textContent = '0/0';
+  chestRow.appendChild(chestIcon); chestRow.appendChild(chestVal);
+  slot.appendChild(chestRow);
+
+  dngEls[key] = {
+    slot: slot, name: nameEl, prize: prizeImg,
+    map: mapImg, bigkey: bigkeyImg, compass: compassImg, iconsRow: icons,
+    keyRow: keyRow, keyIcon: keyIcon, keyVal: keyVal,
+    chestRow: chestRow, chestIcon: chestIcon, chestVal: chestVal,
+    _maxSmallKeys: 0
+  };
+  return slot;
+}
+
 function buildRows() {
   function makeSlot(key, rowEl, isRightColumn) {
+    if (isDungeonKey(key)) {
+      rowEl.appendChild(buildDungeonSlot(key));
+      return;
+    }
     if (key === 'bottles') {
       var grid = document.createElement('div'); grid.className = 'bslot-bottles';
       ['bottle1','bottle2','bottle3','bottle4'].forEach(function(bk) {
@@ -847,7 +1022,10 @@ function buildRows() {
       rowEl.appendChild(grid); return;
     }
     if (key === 'gomode') {
-      var wrap = document.createElement('div'); wrap.className = 'bright-slot';
+      // Modern uses the wide right-column slot; Classic uses a regular
+      // 40x40 .bslot so the GO button matches the items / dungeons around it.
+      var wrap = document.createElement('div');
+      wrap.className = (SETTINGS.viewStyle === 'classic') ? 'bslot' : 'bright-slot';
       var btn = document.createElement('div'); btn.className = 'bgo-btn'; btn.textContent = 'GO';
       slotEls['gomode'] = btn; wrap.appendChild(btn); rowEl.appendChild(wrap); return;
     }
@@ -874,60 +1052,45 @@ function buildRows() {
     rowEl.appendChild(slot);
   }
 
-  [ROW1,ROW2,ROW3].forEach(function(row,ri) {
-    var el = document.getElementById('row'+(ri+1));
+  // Render every rowN key the active config provides. Modern has 4 rows
+  // (rows 1–3 are items + 1 right-column special, row 4 is the dungeon row).
+  // Classic has 5 rows (4 item rows + 1 dungeon row).
+  var R = activeRows();
+  var container = document.querySelector('.broadcast-container');
+  // Strip any rows already in the container — needed for live view-style swap
+  container.querySelectorAll('.bcast-row').forEach(function(r) { r.remove(); });
+
+  var rowKeys = Object.keys(R).filter(function(k) { return /^row\d+$/.test(k); })
+                              .sort(function(a, b) { return parseInt(a.slice(3)) - parseInt(b.slice(3)); });
+  rowKeys.forEach(function(rowKey) {
+    var rowEl = document.createElement('div');
+    rowEl.className = 'bcast-row';
+    rowEl.id = rowKey;
+    container.appendChild(rowEl);
+    var row = R[rowKey];
+    var classic = SETTINGS.viewStyle === 'classic';
     row.forEach(function(k, idx) {
-      var isRight = (idx === row.length - 1) && (k === 'agahnim' || k === 'gomode' || k === 'stats');
-      makeSlot(k, el, isRight);
+      var lastInRow = idx === row.length - 1;
+      // Classic uses a uniform 8-cell grid — no wide right-column slots.
+      var isRight = !classic && lastInRow && (k === 'agahnim' || k === 'gomode' || k === 'stats');
+      makeSlot(k, rowEl, isRight);
     });
   });
+}
 
-  var r4 = document.getElementById('row4');
-  ROW4.forEach(function(key) {
-    var slot = document.createElement('div'); slot.className = 'bdng-slot';
-
-    // Label (centered, on its own row)
-    var nameEl = document.createElement('div'); nameEl.className = 'bdng-name';
-    nameEl.textContent = key.toUpperCase();
-    slot.appendChild(nameEl);
-
-    // Prize + big key, centered, under the label
-    var top = document.createElement('div'); top.className = 'bdng-top';
-    var prizeImg  = document.createElement('img'); prizeImg.className  = 'bdng-prize';      prizeImg.src  = BASE+'/crystal0.png';
-    var bigkeyImg = document.createElement('img'); bigkeyImg.className = 'bdng-bigkey-top'; bigkeyImg.src = BASE+'/bigkey0.png';
-    top.appendChild(prizeImg); top.appendChild(bigkeyImg);
-    slot.appendChild(top);
-
-    // Map / compass, centered
-    var icons = document.createElement('div'); icons.className = 'bdng-icons';
-    var mapImg     = document.createElement('img'); mapImg.src     = BASE+'/map0.png';
-    var compassImg = document.createElement('img'); compassImg.src = BASE+'/compass0.png';
-    icons.appendChild(mapImg); icons.appendChild(compassImg);
-    slot.appendChild(icons);
-
-    // Small keys row
-    var keyRow = document.createElement('div'); keyRow.className = 'bdng-row';
-    var keyIcon  = document.createElement('img'); keyIcon.src = BASE+'/smallkey0.png';
-    var keyVal   = document.createElement('span'); keyVal.className = 'bdng-keys'; keyVal.textContent = '0/0';
-    keyRow.appendChild(keyIcon); keyRow.appendChild(keyVal);
-    slot.appendChild(keyRow);
-
-    // Chest row
-    var chestRow = document.createElement('div'); chestRow.className = 'bdng-row';
-    var chestIcon = document.createElement('img'); chestIcon.src = BASE+'/chest0.png';
-    var chestVal  = document.createElement('span'); chestVal.className = 'bdng-chests'; chestVal.textContent = '0/0';
-    chestRow.appendChild(chestIcon); chestRow.appendChild(chestVal);
-    slot.appendChild(chestRow);
-
-    dngEls[key] = {
-      slot: slot, name: nameEl, prize: prizeImg,
-      map: mapImg, bigkey: bigkeyImg, compass: compassImg, iconsRow: icons,
-      keyRow: keyRow, keyIcon: keyIcon, keyVal: keyVal,
-      chestRow: chestRow, chestIcon: chestIcon, chestVal: chestVal,
-      _maxSmallKeys: 0
-    };
-    r4.appendChild(slot);
-  });
+// Tear down all rendered slots and rebuild from the active row config. Used
+// when the user flips View Style without a full reload.
+function rebuildRows() {
+  slotEls = {};
+  slotContainers = {};
+  dngEls = {};
+  // buildRows() removes/rebuilds the .bcast-row elements wholesale
+  buildRows();
+  applyDungeonVisibility();
+  // Re-apply current state to the new DOM
+  applySnap(state);
+  // And ask the item tracker to resend a fresh snap so prize state is correct
+  try { new BroadcastChannel('alttp-tracker').postMessage({ type: 'requestSnap' }); } catch(e) {}
 }
 
 // ── Item fill helpers ────────────────────────────────────────────────────
@@ -955,8 +1118,12 @@ function applyFill(key, container, isFilled) {
 }
 
 function refreshAllFills() {
-  // Items rows 1-3 (excluding gomode/stats) — re-evaluate fill from current state
-  ROW1.concat(ROW2).concat(ROW3).forEach(function(key) {
+  // Walk every item key across every row (Classic puts items on row 4 too).
+  // Dungeons / gomode / stats are filtered inside the loop.
+  var R = activeRows();
+  var all = [];
+  Object.keys(R).filter(function(k){ return /^row\d+$/.test(k); }).forEach(function(rk){ all = all.concat(R[rk]); });
+  all.forEach(function(key) {
     if (key === 'bottles') {
       var anyBottle = ['bottle1','bottle2','bottle3','bottle4'].some(function(b){ return (state[b]||0) > 0; });
       applyFill('bottles', slotContainers['bottles'], isFilledFor('bottles', anyBottle ? 1 : 0));
@@ -1013,9 +1180,13 @@ function applySnap(snap) {
     state[k] = v;
   });
 
-  ROW1.concat(ROW2).concat(ROW3).forEach(function(key) {
+  // Walk every item key across every row (Classic puts items on row 4 too).
+  var Rs = activeRows();
+  var allKeys = [];
+  Object.keys(Rs).filter(function(k){ return /^row\d+$/.test(k); }).forEach(function(rk){ allKeys = allKeys.concat(Rs[rk]); });
+  allKeys.forEach(function(key) {
     if (key==='bottles') ['bottle1','bottle2','bottle3','bottle4'].forEach(function(bk){updateItem(bk,state[bk]||0);});
-    else if (key!=='stats'&&key!=='gomode') updateItem(key,state[key]||0);
+    else if (key!=='stats' && key!=='gomode' && !isDungeonKey(key)) updateItem(key,state[key]||0);
   });
   updateItem('gomode', snap.gomode!==undefined ? snap.gomode : state.gomode||0);
   updateMedallions();
@@ -1070,8 +1241,9 @@ function applySnap(snap) {
     var allChests = cNow >= mNow && mNow > 0;
     var srcNow   = d.prize.src || '';
     var prizeDone = srcNow.indexOf('1.png') !== -1;
-    d.slot.classList.toggle('prize-done',  allChests && prizeDone);
-    d.slot.classList.toggle('chests-done', allChests && !prizeDone);
+    var fillOn   = SETTINGS.dungeonFillEnabled;
+    d.slot.classList.toggle('prize-done',  fillOn && allChests && prizeDone);
+    d.slot.classList.toggle('chests-done', fillOn && allChests && !prizeDone);
 
     // Pendant accent (subtle border tint when prize collected but chests aren't done)
     var prizeNow  = prize !== undefined ? prize : (
@@ -1119,8 +1291,9 @@ function applyPrizes(prizes) {
     var cNow  = parseInt(parts[0]) || 0;
     var mNow  = parseInt(parts[1]) || 0;
     var allChests = cNow >= mNow && mNow > 0;
-    d.slot.classList.toggle('prize-done',  allChests && obtained);
-    d.slot.classList.toggle('chests-done', allChests && !obtained);
+    var fillOn = SETTINGS.dungeonFillEnabled;
+    d.slot.classList.toggle('prize-done',  fillOn && allChests && obtained);
+    d.slot.classList.toggle('chests-done', fillOn && allChests && !obtained);
 
     var isPendant = prizeName === 'pendant' || prizeName === 'greenpendant';
     d.slot.classList.toggle('pendant', isPendant && obtained && !allChests);

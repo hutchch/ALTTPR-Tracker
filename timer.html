@@ -205,6 +205,58 @@ html[data-bg="transparent"] .set-btn { background: rgba(0,30,60,0.6) !important;
 [data-bg="white"] .size-btn:hover { background: #bbb; color: #000; }
 [data-bg="white"] .set-time input { background: #eee; color: #111; border-color: #aaa; }
 [data-bg="white"] .set-btn    { background: #c8dcf0; color: #1a4a7a; border-color: #aac; }
+
+/* ── Settings popup ── */
+.timer-settings-btn {
+  width: 18px; height: 18px;
+  background: #1a1a1a; color: #888;
+  border: 1px solid #333; border-radius: 3px;
+  font-size: 11px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.timer-settings-btn:hover { background: #333; color: #fff; }
+[data-bg="white"] .timer-settings-btn { background: #ccc; color: #333; border-color: #aaa; }
+[data-bg="white"] .timer-settings-btn:hover { background: #bbb; color: #000; }
+html[data-bg="transparent"] .timer-settings-btn { background: rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.2); }
+
+#timer-settings-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10000;
+}
+#timer-settings-overlay.hidden { display: none; }
+.ts-modal {
+  background: #1a1a1a; color: #ddd;
+  border: 1px solid #444; border-radius: 6px;
+  width: 280px; max-width: 92%;
+  font-family: Arial, sans-serif;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+.ts-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-bottom: 1px solid #333;
+}
+.ts-header h3 { font-size: 13px; color: #fff; margin: 0; }
+.ts-close {
+  background: transparent; border: none; color: #888; font-size: 18px;
+  cursor: pointer; line-height: 1; padding: 0 4px;
+}
+.ts-close:hover { color: #fff; }
+.ts-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 12px; }
+.ts-section { display: flex; flex-direction: column; gap: 6px; }
+.ts-section > h4 {
+  font-size: 11px; color: #4dff88; text-transform: uppercase;
+  letter-spacing: 0.5px; font-weight: bold; margin: 0;
+}
+.ts-radios { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; }
+.ts-radios label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.ts-radios input[type="radio"] { margin: 0; cursor: pointer; }
+.ts-color {
+  width: 28px; height: 18px; padding: 0; border: 1px solid #444;
+  background: transparent; cursor: pointer; vertical-align: middle;
+}
 </style>
 </head>
 <body>
@@ -229,9 +281,47 @@ html[data-bg="transparent"] .set-btn { background: rgba(0,30,60,0.6) !important;
   <div class="size-group">
     <button class="size-btn" onclick="changeSize(-4)">−</button>
     <button class="size-btn" onclick="changeSize(4)">+</button>
+    <button class="timer-settings-btn" id="timer-settings-btn" title="Settings" onclick="openTimerSettings()">⚙</button>
   </div>
   <div id="conn-status" class="disconnected">○ No device</div>
   <div style="width:40px;flex-shrink:0;"></div>
+</div>
+
+<div id="timer-settings-overlay" class="hidden" onclick="if(event.target===this)closeTimerSettings()">
+  <div class="ts-modal">
+    <div class="ts-header">
+      <h3>Timer Settings</h3>
+      <button class="ts-close" onclick="closeTimerSettings()">×</button>
+    </div>
+    <div class="ts-body">
+      <div class="ts-section">
+        <h4>Number Color</h4>
+        <div class="ts-radios">
+          <label><input type="radio" name="ts-color" value="blue">   Blue</label>
+          <label><input type="radio" name="ts-color" value="green">  Green</label>
+          <label><input type="radio" name="ts-color" value="red">    Red</label>
+          <label><input type="radio" name="ts-color" value="orange"> Orange</label>
+          <label><input type="radio" name="ts-color" value="purple"> Purple</label>
+          <label><input type="radio" name="ts-color" value="yellow"> Yellow</label>
+          <label><input type="radio" name="ts-color" value="pink">   Pink</label>
+          <label><input type="radio" name="ts-color" value="custom"> Custom</label>
+          <input type="color" class="ts-color" id="ts-color-custom" value="#3498db">
+        </div>
+      </div>
+
+      <div class="ts-section">
+        <h4>Background</h4>
+        <div class="ts-radios">
+          <label><input type="radio" name="ts-bg" value="black">       Black</label>
+          <label><input type="radio" name="ts-bg" value="grey">        Grey</label>
+          <label><input type="radio" name="ts-bg" value="white">       White</label>
+          <label><input type="radio" name="ts-bg" value="transparent"> Transparent</label>
+          <label><input type="radio" name="ts-bg" value="custom">      Custom</label>
+          <input type="color" class="ts-color" id="ts-bg-custom" value="#222222">
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -253,7 +343,7 @@ var p      = new URLSearchParams(window.location.search);
 var wsHost = p.get('wshost') || p.get('host') || localStorage.getItem('alttp-ws-host') || 'localhost';
 var wsPort = p.get('wsport') || p.get('port') || localStorage.getItem('alttp-ws-port') || '23074';
 
-// Apply chosen timer color
+// ── Timer settings (color + bg) ──────────────────────────────────────────────
 var TIMER_COLORS = {
   blue:   { main: '#3498db', dim: '#2a7ab8' },
   green:  { main: '#2ecc71', dim: '#27ae60' },
@@ -263,16 +353,121 @@ var TIMER_COLORS = {
   yellow: { main: '#ffd700', dim: '#c8a800' },
   pink:   { main: '#e314d2', dim: '#eb11d9' },
 };
-var colorKey = p.get('color') || 'blue';
-var tc = TIMER_COLORS[colorKey] || TIMER_COLORS.blue;
-document.documentElement.style.setProperty('--timer-color',     tc.main);
-document.documentElement.style.setProperty('--timer-color-dim', tc.dim);
 
-// Apply background
-var bgKey = p.get('bg') || 'black';
-if (bgKey !== 'black') {
-  document.documentElement.setAttribute('data-bg', bgKey);
+var TIMER_SETTINGS = {
+  color:        'blue',
+  colorCustom:  '#3498db',
+  bg:           'black',
+  bgCustom:     '#222222'
+};
+
+function loadTimerSettings() {
+  try {
+    TIMER_SETTINGS.color       = localStorage.getItem('alttp-timer-color')         || TIMER_SETTINGS.color;
+    TIMER_SETTINGS.colorCustom = localStorage.getItem('alttp-timer-color-custom')  || TIMER_SETTINGS.colorCustom;
+    TIMER_SETTINGS.bg          = localStorage.getItem('alttp-timer-bg')            || TIMER_SETTINGS.bg;
+    TIMER_SETTINGS.bgCustom    = localStorage.getItem('alttp-timer-bg-custom')     || TIMER_SETTINGS.bgCustom;
+  } catch (e) {}
+  // URL params win at launch (the launcher passes them through)
+  var urlColor = p.get('color');
+  var urlBg    = p.get('bg');
+  if (urlColor) TIMER_SETTINGS.color = urlColor;
+  if (urlBg)    TIMER_SETTINGS.bg    = urlBg;
 }
+
+function saveTimerSettings() {
+  try {
+    localStorage.setItem('alttp-timer-color',        TIMER_SETTINGS.color);
+    localStorage.setItem('alttp-timer-color-custom', TIMER_SETTINGS.colorCustom);
+    localStorage.setItem('alttp-timer-bg',           TIMER_SETTINGS.bg);
+    localStorage.setItem('alttp-timer-bg-custom',    TIMER_SETTINGS.bgCustom);
+  } catch (e) {}
+}
+
+// Multiply each rgb channel by `factor` (0..1) for the dim/centis colour.
+function darkenHex(hex, factor) {
+  var h = (hex || '#000000').replace('#','');
+  if (h.length === 3) h = h.split('').map(function(c){return c+c;}).join('');
+  var r = Math.round(parseInt(h.substr(0,2),16) * factor);
+  var g = Math.round(parseInt(h.substr(2,2),16) * factor);
+  var b = Math.round(parseInt(h.substr(4,2),16) * factor);
+  function toHex(n) { return n.toString(16).padStart(2,'0'); }
+  return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+
+function applyTimerColor() {
+  if (TIMER_SETTINGS.color === 'custom') {
+    var c   = TIMER_SETTINGS.colorCustom;
+    var dim = darkenHex(c, 0.78);
+    document.documentElement.style.setProperty('--timer-color',     c);
+    document.documentElement.style.setProperty('--timer-color-dim', dim);
+  } else {
+    var pair = TIMER_COLORS[TIMER_SETTINGS.color] || TIMER_COLORS.blue;
+    document.documentElement.style.setProperty('--timer-color',     pair.main);
+    document.documentElement.style.setProperty('--timer-color-dim', pair.dim);
+  }
+}
+
+function applyTimerBg() {
+  var bg = TIMER_SETTINGS.bg;
+  // Clear any prior inline overrides — the [data-bg] CSS rules handle the
+  // named modes, and inline body.style is used only for "custom".
+  document.body.style.background = '';
+  document.body.style.backgroundColor = '';
+  if (bg === 'black') {
+    document.documentElement.removeAttribute('data-bg');
+  } else if (bg === 'custom') {
+    document.documentElement.setAttribute('data-bg', 'custom');
+    document.body.style.background = TIMER_SETTINGS.bgCustom;
+  } else {
+    document.documentElement.setAttribute('data-bg', bg);
+  }
+  if (window.electronAPI && window.electronAPI.setTimerBg) window.electronAPI.setTimerBg(bg);
+}
+
+// ── Settings popup wiring ────────────────────────────────────────────────────
+function openTimerSettings() {
+  document.querySelectorAll('input[name="ts-color"]').forEach(function(r) { r.checked = (r.value === TIMER_SETTINGS.color); });
+  document.querySelectorAll('input[name="ts-bg"]').forEach(function(r)    { r.checked = (r.value === TIMER_SETTINGS.bg); });
+  document.getElementById('ts-color-custom').value = TIMER_SETTINGS.colorCustom;
+  document.getElementById('ts-bg-custom').value    = TIMER_SETTINGS.bgCustom;
+  document.getElementById('timer-settings-overlay').classList.remove('hidden');
+}
+function closeTimerSettings() {
+  document.getElementById('timer-settings-overlay').classList.add('hidden');
+}
+
+document.querySelectorAll('input[name="ts-color"]').forEach(function(r) {
+  r.addEventListener('change', function() {
+    if (!r.checked) return;
+    TIMER_SETTINGS.color = r.value;
+    saveTimerSettings(); applyTimerColor();
+  });
+});
+document.getElementById('ts-color-custom').addEventListener('input', function(e) {
+  TIMER_SETTINGS.colorCustom = e.target.value;
+  if (TIMER_SETTINGS.color === 'custom') applyTimerColor();
+  saveTimerSettings();
+});
+document.querySelectorAll('input[name="ts-bg"]').forEach(function(r) {
+  r.addEventListener('change', function() {
+    if (!r.checked) return;
+    TIMER_SETTINGS.bg = r.value;
+    saveTimerSettings(); applyTimerBg();
+  });
+});
+document.getElementById('ts-bg-custom').addEventListener('input', function(e) {
+  TIMER_SETTINGS.bgCustom = e.target.value;
+  if (TIMER_SETTINGS.bg === 'custom') applyTimerBg();
+  saveTimerSettings();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeTimerSettings();
+});
+
+loadTimerSettings();
+applyTimerColor();
+applyTimerBg();
 
 // ── Font size controls ────────────────────────────────────────────────────────
 function changeSize(delta) {
