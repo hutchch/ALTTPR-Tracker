@@ -133,7 +133,7 @@ html[data-bg="transparent"] .bbg-bar * {
 
 .bmed-label {
   position: absolute; bottom: 1px; right: 1px;
-  font-size: 7px; font-weight: bold; color: #fff; text-transform: uppercase;
+  font-size: 10px; font-weight: bold; color: #fff; text-transform: uppercase;
   text-shadow: 0 0 2px #000, 0 0 2px #000;
   z-index: 3;
 }
@@ -184,7 +184,7 @@ html[data-bg="transparent"] .bbg-bar * {
 
 /* Go Mode (right-column) */
 .bgo-btn {
-  width: 28px; height: 28px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   border: 2px solid currentColor;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: bold; font-family: Arial, sans-serif;
@@ -198,11 +198,11 @@ html[data-bg="transparent"] .bbg-bar * {
 .bstats-slot {
   width: 82px; height: 40px;
   display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
-  gap: 1px; padding-left: 6px;
+  gap: 1px; padding-left: 4px;
   flex-shrink: 0;
 }
-.bstat-row { display: flex; align-items: center; gap: 4px; font-family: Arial, sans-serif; font-size: 8px; font-weight: bold; }
-.bstat-label { color: #888; width: 28px; flex-shrink: 0; }
+.bstat-row { display: flex; align-items: center; gap: 6px; font-family: Arial, sans-serif; font-size: 10px; font-weight: bold; }
+.bstat-label { color: #888; width: 32px; flex-shrink: 0; }
 .bstat-check { color: #4dff88; }
 .bstat-death { color: #ff4444; }
 .bstat-bonk  { color: #ffa500; }
@@ -251,7 +251,7 @@ html[data-bg="transparent"] .bbg-bar * {
 
 /* Label centered on its own row */
 .bdng-name {
-  font-family: Arial, sans-serif; font-size: 9px; font-weight: bold;
+  font-family: Arial, sans-serif; font-size: 10px; font-weight: bold;
   color: #ccc; line-height: 1;
   text-align: center;
   width: 100%;
@@ -956,6 +956,44 @@ var dngEls  = {};
 var STICKY_ITEMS = ['bomb'];
 var maxState = {};
 
+// Per-element "last applied" caches. We use these to skip DOM writes when
+// the current visual state already matches the requested one. Cleared on
+// rebuildRows / resetAll so a fresh DOM forces re-application.
+var _appliedItemState    = {};   // key (e.g. 'bow') -> last applied numeric state
+var _appliedDungeonState = {};   // key -> { chests, max, bigkey, map, compass, smallKeys, maxKeys, prize, obtained, classes }
+var _appliedMedallion    = { mm: -1, tr: -1 };
+var _appliedGomode       = -1;
+var _appliedStats        = { checks: null, deaths: null, bonks: null };
+
+// Snap coalescing — if multiple snap/prizes messages arrive within ~50 ms
+// (e.g. during reset or an autotracker burst), only re-render once with the
+// latest payload. Caps broadcast view re-render frequency at ~20 Hz.
+var _pendingSnap    = null;
+var _pendingPrizes  = null;
+var _snapTimer      = null;
+
+function applySnapCoalesced(snap) {
+  // Merge rather than replace — the item tracker sends two snap messages each
+  // cycle (broadcastItemSnap with full dungeon fields, then a slimmer
+  // map-focused snap from processInventoryData without Map/Compass/etc.).
+  // If we replaced, the slim snap would mask the fresh dungeon state and the
+  // broadcast view would never see map/compass changes flip from 0 to 1.
+  // Merging preserves fields the slim snap omits.
+  _pendingSnap = _pendingSnap ? Object.assign(_pendingSnap, snap) : snap;
+  if (_snapTimer) return;
+  _snapTimer = setTimeout(_flushSnap, 50);
+}
+function applyPrizesCoalesced(prizes) {
+  _pendingPrizes = prizes;
+  if (_snapTimer) return;
+  _snapTimer = setTimeout(_flushSnap, 50);
+}
+function _flushSnap() {
+  _snapTimer = null;
+  if (_pendingSnap)   { var s = _pendingSnap;   _pendingSnap   = null; applySnap(s); }
+  if (_pendingPrizes) { var p = _pendingPrizes; _pendingPrizes = null; applyPrizes(p); }
+}
+
 function buildDungeonSlot(key) {
   var slot = document.createElement('div');
   slot.className = 'bdng-slot'
@@ -1084,6 +1122,13 @@ function rebuildRows() {
   slotEls = {};
   slotContainers = {};
   dngEls = {};
+  // Reset the "last applied to DOM" caches — the new DOM starts at defaults
+  // so the next snap must actually write through.
+  _appliedItemState    = {};
+  _appliedDungeonState = {};
+  _appliedMedallion    = { mm: -1, tr: -1 };
+  _appliedGomode       = -1;
+  _appliedStats        = { checks: null, deaths: null, bonks: null };
   // buildRows() removes/rebuilds the .bcast-row elements wholesale
   buildRows();
   applyDungeonVisibility();
@@ -1138,13 +1183,18 @@ function refreshAllFills() {
 function updateItem(key, val) {
   if (key === 'gomode') {
     var btn = slotEls['gomode']; if (!btn) return;
+    if (_appliedGomode === val) return;
+    _appliedGomode = val;
     btn.className = 'bgo-btn' + (val===1?' on':val===2?' feeling':'');
     btn.style.color = val>0 ? '#000' : '#666';
     return;
   }
   var el = slotEls[key]; if (!el) return;
-  el.src = imgSrc(key, val);
   state[key] = val;
+  // Skip the DOM write if this item is already showing the requested state.
+  if (_appliedItemState[key] === val) return;
+  _appliedItemState[key] = val;
+  el.src = imgSrc(key, val);
 
   // Update fill state — bottles fill is keyed on the parent
   if (key === 'bottle1' || key === 'bottle2' || key === 'bottle3' || key === 'bottle4') {
@@ -1156,14 +1206,19 @@ function updateItem(key, val) {
 }
 
 function updateMedallions() {
+  // Only re-evaluate when one of the two assignments actually changed.
+  if (_appliedMedallion.mm === state.mmMedallion && _appliedMedallion.tr === state.trMedallion) return;
+  _appliedMedallion.mm = state.mmMedallion;
+  _appliedMedallion.tr = state.trMedallion;
   var map = {bombos:1,ether:2,quake:3};
   Object.keys(map).forEach(function(k) {
     var lbl = slotEls[k+'_lbl']; if (!lbl) return;
     var idx = map[k];
-    if (state.mmMedallion===idx && state.trMedallion===idx) lbl.textContent='BOTH';
-    else if (state.mmMedallion===idx) lbl.textContent='MM';
-    else if (state.trMedallion===idx) lbl.textContent='TR';
-    else lbl.textContent='';
+    var next = '';
+    if (state.mmMedallion===idx && state.trMedallion===idx) next='BOTH';
+    else if (state.mmMedallion===idx) next='MM';
+    else if (state.trMedallion===idx) next='TR';
+    if (lbl.textContent !== next) lbl.textContent = next;
   });
 }
 
@@ -1191,13 +1246,21 @@ function applySnap(snap) {
   updateItem('gomode', snap.gomode!==undefined ? snap.gomode : state.gomode||0);
   updateMedallions();
 
-  if (snap.checks!==undefined && slotEls['stat_check']) slotEls['stat_check'].textContent=snap.checks;
-  if (snap.deaths!==undefined && slotEls['stat_death']) slotEls['stat_death'].textContent=snap.deaths;
-  if (snap.bonks !==undefined && slotEls['stat_bonk'])  slotEls['stat_bonk'].textContent =snap.bonks;
+  if (snap.checks !== undefined && slotEls['stat_check'] && _appliedStats.checks !== snap.checks) {
+    slotEls['stat_check'].textContent = snap.checks; _appliedStats.checks = snap.checks;
+  }
+  if (snap.deaths !== undefined && slotEls['stat_death'] && _appliedStats.deaths !== snap.deaths) {
+    slotEls['stat_death'].textContent = snap.deaths; _appliedStats.deaths = snap.deaths;
+  }
+  if (snap.bonks  !== undefined && slotEls['stat_bonk']  && _appliedStats.bonks  !== snap.bonks) {
+    slotEls['stat_bonk'].textContent  = snap.bonks;  _appliedStats.bonks  = snap.bonks;
+  }
 
-  // Dungeons
+  // Dungeons — diff every write against last-applied per-dungeon cache so
+  // unchanged values don't touch the DOM at all.
   ROW4.forEach(function(key) {
     var d = dngEls[key]; if (!d) return;
+    var cache = _appliedDungeonState[key] || (_appliedDungeonState[key] = {});
     var chests        = snap[key+'Chests'];
     var maxChests     = snap[key+'MaxChests'];
     var bigkey        = snap[key+'BigKey'];
@@ -1209,41 +1272,60 @@ function applySnap(snap) {
     var obtained      = snap[key+'PrizeObtained'];
 
     if (chests !== undefined || maxChests !== undefined) {
-      var c = chests    !== undefined ? chests    : (parseInt(d.chestVal.textContent)||0);
-      var m = maxChests !== undefined ? maxChests : 0;
-      d.chestVal.textContent = c + '/' + m;
-      var full = c >= m && m > 0;
-      d.chestIcon.src = BASE+'/'+(full?'chest00.png':'chest0.png');
-      d.chestVal.classList.toggle('full', full);
+      var c = chests    !== undefined ? chests    : (cache.chests || 0);
+      var m = maxChests !== undefined ? maxChests : (cache.maxChests || 0);
+      if (c !== cache.chests || m !== cache.maxChests) {
+        d.chestVal.textContent = c + '/' + m;
+        var full = c >= m && m > 0;
+        d.chestIcon.src = BASE+'/'+(full?'chest00.png':'chest0.png');
+        d.chestVal.classList.toggle('full', full);
+        cache.chests = c; cache.maxChests = m; cache.chestsFull = full;
+      }
     }
     if (smallKeys !== undefined || maxSmallKeys !== undefined) {
-      var sc = smallKeys    !== undefined ? smallKeys    : (parseInt((d.keyVal.textContent.split('/')[0])||'0'));
-      var sm = maxSmallKeys !== undefined ? maxSmallKeys : (parseInt((d.keyVal.textContent.split('/')[1])||'0'));
-      d.keyVal.textContent = sc + '/' + sm;
-      var sfull = sc >= sm && sm > 0;
-      d.keyVal.classList.toggle('full', sfull);
-      d._maxSmallKeys = sm;
-      applyKeyRowDisplay(d);
+      var sc = smallKeys    !== undefined ? smallKeys    : (cache.smallKeys || 0);
+      var sm = maxSmallKeys !== undefined ? maxSmallKeys : (cache.maxSmallKeys || 0);
+      // The item tracker's trackerItems.*SmallKeys is a raw SRAM byte and can
+      // exceed the dungeon's max in some shuffle modes / save-and-quit cases.
+      // Clamp here so the broadcast can never show e.g. "5/3" or "8/3".
+      if (sm > 0 && sc > sm) sc = sm;
+      // Guard against non-integers slipping through (shouldn't happen, but the
+      // 8.5/3 report suggests something occasionally arrives non-clean).
+      sc = Math.floor(sc) || 0;
+      sm = Math.floor(sm) || 0;
+      if (sc !== cache.smallKeys || sm !== cache.maxSmallKeys) {
+        d.keyVal.textContent = sc + '/' + sm;
+        var sfull = sc >= sm && sm > 0;
+        d.keyVal.classList.toggle('full', sfull);
+        cache.smallKeys = sc; cache.maxSmallKeys = sm;
+        d._maxSmallKeys = sm;
+        applyKeyRowDisplay(d);
+      }
     }
-    if (bigkey       !== undefined) d.bigkey.src  = BASE+'/bigkey'  + (bigkey       ? '1' : '0') + '.png';
-    if (mapState     !== undefined) d.map.src     = BASE+'/map'     + (mapState     ? '1' : '0') + '.png';
-    if (compassState !== undefined) d.compass.src = BASE+'/compass' + (compassState ? '1' : '0') + '.png';
+    if (bigkey       !== undefined && bigkey       !== cache.bigkey)  { d.bigkey.src  = BASE+'/bigkey'  + (bigkey       ? '1' : '0') + '.png'; cache.bigkey  = bigkey; }
+    if (mapState     !== undefined && mapState     !== cache.map)     { d.map.src     = BASE+'/map'     + (mapState     ? '1' : '0') + '.png'; cache.map     = mapState; }
+    if (compassState !== undefined && compassState !== cache.compass) { d.compass.src = BASE+'/compass' + (compassState ? '1' : '0') + '.png'; cache.compass = compassState; }
     // Update the prize image only if the snap supplied prize info — some snaps
     // (e.g. tracker.js broadcastItems) don't carry prize fields, so we must not
     // wipe out the current image or completion state when they're missing.
-    if (prize !== undefined) d.prize.src = BASE+'/'+prize+(obtained?'1':'0')+'.png';
+    if (prize !== undefined) {
+      var prizeSrc = BASE+'/'+prize+(obtained?'1':'0')+'.png';
+      if (prize !== cache.prize || !!obtained !== !!cache.obtained) {
+        d.prize.src = prizeSrc;
+        cache.prize = prize; cache.obtained = !!obtained;
+      }
+    }
 
     // Completion state — derive obtained from the prize image src so partial
     // snaps don't flip a green slot back to blue.
-    var parts = d.chestVal.textContent.split('/');
-    var cNow  = parseInt(parts[0]) || 0;
-    var mNow  = parseInt(parts[1]) || 0;
-    var allChests = cNow >= mNow && mNow > 0;
     var srcNow   = d.prize.src || '';
     var prizeDone = srcNow.indexOf('1.png') !== -1;
+    var allChests = !!cache.chestsFull;
     var fillOn   = SETTINGS.dungeonFillEnabled;
-    d.slot.classList.toggle('prize-done',  fillOn && allChests && prizeDone);
-    d.slot.classList.toggle('chests-done', fillOn && allChests && !prizeDone);
+    var wantPrize  = fillOn && allChests && prizeDone;
+    var wantChests = fillOn && allChests && !prizeDone;
+    if (cache.prizeDoneClass !== wantPrize)   { d.slot.classList.toggle('prize-done',  wantPrize);  cache.prizeDoneClass  = wantPrize; }
+    if (cache.chestsDoneClass !== wantChests) { d.slot.classList.toggle('chests-done', wantChests); cache.chestsDoneClass = wantChests; }
 
     // Pendant accent (subtle border tint when prize collected but chests aren't done)
     var prizeNow  = prize !== undefined ? prize : (
@@ -1251,7 +1333,8 @@ function applySnap(snap) {
       srcNow.indexOf('pendant')      !== -1 ? 'pendant' : ''
     );
     var isPendant = prizeNow === 'pendant' || prizeNow === 'greenpendant';
-    d.slot.classList.toggle('pendant', isPendant && prizeDone && !allChests);
+    var wantPendant = isPendant && prizeDone && !allChests;
+    if (cache.pendantClass !== wantPendant) { d.slot.classList.toggle('pendant', wantPendant); cache.pendantClass = wantPendant; }
   });
 
   // Recompute item fills against new state
@@ -1261,6 +1344,12 @@ function applySnap(snap) {
 function resetAll() {
   Object.keys(state).forEach(function(k){state[k]=0;});
   maxState = {};                 // forget sticky items on new game
+  // Force every diff guard to "unknown" so resetAll cleanly re-writes every slot.
+  _appliedItemState    = {};
+  _appliedDungeonState = {};
+  _appliedMedallion    = { mm: -1, tr: -1 };
+  _appliedGomode       = -1;
+  _appliedStats        = { checks: null, deaths: null, bonks: null };
   applySnap(state);
   ['stat_check','stat_death','stat_bonk'].forEach(function(k){if(slotEls[k])slotEls[k].textContent='0';});
   ROW4.forEach(function(k){
@@ -1305,8 +1394,8 @@ try {
   var bc = new BroadcastChannel('alttp-tracker');
   bc.onmessage = function(e) {
     if (!e.data) return;
-    if (e.data.type==='items'||e.data.type==='snap') applySnap(e.data.data||e.data);
-    else if (e.data.type==='prizes') applyPrizes(e.data.data);
+    if (e.data.type==='items'||e.data.type==='snap') applySnapCoalesced(e.data.data||e.data);
+    else if (e.data.type==='prizes') applyPrizesCoalesced(e.data.data);
     else if (e.data.type==='stats') {
       if(slotEls['stat_check'])slotEls['stat_check'].textContent=e.data.checks||0;
       if(slotEls['stat_death'])slotEls['stat_death'].textContent=e.data.deaths||0;
