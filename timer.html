@@ -497,13 +497,27 @@ function updateDisplay() {
 }
 
 // ── Timer controls ────────────────────────────────────────────────────────────
+// Timer is wall-clock driven: each tick recomputes centiseconds from
+// (Date.now() - _startMs), so accuracy is guaranteed even if Chromium skips a
+// tick. Display refresh runs at 20 Hz (50 ms) which still looks smooth for
+// centisecond numerals while spending ~3× less CPU than the old 100 Hz loop.
+var _startMs = 0;     // wall-clock origin (ms) for the current run
+var _baseCs  = 0;     // centiseconds at that origin
+
 function startTimer() {
   if (isRunning) return;
-  isRunning  = true;
-  intervalId = setInterval(function() { centiseconds++; updateDisplay(); }, 10);
+  isRunning = true;
+  _startMs = Date.now();
+  _baseCs  = centiseconds;
+  intervalId = setInterval(timerTick, 50);
   btnPlay.textContent = '⏸';
   btnPlay.className   = 'ctrl-btn running';
   dispWrap.className  = 'timer-display running';
+}
+
+function timerTick() {
+  centiseconds = _baseCs + Math.floor((Date.now() - _startMs) / 10);
+  updateDisplay();
 }
 
 function stopTimer() {
@@ -540,6 +554,12 @@ function setTimeFromInput() {
   else if (parts.length === 2) { m = parts[0]; s = parts[1]; }
   else                         { s = parts[0]; }
   centiseconds = (h * 3600 + m * 60 + s) * 100 * (neg ? -1 : 1);
+  // If the timer is currently running, re-base the wall clock so the next
+  // tick continues from this new value instead of snapping back to the old one.
+  if (isRunning) {
+    _startMs = Date.now();
+    _baseCs  = centiseconds;
+  }
   updateDisplay();
   document.getElementById('time-input').value = '';
 }
@@ -561,6 +581,12 @@ var ZERO_READ_LIMIT = 20;    // garbage reads before re-validating (~5s at 250ms
 var _lastGamemode   = -1;
 var _triforceCount  = 0;
 var TRIFORCE_CONFIRM = 2;
+// When the item tracker is running it polls F50010 and broadcasts the value
+// over BroadcastChannel. While those broadcasts are fresh, the timer skips
+// its own SNES poll entirely — same pattern the map already uses for room
+// data. Falls back to direct polling automatically when broadcasts go stale.
+var _lastBcGamemode = 0;
+var BC_GAMEMODE_FRESH_MS = 2000;
 var GAMEMODE_SRAM   = 'F50010';
 var GAMEPLAY_MODES  = [0x07, 0x09, 0x0B];
 var TRIFORCE_MODE   = 0x19;
@@ -631,60 +657,68 @@ function scheduleReconnect() {
   _reconnectTimer = setTimeout(connect, 5000);
 }
 
+// Core gameplay-mode state machine — runs identically whether the gm byte
+// arrives from our own WebSocket or from the item tracker's BroadcastChannel.
+// `viaBc` is true when the source is BC; we skip the device-relist fallback
+// in that case because the item tracker is already managing the connection.
+function processGamemode(gm, viaBc) {
+  if (GAMEPLAY_MODES.indexOf(gm) !== -1) {
+    // In-game — start timer
+    _triforceCount = 0;
+    _zeroReadCount = 0;
+    _validReadCount++;
+    if (_validReadCount === 1 && _pollTimer) {
+      // First confirmed gameplay read — slow our fallback poll
+      clearInterval(_pollTimer);
+      _pollTimer = setInterval(pollGamemode, 500);
+    }
+    startTimer();
+  } else if (gm === TRIFORCE_MODE) {
+    _triforceCount++;
+    _zeroReadCount = 0;
+    _validReadCount++;
+    if (_validReadCount === 1 && _pollTimer) {
+      clearInterval(_pollTimer);
+      _pollTimer = setInterval(pollGamemode, 500);
+    }
+    if (_triforceCount >= TRIFORCE_CONFIRM) finishTimer();
+  } else if (KNOWN_MODES.indexOf(gm) !== -1) {
+    // Known pre-game / menu mode — game is loading, just wait
+    _triforceCount = 0;
+    _zeroReadCount = 0;
+  } else {
+    // Truly unknown value — likely garbage from RetroArch before game loads.
+    // Skip the re-attach fallback when the data came from BC — the item
+    // tracker owns its own reconnect and will recover on its side.
+    _triforceCount = 0;
+    if (_validReadCount === 0 && !viaBc) {
+      _zeroReadCount++;
+      if (_zeroReadCount >= ZERO_READ_LIMIT) {
+        _zeroReadCount = 0;
+        _validReadCount = 0;
+        _triforceCount = 0;
+        _deviceAttached = false;
+        _pendingRead = false;
+        clearInterval(_pollTimer);
+        _pollTimer = null;
+        setConnStatus('○ Waiting for game…', 'connecting');
+        setTimeout(function() {
+          if (_ws && _ws.readyState === WebSocket.OPEN) {
+            _ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
+          }
+        }, 1000);
+      }
+    }
+  }
+  _lastGamemode = gm;
+}
+
 function handleMessage(evt) {
   try {
     if (evt.data instanceof ArrayBuffer) {
       if (_pendingRead) {
         _pendingRead = false;
-        var gm = new Uint8Array(evt.data)[0];
-        if (GAMEPLAY_MODES.indexOf(gm) !== -1) {
-          // In-game — start timer
-          _triforceCount = 0;
-          _zeroReadCount = 0;
-          _validReadCount++;
-          if (_validReadCount === 1) {
-            // First confirmed gameplay read — slow down polling
-            clearInterval(_pollTimer);
-            _pollTimer = setInterval(pollGamemode, 500);
-          }
-          startTimer();
-        } else if (gm === TRIFORCE_MODE) {
-          _triforceCount++;
-          _zeroReadCount = 0;
-          _validReadCount++;
-          if (_validReadCount === 1) {
-            clearInterval(_pollTimer);
-            _pollTimer = setInterval(pollGamemode, 500);
-          }
-          if (_triforceCount >= TRIFORCE_CONFIRM) finishTimer();
-        } else if (KNOWN_MODES.indexOf(gm) !== -1) {
-          // Known pre-game / menu mode — game is loading, just wait
-          _triforceCount = 0;
-          _zeroReadCount = 0;
-        } else {
-          // Truly unknown value — likely garbage from RetroArch before game loads
-          _triforceCount = 0;
-          if (_validReadCount === 0) {
-            // Only count garbage before we've seen any valid gameplay
-            _zeroReadCount++;
-            if (_zeroReadCount >= ZERO_READ_LIMIT) {
-              _zeroReadCount = 0;
-              _validReadCount = 0;
-              _triforceCount = 0;
-              _deviceAttached = false;
-              _pendingRead = false;
-              clearInterval(_pollTimer);
-              _pollTimer = null;
-              setConnStatus('○ Waiting for game…', 'connecting');
-              setTimeout(function() {
-                if (_ws && _ws.readyState === WebSocket.OPEN) {
-                  _ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
-                }
-              }, 1000);
-            }
-          }
-        }
-        _lastGamemode = gm;
+        processGamemode(new Uint8Array(evt.data)[0], false);
       }
       return;
     }
@@ -713,10 +747,29 @@ function handleMessage(evt) {
 
 
 function pollGamemode() {
+  // If the item tracker is broadcasting game mode over BroadcastChannel,
+  // skip our own SNES poll entirely — it's redundant. We still keep the WS
+  // open as a fallback so the timer continues working when the item tracker
+  // window isn't running.
+  if (Date.now() - _lastBcGamemode < BC_GAMEMODE_FRESH_MS) return;
   if (!_ws || _ws.readyState !== WebSocket.OPEN || !_deviceAttached || _pendingRead) return;
   _pendingRead = true;
   _ws.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: [GAMEMODE_SRAM, '01'] }));
 }
+
+// Listen for the item tracker's broadcasts. When a fresh gamemode arrives,
+// process it through the same state machine the WS path uses — and update
+// the freshness timestamp so pollGamemode stays quiet for the next 2s.
+try {
+  var _timerBc = new BroadcastChannel('alttp-tracker');
+  _timerBc.onmessage = function(e) {
+    if (!e.data) return;
+    if (e.data.type === 'gamemode' && typeof e.data.data === 'number') {
+      _lastBcGamemode = Date.now();
+      processGamemode(e.data.data, true);
+    }
+  };
+} catch (e) {}
 
 window.addEventListener('load', function() { connect(); });
 </script>

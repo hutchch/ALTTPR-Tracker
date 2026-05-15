@@ -2136,6 +2136,41 @@ var _mapWs = null;
 var _mapReconnectTimer = null;
 var _mapPollTimer = null;
 
+// Visibility / focus-aware poll throttling. While the user is playing the
+// game (map window blurred or hidden), we slow SNES polling to ease load
+// on the QUsb2Snes / SNI / RetroArch bridge and reduce CPU competition with
+// the emulator. The map's BroadcastChannel still receives item updates from
+// the item tracker, so dot logic stays fresh even at the slow rate.
+var MAP_POLL_FAST = 1000;     // ms when the map window is focused/visible
+var MAP_POLL_SLOW = 4000;     // ms when the map window is in the background
+var _mapPollRate  = MAP_POLL_FAST;
+
+function _isMapActive() { return document.hasFocus() && !document.hidden; }
+
+function _mapPollFn() {
+  var bcFresh = (Date.now() - _lastBcRooms) < 3000;
+  if (!bcFresh && _mapWs && _mapWs.readyState === WebSocket.OPEN) {
+    _mapWs.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: ['F5F000', '280'] }));
+    _mapWs.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: ['F5F280', '280'] }));
+  }
+}
+
+function _refreshMapPollRate() {
+  var newRate = _isMapActive() ? MAP_POLL_FAST : MAP_POLL_SLOW;
+  if (newRate === _mapPollRate) return;
+  _mapPollRate = newRate;
+  // If polling is currently active, re-arm the interval at the new rate
+  if (_mapPollTimer) {
+    clearInterval(_mapPollTimer);
+    _mapPollTimer = setInterval(_mapPollFn, _mapPollRate);
+  }
+}
+
+window.addEventListener('focus',              _refreshMapPollRate);
+window.addEventListener('blur',               _refreshMapPollRate);
+document.addEventListener('visibilitychange', _refreshMapPollRate);
+_mapPollRate = _isMapActive() ? MAP_POLL_FAST : MAP_POLL_SLOW;
+
 function setConnStatus(text, cls) {
   var el = document.getElementById('conn-status');
   el.textContent = '● ' + text;
@@ -2147,7 +2182,7 @@ function mapConnect() {
   var port = localStorage.getItem('alttp-ws-port') || '23074';
 
   if (_mapWs) { _mapWs.onclose = null; _mapWs.onerror = null; _mapWs.close(); _mapWs = null; }
-  clearTimeout(_mapReconnectTimer); clearInterval(_mapPollTimer);
+  clearTimeout(_mapReconnectTimer); clearInterval(_mapPollTimer); _mapPollTimer = null;
 
   setConnStatus('Connecting…', 'connecting');
   try { _mapWs = new WebSocket('ws://' + host + ':' + port); }
@@ -2192,14 +2227,10 @@ function mapConnect() {
       _mapWs.send(JSON.stringify({ Opcode: 'Name',   Space: 'SNES', Operands: ['ALTTP Map'] }));
       _attached = true;
       setConnStatus('Connected', 'connected');
-      // Poll room data in two chunks — skip if BroadcastChannel is feeding fresh data
-      _mapPollTimer = setInterval(function() {
-        var bcFresh = (Date.now() - _lastBcRooms) < 3000;
-        if (!bcFresh && _mapWs && _mapWs.readyState === WebSocket.OPEN) {
-          _mapWs.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: ['F5F000', '280'] }));
-          _mapWs.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: ['F5F280', '280'] }));
-        }
-      }, 1000);
+      // Poll room data in two chunks — skip if BroadcastChannel is feeding fresh data.
+      // Rate is dynamic via _mapPollRate (fast when focused, slow when backgrounded).
+      _refreshMapPollRate();
+      _mapPollTimer = setInterval(_mapPollFn, _mapPollRate);
     }
   };
 
@@ -2210,7 +2241,7 @@ function mapConnect() {
     }
   };
   _mapWs.onclose = function() {
-    clearInterval(_mapPollTimer);
+    clearInterval(_mapPollTimer); _mapPollTimer = null;
     _attached = false;
     if ((Date.now() - _lastBcRooms) > 5000) {
       setConnStatus('Disconnected — retrying…', 'disconnected');

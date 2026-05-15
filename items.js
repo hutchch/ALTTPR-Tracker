@@ -2,13 +2,9 @@
 // In Electron we ask the main process for the real absolute file:// path.
 // In browser we use the normal relative path.
 let BASE_URL = 'items';
-// BOSS_URL points at the sibling boss/ folder (boss0.png … boss10.png).
-let BOSS_URL = 'boss';
 
 function applyBaseUrl(newBase) {
   BASE_URL = newBase;
-  // boss/ lives next to items/ — derive its path from the same base.
-  BOSS_URL = newBase.replace(/items\/?$/, 'boss');
   // Rebuild all image src paths in the items object
   Object.keys(items).forEach(function(key) {
     var item = items[key];
@@ -34,9 +30,6 @@ function applyBaseUrl(newBase) {
       if (state && state.img) img.src = state.img;
     }
   });
-  // Re-render boss circles with the corrected boss/ base path (no-op if the
-  // dungeon slots haven't been built yet — createTracker will refresh later).
-  if (typeof refreshAllBossCircles === 'function') refreshAllBossCircles();
 }
 
 (async function() {
@@ -669,8 +662,7 @@ function createTracker() {
                 
                 dungeonSlot.appendChild(countsContainer);
 
-                // Boss circle — left of the row for pendant dungeons, underneath for the rest
-                createBossCircle(itemKey, dungeonSlot, isPendantDungeon);
+
 
                 rowDiv.appendChild(dungeonSlot);
             } else if (itemKey === 'stats') {
@@ -840,165 +832,6 @@ function cycleDungeonPrize(dungeonKey, slot) {
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 }
 
-// ── Boss circle ──────────────────────────────────────────────────────────────
-// Each dungeon slot carries a "boss circle": a circle showing one of boss0..10.
-// boss0 is the default '?' (neutral). The user right-clicks to pick a boss.
-// Certain bosses need specific items; the circle turns red until those items
-// are collected, green once they are (or immediately, for bosses with no
-// requirement).
-var BOSS_REQUIREMENTS = {
-    4:  function() { return hasBossItem('hammer') || hasBossItem('bomb'); },           // Helmasaur King
-    5:  function() { return hasBossItem('hookshot'); },                               // Arrghus
-    8:  function() { return hasBossItem('bombos') || hasBossItem('firerod'); },        // Kholdstare
-    10: function() { return hasBossItem('firerod') && hasBossItem('icerod'); }         // Trinexx
-};
-
-function hasBossItem(key) {
-    return !!(items[key] && items[key].currentState > 0);
-}
-
-// Build the boss circle for one dungeon slot. Pendant dungeons (EP/DP/ToH) get
-// it on the left of the row; all other dungeons get it underneath.
-function createBossCircle(dungeonKey, dungeonSlot, isPendant) {
-    // GT's boss is always Agahnim 2 / Ganon — no boss selector needed there.
-    if (dungeonKey === 'gt') return;
-    if (dungeons[dungeonKey].bossState === undefined) dungeons[dungeonKey].bossState = 0;
-
-    const circle = document.createElement('div');
-    circle.className = 'boss-circle';
-
-    const img = document.createElement('img');
-    img.className = 'boss-img';
-    img.src = `${BOSS_URL}/boss0.png`;
-    img.alt = 'Boss';
-    circle.appendChild(img);
-
-    // Left-click is swallowed so it doesn't bubble up to the dungeon's prize
-    // cycle handler. Right-click opens the boss-selection popup.
-    circle.addEventListener('click', function(e) { e.stopPropagation(); });
-    circle.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        openBossPopup(dungeonKey, e.clientX, e.clientY);
-    });
-
-    // Append in both layouts: pendant dungeons are flex-row so this lands the
-    // circle on the right of the box; other dungeons are flex-column so it
-    // lands underneath.
-    dungeonSlot.appendChild(circle);
-    updateBossCircle(dungeonKey);
-}
-
-// Refresh one dungeon's boss circle image + red/green/neutral state.
-function updateBossCircle(dungeonKey) {
-    const d = dungeons[dungeonKey];
-    if (!d) return;
-    const slot = document.querySelector(`[data-dungeon-key="${dungeonKey}"]`);
-    if (!slot) return;
-    const circle = slot.querySelector('.boss-circle');
-    if (!circle) return;
-    const img = circle.querySelector('.boss-img');
-    const bossNum = d.bossState || 0;
-    if (img) img.src = `${BOSS_URL}/boss${bossNum}.png`;
-    circle.classList.remove('boss-need', 'boss-ok');
-    if (bossNum > 0) {
-        const req = BOSS_REQUIREMENTS[bossNum];
-        const met = req ? req() : true;   // bosses with no requirement are always "ok"
-        circle.classList.add(met ? 'boss-ok' : 'boss-need');
-    }
-}
-
-// Re-evaluate every dungeon's boss circle — called whenever item state changes.
-function refreshAllBossCircles() {
-    Object.keys(dungeons).forEach(updateBossCircle);
-}
-
-function setBoss(dungeonKey, bossNum) {
-    if (!dungeonKey || !dungeons[dungeonKey]) return;
-    dungeons[dungeonKey].bossState = bossNum;
-    updateBossCircle(dungeonKey);
-}
-
-// ── Boss selection popup ─────────────────────────────────────────────────────
-let _bossPopup = null;
-let _bossPopupActiveKey = null;
-
-function ensureBossPopup() {
-    if (_bossPopup) return _bossPopup;
-    const popup = document.createElement('div');
-    popup.id = 'boss-popup';
-    const grid = document.createElement('div');
-    grid.className = 'boss-popup-grid';
-    for (let i = 1; i <= 10; i++) {
-        (function(n) {
-            const cell = document.createElement('div');
-            cell.className = 'boss-popup-item';
-            cell.title = 'Boss ' + n;
-            const cellImg = document.createElement('img');
-            cellImg.src = `${BOSS_URL}/boss${n}.png`;
-            cell.appendChild(cellImg);
-            cell.addEventListener('click', function() {
-                setBoss(_bossPopupActiveKey, n);
-                closeBossPopup();
-            });
-            grid.appendChild(cell);
-        })(i);
-    }
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'boss-popup-clear';
-    clearBtn.type = 'button';
-    clearBtn.textContent = 'Clear ( ? )';
-    clearBtn.addEventListener('click', function() {
-        setBoss(_bossPopupActiveKey, 0);
-        closeBossPopup();
-    });
-    grid.appendChild(clearBtn);
-    popup.appendChild(grid);
-    // Append to <html>, not <body>: the item tracker applies CSS `zoom` to the
-    // body when scaled, which shifts position:fixed children out of true
-    // viewport coordinates. Living on documentElement keeps the popup aligned
-    // with the cursor's clientX/clientY.
-    document.documentElement.appendChild(popup);
-
-    // Dismiss on outside-click or Escape
-    document.addEventListener('mousedown', function(e) {
-        if (!popup.classList.contains('open')) return;
-        if (popup.contains(e.target)) return;
-        closeBossPopup();
-    });
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') closeBossPopup();
-    });
-
-    _bossPopup = popup;
-    return popup;
-}
-
-function openBossPopup(dungeonKey, x, y) {
-    const popup = ensureBossPopup();
-    _bossPopupActiveKey = dungeonKey;
-    popup.classList.add('open');
-    // Measure now that it's displayed, then position relative to the cursor.
-    const pw = popup.offsetWidth, ph = popup.offsetHeight;
-    const vw = window.innerWidth, vh = window.innerHeight;
-    // Horizontal: open to the right of the cursor; flip left if it would overflow.
-    let px = x;
-    if (px + pw + 8 > vw) px = x - pw;
-    px = Math.max(8, Math.min(px, vw - pw - 8));
-    // Vertical: open below the cursor; flip above if it would overflow the
-    // bottom of the window (common for the bottom-row crystal dungeons).
-    let py = y;
-    if (py + ph + 8 > vh) py = y - ph;
-    py = Math.max(8, Math.min(py, vh - ph - 8));
-    popup.style.left = px + 'px';
-    popup.style.top  = py + 'px';
-}
-
-function closeBossPopup() {
-    if (_bossPopup) _bossPopup.classList.remove('open');
-    _bossPopupActiveKey = null;
-}
-
 function updateDungeonCountDisplay(dungeonKey) {
     const dungeon = dungeons[dungeonKey];
     const slot = document.querySelector(`[data-dungeon-key="${dungeonKey}"]`);
@@ -1085,9 +918,6 @@ function cycleItem(itemKey, slot) {
 
     // Broadcast updated item states to map
     broadcastItemSnap();
-
-    // Item state changed — re-evaluate boss circle requirement colors
-    refreshAllBossCircles();
 }
 
 function broadcastItemSnap() {
@@ -1857,9 +1687,6 @@ function updateItemState(itemKey, state) {
         img.alt = newState.name;
         slot.dataset.itemName = newState.name;
     }
-
-    // Autotracker updated an item — re-evaluate boss circle requirement colors
-    refreshAllBossCircles();
 }
 
 function resetItemTracker() {
@@ -1895,7 +1722,6 @@ function resetItemTracker() {
         d.compassState  = 0;
         d.mapState      = 0;
         d.prizeState    = 0;
-        d.bossState     = 0;
         d.otherCleared  = false;
         const slot = document.querySelector(`[data-dungeon-key="${key}"]`);
         if (!slot) return;
@@ -1913,8 +1739,6 @@ function resetItemTracker() {
         const otherChest = slot.querySelector('.other-chest');
         if (otherChest) otherChest.src = `${BASE_URL}/chest0.png`;
         updateDungeonCountDisplay(key);
-        // Reset boss circle back to boss0 (neutral)
-        updateBossCircle(key);
     });
 
     // Reset stats display
