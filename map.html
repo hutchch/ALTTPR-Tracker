@@ -153,8 +153,36 @@ body {
 .dng.visible   { background: #ff8c00; border-color: #000; }
 .dng.unavail   { background: #ff4444; border-color: #000; }
 .dng.cleared   { background: rgba(70,70,70,0.85); border-color: #666; opacity: 0.75; }
-.dng img       { width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated; }
+.dng img       { width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated; position: relative; z-index: 4; }
 .dng.no-prize  { font-size: 8px; font-weight: bold; color: #fff; }
+
+/* ── Boss status diagonal stripe overlay ──
+   Painted via ::after as a thin diagonal band across the dungeon marker.
+   Red  = boss selected but item requirement not yet met, or boss unknown
+          and the dungeon isn't currently reachable.
+   Yellow = boss unknown and the dungeon is available/possible. */
+.dng.boss-stripe-red::after,
+.dng.boss-stripe-yellow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.dng.boss-stripe-red::after {
+  background: linear-gradient(45deg,
+    transparent calc(50% - 2.5px),
+    #e74c3c   calc(50% - 2.5px),
+    #e74c3c   calc(50% + 2.5px),
+    transparent calc(50% + 2.5px));
+}
+.dng.boss-stripe-yellow::after {
+  background: linear-gradient(45deg,
+    transparent calc(50% - 2.5px),
+    #ffd54a   calc(50% - 2.5px),
+    #ffd54a   calc(50% + 2.5px),
+    transparent calc(50% + 2.5px));
+}
 
 /* ── Bottom bar ── */
 #bottombar {
@@ -257,6 +285,7 @@ body {
   window.trackerSettings.dungeonItems = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
   window.trackerSettings.enemizer     = p.get('enemizer')     || localStorage.getItem('alttp-enemizer')      || 'yes';
   window.trackerSettings.swordless    = p.get('swordless')    || localStorage.getItem('alttp-swordless')     || 'no';
+  window.trackerSettings.bossShuffle  = p.get('bossshuffle')  || localStorage.getItem('alttp-bossshuffle')   || 'yes';
   window.trackerSettings.gtCrystals   = parseInt(p.get('gtcrystals') || localStorage.getItem('alttp-gt-crystals') || '7');
   window.trackerSettings.inverted     = window.trackerSettings.gamemode === 'inverted';
 })();
@@ -628,7 +657,10 @@ function dungeonColor(key) {
       if (settings.dungeonItems === 'keysanity') {
         if (!it.ipBigKey) return 'yellow';
       }
-      return it.hammer ? 'green' : 'yellow';
+      // Green needs hammer (break pots / progress) and hookshot (cross gap to
+      // the back of the dungeon). Without either it's still completable for
+      // the surface checks, hence yellow.
+      return (it.hammer && it.hookshot) ? 'green' : 'yellow';
 
     case 'mm':
       // Inverted: DW is home world — no moonpearl or titans mitt needed
@@ -1674,6 +1706,40 @@ window.refreshMapLogic = function() {
       var c = COLOR_CLASS[window.dungeonColor(key)] || 'unavail';
       el.className = 'dng ' + c;
     }
+    // ── Boss status stripe overlay ──
+    // CT and GT don't have boss circles in the item tracker, so skip them.
+    // Also skip entirely when Boss Shuffle is off (vanilla bosses — no
+    // ambiguity worth marking).
+    // While the boss isn't yet defeated, paint a diagonal stripe:
+    //   - red    : a boss is selected but its required item is missing
+    //   - red    : boss unknown ('?') AND the dungeon isn't reachable
+    //   - yellow : boss unknown AND the dungeon is available/possible
+    //   - none   : boss-ok (requirement met) or boss defeated
+    var _bossShuffle  = (window.trackerSettings && window.trackerSettings.bossShuffle) || 'yes';
+    var _bossDefeated = el.classList.contains('cleared') || el.classList.contains('boss-cleared');
+    if (_bossShuffle !== 'no' && !['ct','gt'].includes(key) && !_bossDefeated) {
+      // Boss state lives on DUNGEONS (persistent) — survives trackerItems
+      // replacement on every items/prizes snap, so the stripe doesn't briefly
+      // flicker when a snap arrives right after the user picks a boss.
+      var _ti = window.trackerItems || {};
+      var _bossState = DUNGEONS[key].bossState || 0;
+      var _bossOk    = DUNGEONS[key].bossOk !== false;   // default true (undefined → true)
+      var _avail     = COLOR_CLASS[window.dungeonColor(key)] || 'unavail';
+      var _stripe    = '';
+      if (_bossState > 0) {
+        if (!_bossOk) _stripe = 'boss-stripe-red';
+      } else if (_avail === 'available' || _avail === 'possible') {
+        // Unknown boss in a reachable dungeon — usually yellow. But once the
+        // player has firerod + icerod + hookshot + hammer, every possible
+        // boss is beatable regardless of identity, so the warning is moot.
+        var _allBossItems = (_ti.firerod > 0) && (_ti.icerod > 0)
+                         && (_ti.hookshot > 0) && (_ti.hammer > 0);
+        if (!_allBossItems) _stripe = 'boss-stripe-yellow';
+      } else {
+        _stripe = 'boss-stripe-red';
+      }
+      if (_stripe) el.classList.add(_stripe);
+    }
     // Prize image: bright (1.png) until obtained, then dim (0.png)
     refreshDungeonImg(key);
   });
@@ -1907,6 +1973,14 @@ try {
           DUNGEONS.ct.fullyCleared = true;
           refreshDungeonImg('ct');
         }
+        // Mirror per-dungeon boss state from the snap onto DUNGEONS itself, so
+        // the stripe code has a persistent source that doesn't get replaced
+        // every time trackerItems is reassigned.
+        ['ep','dp','toh','pod','sp','sw','tt','ip','mm','tr','gt'].forEach(function(k) {
+          if (!DUNGEONS[k]) return;
+          if (snap[k+'BossState'] !== undefined) DUNGEONS[k].bossState = snap[k+'BossState'];
+          if (snap[k+'BossOk']    !== undefined) DUNGEONS[k].bossOk    = snap[k+'BossOk'];
+        });
         window.refreshMapLogic();
         break;
       case 'rooms':
@@ -1977,6 +2051,17 @@ try {
           window.trackerItems.redCrystal   = rc;
         }
         window.refreshMapLogic();
+        break;
+      case 'boss':
+        // Dedicated boss-state update from the item tracker (e.g. user picked
+        // a boss in the popup). Apply to DUNGEONS directly so it's authoritative
+        // — independent of trackerItems, which gets replaced on every items snap.
+        var _bd = e.data.data || {};
+        if (_bd.key && DUNGEONS[_bd.key]) {
+          DUNGEONS[_bd.key].bossState = _bd.state || 0;
+          DUNGEONS[_bd.key].bossOk    = (_bd.ok !== false);
+          window.refreshMapLogic();
+        }
         break;
       case 'dungeonComplete':
         var dc = e.data.data;

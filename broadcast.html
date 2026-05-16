@@ -231,7 +231,10 @@ html[data-bg="transparent"] .bbg-bar * {
   background: color-mix(in srgb, var(--complete-color, #4dff88) 35%, #000);
   border-color: var(--complete-color, #4dff88);
 }
-.bdng-slot.pendant     { border-color: #2e8b57; }
+/* Boss defeated (prize obtained) but chests aren't done — green outline only
+   to match the "complete" colour, no background tint. Applied to every
+   dungeon (used to be pendant-only). */
+.bdng-slot.prize-only  { border-color: var(--complete-color, #4dff88); }
 
 /* Classic view dungeon slot — compact: just the label + prize.
    Big-key / map / compass / small-key / chests rows are all hidden. */
@@ -1327,14 +1330,10 @@ function applySnap(snap) {
     if (cache.prizeDoneClass !== wantPrize)   { d.slot.classList.toggle('prize-done',  wantPrize);  cache.prizeDoneClass  = wantPrize; }
     if (cache.chestsDoneClass !== wantChests) { d.slot.classList.toggle('chests-done', wantChests); cache.chestsDoneClass = wantChests; }
 
-    // Pendant accent (subtle border tint when prize collected but chests aren't done)
-    var prizeNow  = prize !== undefined ? prize : (
-      srcNow.indexOf('greenpendant') !== -1 ? 'greenpendant' :
-      srcNow.indexOf('pendant')      !== -1 ? 'pendant' : ''
-    );
-    var isPendant = prizeNow === 'pendant' || prizeNow === 'greenpendant';
-    var wantPendant = isPendant && prizeDone && !allChests;
-    if (cache.pendantClass !== wantPendant) { d.slot.classList.toggle('pendant', wantPendant); cache.pendantClass = wantPendant; }
+    // Green outline when the boss is defeated (prize collected) but the
+    // dungeon's chests aren't all done yet. Applied to every dungeon now.
+    var wantPrizeOnly = prizeDone && !allChests;
+    if (cache.pendantClass !== wantPrizeOnly) { d.slot.classList.toggle('prize-only', wantPrizeOnly); cache.pendantClass = wantPrizeOnly; }
   });
 
   // Recompute item fills against new state
@@ -1361,7 +1360,7 @@ function resetAll() {
     d.compass.src=BASE+'/compass0.png';
     d.chestIcon.src=BASE+'/chest0.png';
     d.keyIcon.src=BASE+'/smallkey0.png';
-    d.slot.classList.remove('chests-done','prize-done','pendant');
+    d.slot.classList.remove('chests-done','prize-done','prize-only');
   });
   refreshAllFills();
 }
@@ -1384,8 +1383,8 @@ function applyPrizes(prizes) {
     d.slot.classList.toggle('prize-done',  fillOn && allChests && obtained);
     d.slot.classList.toggle('chests-done', fillOn && allChests && !obtained);
 
-    var isPendant = prizeName === 'pendant' || prizeName === 'greenpendant';
-    d.slot.classList.toggle('pendant', isPendant && obtained && !allChests);
+    // Boss defeated but chests remain — green outline on every dungeon.
+    d.slot.classList.toggle('prize-only', obtained && !allChests);
   });
 }
 

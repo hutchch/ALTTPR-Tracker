@@ -2,9 +2,13 @@
 // In Electron we ask the main process for the real absolute file:// path.
 // In browser we use the normal relative path.
 let BASE_URL = 'items';
+// BOSS_URL points at the sibling boss/ folder (boss0.png … boss10.png).
+let BOSS_URL = 'boss';
 
 function applyBaseUrl(newBase) {
   BASE_URL = newBase;
+  // boss/ lives next to items/ — derive its path from the same base.
+  BOSS_URL = newBase.replace(/items\/?$/, 'boss');
   // Rebuild all image src paths in the items object
   Object.keys(items).forEach(function(key) {
     var item = items[key];
@@ -30,6 +34,9 @@ function applyBaseUrl(newBase) {
       if (state && state.img) img.src = state.img;
     }
   });
+  // Re-render boss circles with the corrected boss/ base path (no-op if the
+  // dungeon slots haven't been built yet — createTracker will refresh later).
+  if (typeof refreshAllBossCircles === 'function') refreshAllBossCircles();
 }
 
 (async function() {
@@ -424,7 +431,14 @@ function createTracker() {
     layout.forEach((row, rowIndex) => {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'tracker-row';
-        
+        // The row holding the (tall) stats box is top-aligned so its 48px
+        // items hug the row above instead of floating in the middle.
+        if (row.indexOf('stats') !== -1) rowDiv.classList.add('stats-row');
+        // Rows 1-4 are "item rows" — give them all a uniform fixed height so
+        // the spacing between every item row is consistent (row 5 is the
+        // crystal-dungeon row and is left auto-height).
+        if (rowIndex <= 3) rowDiv.classList.add('item-row');
+
         row.forEach(itemKey => {
             // Check if this is a dungeon
             if (dungeons[itemKey]) {
@@ -437,7 +451,18 @@ function createTracker() {
                 if (isPendantDungeon) {
                     dungeonSlot.classList.add('pendant-dungeon');
                 }
-                
+
+                // GT is a shorter box than the crystal dungeons. In Key Sanity /
+                // MCK modes the stats box is taller (it carries the extra CT
+                // counter) and overflows down far enough to overlap GT — drop GT
+                // to the bottom of its row in those modes so it clears the overflow.
+                if (itemKey === 'gt') {
+                    const _gtMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+                    if (['keysanity', 'mapcompasskeys'].includes(_gtMode)) {
+                        dungeonSlot.classList.add('gt-bottom');
+                    }
+                }
+
                 // Container for label and prize (left side for pendant dungeons)
                 const dungeonContent = document.createElement('div');
                 dungeonContent.className = 'dungeon-content';
@@ -662,7 +687,8 @@ function createTracker() {
                 
                 dungeonSlot.appendChild(countsContainer);
 
-
+                // Boss circle — left of the row for pendant dungeons, underneath for the rest
+                createBossCircle(itemKey, dungeonSlot, isPendantDungeon);
 
                 rowDiv.appendChild(dungeonSlot);
             } else if (itemKey === 'stats') {
@@ -677,6 +703,12 @@ function createTracker() {
                 const bonkBox = document.createElement('div');
                 bonkBox.className = 'stat-box stat-bonk';
                 bonkBox.innerHTML = '<span class="stat-label">BONKS</span><span class="stat-value" id="toh-bonk-count">0</span>';
+                const heartBox = document.createElement('div');
+                heartBox.className = 'stat-box stat-heartpiece';
+                heartBox.innerHTML = '<span class="stat-label">HEARTS</span><span class="stat-value" id="toh-heartpiece-count">0/4</span>';
+                const revivalBox = document.createElement('div');
+                revivalBox.className = 'stat-box stat-revival';
+                revivalBox.innerHTML = '<span class="stat-label">REVIVALS</span><span class="stat-value" id="toh-revival-count">0</span>';
                 // CT small key counter — Key Sanity only, shown above checks
                 const _ksCheck = ['keysanity','mapcompasskeys'].includes(new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
                 if (_ksCheck) {
@@ -714,6 +746,8 @@ function createTracker() {
                 statsSlot.appendChild(checkBox);
                 statsSlot.appendChild(deathBox);
                 statsSlot.appendChild(bonkBox);
+                statsSlot.appendChild(heartBox);
+                statsSlot.appendChild(revivalBox);
                 rowDiv.appendChild(statsSlot);
             } else if (itemKey === 'bottles') {
                 // 2x2 grid of bottle slots, same footprint as a single item slot (48x48)
@@ -810,6 +844,7 @@ function togglePrizeObtained(dungeonKey, slot) {
         prizeImg.src = src.replace('1.png', '0.png');
     }
     updateDungeonCountDisplay(dungeonKey);
+    updateBossCircle(dungeonKey);   // grey/un-grey the boss image to match
     if (typeof window.onPrizeCycled === 'function') window.onPrizeCycled();
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 }
@@ -826,10 +861,202 @@ function cycleDungeonPrize(dungeonKey, slot) {
     
     const prizeImg = slot.querySelector('.prize-img');
     prizeImg.src = `${BASE_URL}/${prizeImages[dungeon.prizeState]}`;
-    
+    updateBossCircle(dungeonKey);   // cycling resets the prize to un-obtained — un-grey the boss
+
     // Hook for external listeners (e.g. map window sync)
     if (typeof window.onPrizeCycled === 'function') window.onPrizeCycled();
     if (window.broadcastItemSnap) window.broadcastItemSnap();
+}
+
+// ── Boss circle ──────────────────────────────────────────────────────────────
+// Each dungeon slot carries a "boss circle": a circle showing one of boss0..10.
+// boss0 is the default '?' (neutral). The user right-clicks to pick a boss.
+// Certain bosses need specific items; the circle turns red until those items
+// are collected, green once they are (or immediately, for bosses with no
+// requirement).
+var BOSS_REQUIREMENTS = {
+    4:  function() { return hasBossItem('hammer') || hasBossItem('bomb'); },           // Helmasaur King
+    5:  function() { return hasBossItem('hookshot'); },                               // Arrghus
+    8:  function() { return hasBossItem('bombos') || hasBossItem('firerod'); },        // Kholdstare
+    10: function() { return hasBossItem('firerod') && hasBossItem('icerod'); }         // Trinexx
+};
+
+function hasBossItem(key) {
+    return !!(items[key] && items[key].currentState > 0);
+}
+
+// Build the boss circle for one dungeon slot. Pendant dungeons (EP/DP/ToH) get
+// it on the left of the row; all other dungeons get it underneath.
+function createBossCircle(dungeonKey, dungeonSlot, isPendant) {
+    // GT's boss is always Agahnim 2 / Ganon — no boss selector needed there.
+    if (dungeonKey === 'gt') return;
+    if (dungeons[dungeonKey].bossState === undefined) dungeons[dungeonKey].bossState = 0;
+
+    const circle = document.createElement('div');
+    circle.className = 'boss-circle';
+
+    const img = document.createElement('img');
+    img.className = 'boss-img';
+    img.src = `${BOSS_URL}/boss0.png`;
+    img.alt = 'Boss';
+    circle.appendChild(img);
+
+    // Both left-click and right-click open the boss-selection popup. The
+    // stopPropagation keeps the click from bubbling up to the dungeon's prize
+    // cycle handler.
+    circle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openBossPopup(dungeonKey, e.clientX, e.clientY);
+    });
+    circle.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openBossPopup(dungeonKey, e.clientX, e.clientY);
+    });
+
+    if (isPendant) {
+        // Pendant dungeons are a horizontal row — drop the circle into the
+        // counts column so it sits underneath the chest count.
+        const counts = dungeonSlot.querySelector('.dungeon-counts-pendant');
+        (counts || dungeonSlot).appendChild(circle);
+    } else {
+        // Other dungeons are a vertical column — append lands it underneath.
+        dungeonSlot.appendChild(circle);
+    }
+    updateBossCircle(dungeonKey);
+}
+
+// Refresh one dungeon's boss circle image + red/green/neutral state.
+function updateBossCircle(dungeonKey) {
+    const d = dungeons[dungeonKey];
+    if (!d) return;
+    const slot = document.querySelector(`[data-dungeon-key="${dungeonKey}"]`);
+    if (!slot) return;
+    const circle = slot.querySelector('.boss-circle');
+    if (!circle) return;
+    const img = circle.querySelector('.boss-img');
+    const bossNum = d.bossState || 0;
+    if (img) img.src = `${BOSS_URL}/boss${bossNum}.png`;
+
+    // Prize obtained = boss defeated (the prize image switches to its bright
+    // "1.png" variant, set either manually or by the auto-tracker).
+    const prizeImg = slot.querySelector('.prize-img');
+    const prizeObtained = !!(prizeImg && prizeImg.src.includes('1.png'));
+
+    circle.classList.remove('boss-need', 'boss-ok');
+    // Once defeated the red/green requirement ring is moot — leave the border
+    // at its default neutral grey by skipping the boss-ok / boss-need class.
+    if (bossNum > 0 && !prizeObtained) {
+        const req = BOSS_REQUIREMENTS[bossNum];
+        const met = req ? req() : true;   // bosses with no requirement are always "ok"
+        circle.classList.add(met ? 'boss-ok' : 'boss-need');
+    }
+
+    // Grey out the boss image once the prize has been obtained.
+    circle.classList.toggle('boss-defeated', prizeObtained);
+}
+
+// Re-evaluate every dungeon's boss circle — called whenever item state changes.
+function refreshAllBossCircles() {
+    Object.keys(dungeons).forEach(updateBossCircle);
+}
+
+function setBoss(dungeonKey, bossNum) {
+    if (!dungeonKey || !dungeons[dungeonKey]) return;
+    dungeons[dungeonKey].bossState = bossNum;
+    updateBossCircle(dungeonKey);
+    // Dedicated 'boss' message — short, fast, authoritative. The map applies
+    // it directly to DUNGEONS[key] so the stripe state survives any subsequent
+    // 'items' / 'prizes' snap (which replaces trackerItems wholesale).
+    try {
+        if (window._itemsBc) {
+            var _req = (typeof BOSS_REQUIREMENTS !== 'undefined') ? BOSS_REQUIREMENTS[bossNum] : null;
+            var _ok  = (!bossNum || !_req) ? true : !!_req();
+            window._itemsBc.postMessage({ type: 'boss', data: { key: dungeonKey, state: bossNum, ok: _ok } });
+        }
+    } catch(e) {}
+    // Also push a full snap so anything else that hangs off item state refreshes.
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+}
+
+// ── Boss selection popup ─────────────────────────────────────────────────────
+let _bossPopup = null;
+let _bossPopupActiveKey = null;
+
+function ensureBossPopup() {
+    if (_bossPopup) return _bossPopup;
+    const popup = document.createElement('div');
+    popup.id = 'boss-popup';
+    const grid = document.createElement('div');
+    grid.className = 'boss-popup-grid';
+    for (let i = 1; i <= 10; i++) {
+        (function(n) {
+            const cell = document.createElement('div');
+            cell.className = 'boss-popup-item';
+            cell.title = 'Boss ' + n;
+            const cellImg = document.createElement('img');
+            cellImg.src = `${BOSS_URL}/boss${n}.png`;
+            cell.appendChild(cellImg);
+            cell.addEventListener('click', function() {
+                setBoss(_bossPopupActiveKey, n);
+                closeBossPopup();
+            });
+            grid.appendChild(cell);
+        })(i);
+    }
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'boss-popup-clear';
+    clearBtn.type = 'button';
+    clearBtn.textContent = 'Clear ( ? )';
+    clearBtn.addEventListener('click', function() {
+        setBoss(_bossPopupActiveKey, 0);
+        closeBossPopup();
+    });
+    grid.appendChild(clearBtn);
+    popup.appendChild(grid);
+    // Append to <html>, not <body>: the item tracker applies CSS `zoom` to the
+    // body when scaled, which shifts position:fixed children out of true
+    // viewport coordinates. Living on documentElement keeps the popup aligned
+    // with the cursor's clientX/clientY.
+    document.documentElement.appendChild(popup);
+
+    // Dismiss on outside-click or Escape
+    document.addEventListener('mousedown', function(e) {
+        if (!popup.classList.contains('open')) return;
+        if (popup.contains(e.target)) return;
+        closeBossPopup();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeBossPopup();
+    });
+
+    _bossPopup = popup;
+    return popup;
+}
+
+function openBossPopup(dungeonKey, x, y) {
+    const popup = ensureBossPopup();
+    _bossPopupActiveKey = dungeonKey;
+    popup.classList.add('open');
+    // Measure now that it's displayed, then position relative to the cursor.
+    const pw = popup.offsetWidth, ph = popup.offsetHeight;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    // Horizontal: open to the right of the cursor; flip left if it would overflow.
+    let px = x;
+    if (px + pw + 8 > vw) px = x - pw;
+    px = Math.max(8, Math.min(px, vw - pw - 8));
+    // Vertical: open below the cursor; flip above if it would overflow the
+    // bottom of the window (common for the bottom-row crystal dungeons).
+    let py = y;
+    if (py + ph + 8 > vh) py = y - ph;
+    py = Math.max(8, Math.min(py, vh - ph - 8));
+    popup.style.left = px + 'px';
+    popup.style.top  = py + 'px';
+}
+
+function closeBossPopup() {
+    if (_bossPopup) _bossPopup.classList.remove('open');
+    _bossPopupActiveKey = null;
 }
 
 function updateDungeonCountDisplay(dungeonKey) {
@@ -873,7 +1100,7 @@ function updateDungeonCountDisplay(dungeonKey) {
         const _isOther = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'other';
 
         // Remove all completion classes first
-        slot.classList.remove('completed-items', 'completed-full');
+        slot.classList.remove('completed-items', 'completed-full', 'prize-obtained');
 
         if (_isOther) {
             // Other mode: green border when chest clicked AND prize collected
@@ -881,6 +1108,9 @@ function updateDungeonCountDisplay(dungeonKey) {
                 slot.classList.add('completed-full');
             } else if (dungeon.otherCleared) {
                 slot.classList.add('completed-items');
+            } else if (prizeCollected) {
+                // Boss defeated but no chest clicked yet — green outline only.
+                slot.classList.add('prize-obtained');
             }
         } else if (allItemsCollected && prizeCollected) {
             // Green — all items + prize collected (both modes)
@@ -888,6 +1118,9 @@ function updateDungeonCountDisplay(dungeonKey) {
         } else if (allItemsCollected && !ksMode2) {
             // Standard: blue when all items collected
             slot.classList.add('completed-items');
+        } else if (prizeCollected) {
+            // Boss defeated but items remain — green outline only (no fill).
+            slot.classList.add('prize-obtained');
         }
         // Notify map of completion state change
         if (typeof broadcastPrizes === 'function') setTimeout(broadcastPrizes, 50);
@@ -918,6 +1151,11 @@ function cycleItem(itemKey, slot) {
 
     // Broadcast updated item states to map
     broadcastItemSnap();
+
+    // Item state changed — re-evaluate boss circle requirement colors
+    refreshAllBossCircles();
+    // …and the item-background fills (settings customization)
+    if (window.refreshItemFills) window.refreshItemFills();
 }
 
 function broadcastItemSnap() {
@@ -973,6 +1211,17 @@ function broadcastItemSnap() {
         snap[k+'Compass']       = d.compassState    || 0;
         snap[k+'MaxSmallKeys']  = d.maxSmallKeys    || 0;
         snap[k+'BigKeyOnly']    = !!d.bigkeyOnly;
+        // Boss state for the map's stripe overlay: send the selected boss
+        // number (0 = unknown) and whether its item requirement is currently
+        // met (always true for bosses with no requirement / unknown bosses).
+        var _bossNum = d.bossState || 0;
+        var _bossOk  = true;
+        if (_bossNum > 0 && typeof BOSS_REQUIREMENTS !== 'undefined') {
+            var _req = BOSS_REQUIREMENTS[_bossNum];
+            _bossOk = _req ? !!_req() : true;
+        }
+        snap[k+'BossState'] = _bossNum;
+        snap[k+'BossOk']    = _bossOk;
         // Get prize from DOM
         var prizeImg = document.querySelector('[data-dungeon-key="'+k+'"] .prize-img');
         if (prizeImg) {
@@ -1235,6 +1484,7 @@ function processRoomData(data) {
                         prizeImg.src = currentSrc.replace('0.png', '1.png');
                         // Update completion status when prize is collected
                         updateDungeonCountDisplay(key);
+                        updateBossCircle(key);   // grey out the boss image — boss defeated
                         if (typeof window.onPrizeCycled === 'function') window.onPrizeCycled();
                     }
                 }
@@ -1614,6 +1864,26 @@ function processInventoryData(data) {
             if (window._itemsBc) window._itemsBc.postMessage({ type: 'stats', checks: parseInt((document.getElementById('toh-check-count')||{}).textContent||'0'), deaths: parseInt((document.getElementById('toh-death-count')||{}).textContent||'0'), bonks: newBonks });
         }
     }
+    // Heart piece count (SRAM 0xF5F36B = inv offset 0x2B) — pieces toward the
+    // next heart container. Rolls 0..4 so there's no high-water mark; just
+    // clamp to guard against garbage SRAM reads during menus / save & quit.
+    const heartEl = document.getElementById('toh-heartpiece-count');
+    if (heartEl && 0x2B < data.length) {
+        let hp = data[0x2B];
+        if (hp > 4) hp = 4;
+        if (hp < 0) hp = 0;
+        heartEl.textContent = hp + '/4';
+    }
+    // Revival count (SRAM 0xF5F453 = inv offset 0x113). Cumulative counter, so
+    // use a high-water mark like checks/deaths/bonks — only ever increases,
+    // which also guards against garbage SRAM reads.
+    const revivalEl = document.getElementById('toh-revival-count');
+    if (revivalEl && 0x113 < data.length) {
+        const newRevivals = data[0x113];
+        if (newRevivals >= parseInt(revivalEl.textContent || '0')) {
+            revivalEl.textContent = newRevivals;
+        }
+    }
     // CT small key count (SRAM 0xF5F4E4 = inv offset 0x1a4) — Key Sanity only
     // Use high water mark so count doesn't drop when keys are used
     const ctKeyEl = document.getElementById('toh-ctkey-count');
@@ -1687,6 +1957,11 @@ function updateItemState(itemKey, state) {
         img.alt = newState.name;
         slot.dataset.itemName = newState.name;
     }
+
+    // Autotracker updated an item — re-evaluate boss circle requirement colors
+    refreshAllBossCircles();
+    // …and the item-background fills (settings customization)
+    if (window.refreshItemFills) window.refreshItemFills();
 }
 
 function resetItemTracker() {
@@ -1722,6 +1997,7 @@ function resetItemTracker() {
         d.compassState  = 0;
         d.mapState      = 0;
         d.prizeState    = 0;
+        d.bossState     = 0;
         d.otherCleared  = false;
         const slot = document.querySelector(`[data-dungeon-key="${key}"]`);
         if (!slot) return;
@@ -1739,15 +2015,21 @@ function resetItemTracker() {
         const otherChest = slot.querySelector('.other-chest');
         if (otherChest) otherChest.src = `${BASE_URL}/chest0.png`;
         updateDungeonCountDisplay(key);
+        // Reset boss circle back to boss0 (neutral)
+        updateBossCircle(key);
     });
 
     // Reset stats display
     var checkEl = document.getElementById('toh-check-count');
     var deathEl = document.getElementById('toh-death-count');
     var bonkEl  = document.getElementById('toh-bonk-count');
+    var heartEl = document.getElementById('toh-heartpiece-count');
+    var revivalEl = document.getElementById('toh-revival-count');
     if (checkEl) checkEl.textContent = '0';
     if (deathEl) deathEl.textContent = '0';
     if (bonkEl)  bonkEl.textContent  = '0';
+    if (heartEl) heartEl.textContent = '0/4';
+    if (revivalEl) revivalEl.textContent = '0';
 
     // Reset SRAM state so autotracking picks up fresh
     previousSRAM = null;
@@ -1785,6 +2067,8 @@ function resetItemTracker() {
     setTimeout(function() {}, 0); // yield before snap
     if (window.broadcastItemSnap) window.broadcastItemSnap();
     if (typeof broadcastPrizes === 'function') setTimeout(broadcastPrizes, 50);
+    // Clear item-background fills now that every item is back to state 0
+    if (window.refreshItemFills) window.refreshItemFills();
 }
 
 function manualReconnect() {

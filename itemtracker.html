@@ -14,12 +14,92 @@
   <div class="size-group">
     <button class="size-btn" onclick="changeTrackerScale(-0.1)">&#8722;</button>
     <button class="size-btn" onclick="changeTrackerScale(0.1)">+</button>
+    <button class="item-settings-btn" id="item-settings-btn" title="Settings" onclick="openItemSettings()">⚙</button>
     <button class="size-btn" id="item-broadcast-btn" title="Open Broadcast View" onclick="(function(){ var bg=localStorage.getItem('alttp-tracker-bg')||'black'; if(window.electronAPI&&window.electronAPI.launch){ window.electronAPI.launch({which:'broadcast',trackerBg:bg}); } else { window.open('broadcast.html?bg='+bg,'alttp-broadcast','width=500,height=230,resizable=yes'); } })()" style="background:#1a2e4a;color:#7ab8f5;border:1px solid #2a4e7a;padding:0 6px;">📡</button>
   </div>
   <div class="connection-status" id="item-conn-status">○ Disconnected</div>
   <span class="mode-label" id="item-mode-label"></span>
   <button class="reconnect-btn" id="item-reconnect-btn" title="Reconnect to QUsb2Snes" onclick="manualReconnect()">↻</button>
   <button class="newgame-btn" id="item-newgame-btn" title="Reset to new game" onclick="resetItemTracker()">⟳ New Game</button>
+</div>
+
+<div id="item-settings-overlay" class="hidden" onclick="if(event.target===this)closeItemSettings()">
+  <div class="its-modal">
+    <div class="its-header">
+      <h3>Tracker Settings</h3>
+      <button class="its-close" onclick="closeItemSettings()">×</button>
+    </div>
+    <div class="its-body">
+      <div class="its-section">
+        <h4>Main Background</h4>
+        <div class="its-radios">
+          <label><input type="radio" name="its-bg" value="black"> Black</label>
+          <label><input type="radio" name="its-bg" value="grey"> Grey</label>
+          <label><input type="radio" name="its-bg" value="white"> White</label>
+          <label><input type="radio" name="its-bg" value="transparent"> Transparent</label>
+          <label><input type="radio" name="its-bg" value="image"> Image</label>
+        </div>
+        <div class="its-row">
+          <label class="its-file-btn">
+            Choose Image...
+            <input type="file" accept="image/*" id="item-bg-image-file" style="display:none;">
+          </label>
+          <button type="button" class="its-file-btn" id="item-bg-image-clear">Clear</button>
+          <span class="its-sub-label" id="item-bg-image-status">No image</span>
+        </div>
+      </div>
+
+      <div class="its-section">
+        <h4>Item Background</h4>
+        <div class="its-row">
+          <label><input type="checkbox" id="item-opt-fill-enabled"> Item Fill</label>
+        </div>
+        <div class="its-sub" id="item-fill-sub">
+          <div class="its-sub-label">Fill Color</div>
+          <div class="its-radios">
+            <label><input type="radio" name="its-fill-color" value="green"> Green</label>
+            <label><input type="radio" name="its-fill-color" value="blue"> Blue</label>
+            <label><input type="radio" name="its-fill-color" value="purple"> Purple</label>
+            <label><input type="radio" name="its-fill-color" value="custom"> Custom</label>
+            <input type="color" class="its-color-picker" id="item-opt-fill-custom" value="#00aa00">
+          </div>
+          <div class="its-sub-label">Fill Effect</div>
+          <div class="its-radios">
+            <label><input type="radio" name="its-fill-effect" value="none"> No Effects</label>
+            <label><input type="radio" name="its-fill-effect" value="falling"> Falling</label>
+            <label><input type="radio" name="its-fill-effect" value="starburst"> Starburst</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="its-section">
+        <h4>Dungeon Background</h4>
+        <div class="its-row">
+          <label><input type="checkbox" id="item-opt-dungeon-fill"> Dungeon Fill</label>
+          <label><input type="checkbox" id="item-opt-dungeon-box"> Dungeon Box</label>
+          <label><input type="checkbox" id="item-opt-show-boss"> Show Boss</label>
+        </div>
+        <div class="its-sub-label">All Chests Collected</div>
+        <div class="its-radios">
+          <label><input type="radio" name="its-chests-color" value="blue"> Blue</label>
+          <label><input type="radio" name="its-chests-color" value="green"> Green</label>
+          <label><input type="radio" name="its-chests-color" value="purple"> Purple</label>
+          <label><input type="radio" name="its-chests-color" value="yellow"> Yellow</label>
+          <label><input type="radio" name="its-chests-color" value="custom"> Custom</label>
+          <input type="color" class="its-color-picker" id="item-opt-chests-custom" value="#5a8eff">
+        </div>
+        <div class="its-sub-label">Dungeon Complete</div>
+        <div class="its-radios">
+          <label><input type="radio" name="its-complete-color" value="green"> Green</label>
+          <label><input type="radio" name="its-complete-color" value="blue"> Blue</label>
+          <label><input type="radio" name="its-complete-color" value="purple"> Purple</label>
+          <label><input type="radio" name="its-complete-color" value="yellow"> Yellow</label>
+          <label><input type="radio" name="its-complete-color" value="custom"> Custom</label>
+          <input type="color" class="its-color-picker" id="item-opt-complete-custom" value="#4dff88">
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="items.js"></script>
@@ -64,6 +144,14 @@ try {
   // Store dungeonItems mode for reference
   window._dungeonItemsMode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
 
+  // Boss shuffle flag — when "no" the bosses are vanilla so we hide the boss
+  // circles entirely (a CSS rule on html.no-boss-shuffle .boss-circle handles
+  // the actual hiding).
+  window._bossShuffle = p.get('bossshuffle') || localStorage.getItem('alttp-bossshuffle') || 'yes';
+  if (window._bossShuffle === 'no') {
+    document.documentElement.classList.add('no-boss-shuffle');
+  }
+
   // Set mode label in bottom bar
   document.addEventListener('DOMContentLoaded', function() {
     var lbl = document.getElementById('item-mode-label');
@@ -73,10 +161,16 @@ try {
     }
   });
 
-  // Background color — apply class to body for CSS theming
+  // Background color — apply data-bg early so there's no flash before the
+  // settings system initialises. Also restores the image background.
   var bg = p.get('bg') || localStorage.getItem('alttp-tracker-bg') || 'black';
+  var bgImg = localStorage.getItem('alttp-itemtracker-bg-image') || '';
+  if (bg === 'image' && !bgImg) bg = 'black';
   if (bg !== 'black') {
     document.documentElement.setAttribute('data-bg', bg);
+  }
+  if (bg === 'image' && bgImg) {
+    document.documentElement.style.setProperty('--bg-image', 'url("' + bgImg + '")');
   }
 })();
 
@@ -186,9 +280,337 @@ window.cycleMedallionLabel = function(itemKey, slot) {
   if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// Settings customization — Main Background / Item Background / Dungeon
+// Background. Ported from the Broadcast View's settings popup.
+// ════════════════════════════════════════════════════════════════════════════
+var ITEM_SETTINGS = {
+  bg:            'black',     // black | grey | white | transparent | image
+  bgImage:       '',          // data: URL of an uploaded background image
+  fillEnabled:   false,
+  fillColor:     'green',     // green | blue | purple | custom
+  fillCustom:    '#00aa00',
+  fillEffect:    'none',      // none | falling | starburst
+  chestsColor:   'blue',      // blue | green | purple | yellow | custom
+  chestsCustom:  '#5a8eff',
+  completeColor: 'green',     // blue | green | purple | yellow | custom
+  completeCustom:'#4dff88',
+  dungeonFillEnabled: true,   // completion tints shown when true
+  dungeonBoxEnabled:  true,   // dark slot container shown when true
+  showBoss:           true    // false = hide all boss circles (vanilla bosses)
+};
+var ITEM_FILL_COLORS     = { green:'#2ecc71', blue:'#3498db', purple:'#b675ff' };
+var ITEM_DUNGEON_PRESETS = { blue:'#5a8eff', green:'#4dff88', purple:'#b675ff', yellow:'#ffcc44' };
+
+function loadItemSettings() {
+  try {
+    // bg reuses the launcher's key so the two stay in sync
+    ITEM_SETTINGS.bg             = localStorage.getItem('alttp-tracker-bg') || 'black';
+    ITEM_SETTINGS.bgImage        = localStorage.getItem('alttp-itemtracker-bg-image') || '';
+    ITEM_SETTINGS.fillEnabled    = localStorage.getItem('alttp-itemtracker-fill-enabled') === 'true';
+    ITEM_SETTINGS.fillColor      = localStorage.getItem('alttp-itemtracker-fill-color')   || ITEM_SETTINGS.fillColor;
+    ITEM_SETTINGS.fillCustom     = localStorage.getItem('alttp-itemtracker-fill-custom')  || ITEM_SETTINGS.fillCustom;
+    ITEM_SETTINGS.fillEffect     = localStorage.getItem('alttp-itemtracker-fill-effect')  || ITEM_SETTINGS.fillEffect;
+    ITEM_SETTINGS.chestsColor    = localStorage.getItem('alttp-itemtracker-chests-color') || ITEM_SETTINGS.chestsColor;
+    ITEM_SETTINGS.chestsCustom   = localStorage.getItem('alttp-itemtracker-chests-custom')|| ITEM_SETTINGS.chestsCustom;
+    ITEM_SETTINGS.completeColor  = localStorage.getItem('alttp-itemtracker-complete-color') || ITEM_SETTINGS.completeColor;
+    ITEM_SETTINGS.completeCustom = localStorage.getItem('alttp-itemtracker-complete-custom')|| ITEM_SETTINGS.completeCustom;
+    ITEM_SETTINGS.dungeonFillEnabled = localStorage.getItem('alttp-itemtracker-dungeon-fill') !== 'false';
+    ITEM_SETTINGS.dungeonBoxEnabled  = localStorage.getItem('alttp-itemtracker-dungeon-box')  !== 'false';
+    // Show Boss: respect the URL/launcher boss-shuffle setting on first run,
+    // then track the local checkbox override. URL param wins on launch.
+    var _urlBoss = new URLSearchParams(window.location.search).get('bossshuffle');
+    if (_urlBoss === 'no')       ITEM_SETTINGS.showBoss = false;
+    else if (_urlBoss === 'yes') ITEM_SETTINGS.showBoss = true;
+    else {
+      var _stored = localStorage.getItem('alttp-itemtracker-show-boss');
+      if (_stored !== null) ITEM_SETTINGS.showBoss = _stored !== 'false';
+    }
+  } catch (e) {}
+  // URL bg (from the launcher / a transparent-toggle recreate) wins
+  var urlBg = new URLSearchParams(window.location.search).get('bg');
+  if (urlBg) ITEM_SETTINGS.bg = urlBg;
+  if (ITEM_SETTINGS.bg === 'image' && !ITEM_SETTINGS.bgImage) ITEM_SETTINGS.bg = 'black';
+}
+
+function saveItemSettings() {
+  try {
+    localStorage.setItem('alttp-tracker-bg', ITEM_SETTINGS.bg);
+    localStorage.setItem('alttp-itemtracker-fill-enabled',   ITEM_SETTINGS.fillEnabled ? 'true' : 'false');
+    localStorage.setItem('alttp-itemtracker-fill-color',     ITEM_SETTINGS.fillColor);
+    localStorage.setItem('alttp-itemtracker-fill-custom',    ITEM_SETTINGS.fillCustom);
+    localStorage.setItem('alttp-itemtracker-fill-effect',    ITEM_SETTINGS.fillEffect);
+    localStorage.setItem('alttp-itemtracker-chests-color',   ITEM_SETTINGS.chestsColor);
+    localStorage.setItem('alttp-itemtracker-chests-custom',  ITEM_SETTINGS.chestsCustom);
+    localStorage.setItem('alttp-itemtracker-complete-color', ITEM_SETTINGS.completeColor);
+    localStorage.setItem('alttp-itemtracker-complete-custom',ITEM_SETTINGS.completeCustom);
+    localStorage.setItem('alttp-itemtracker-dungeon-fill',   ITEM_SETTINGS.dungeonFillEnabled ? 'true' : 'false');
+    localStorage.setItem('alttp-itemtracker-dungeon-box',    ITEM_SETTINGS.dungeonBoxEnabled  ? 'true' : 'false');
+    localStorage.setItem('alttp-itemtracker-show-boss',      ITEM_SETTINGS.showBoss            ? 'true' : 'false');
+  } catch (e) {}
+}
+
+// Show / hide every boss circle. Driven by html.no-boss-shuffle, same class
+// the launcher's "Boss Shuffle = No" early IIFE sets, so both paths share CSS.
+function applyShowBoss() {
+  document.documentElement.classList.toggle('no-boss-shuffle', !ITEM_SETTINGS.showBoss);
+}
+
+function saveItemBgImage(dataUrl) {
+  ITEM_SETTINGS.bgImage = dataUrl || '';
+  try {
+    if (dataUrl) localStorage.setItem('alttp-itemtracker-bg-image', dataUrl);
+    else         localStorage.removeItem('alttp-itemtracker-bg-image');
+    return true;
+  } catch (e) {
+    alert('Could not store background image — it may be too large. Try a smaller file.');
+    ITEM_SETTINGS.bgImage = '';
+    return false;
+  }
+}
+
+function applyItemFillVariable() {
+  var c = ITEM_SETTINGS.fillColor === 'custom'
+    ? ITEM_SETTINGS.fillCustom
+    : (ITEM_FILL_COLORS[ITEM_SETTINGS.fillColor] || ITEM_FILL_COLORS.green);
+  document.documentElement.style.setProperty('--item-fill-color', c);
+}
+
+function applyItemDungeonColors() {
+  var chests = ITEM_SETTINGS.chestsColor === 'custom'
+    ? ITEM_SETTINGS.chestsCustom
+    : (ITEM_DUNGEON_PRESETS[ITEM_SETTINGS.chestsColor] || ITEM_DUNGEON_PRESETS.blue);
+  var complete = ITEM_SETTINGS.completeColor === 'custom'
+    ? ITEM_SETTINGS.completeCustom
+    : (ITEM_DUNGEON_PRESETS[ITEM_SETTINGS.completeColor] || ITEM_DUNGEON_PRESETS.green);
+  document.documentElement.style.setProperty('--chests-color',   chests);
+  document.documentElement.style.setProperty('--complete-color', complete);
+}
+
+// Completion tints only apply while <html> carries .dfill-on.
+function applyItemDungeonFill() {
+  document.documentElement.classList.toggle('dfill-on', !!ITEM_SETTINGS.dungeonFillEnabled);
+}
+
+// Toggle the default dark container on every dungeon slot.
+function applyItemDungeonBox() {
+  document.querySelectorAll('.dungeon-slot').forEach(function(slot) {
+    slot.classList.toggle('no-box', !ITEM_SETTINGS.dungeonBoxEnabled);
+  });
+}
+
+function applyItemBg(bg) {
+  // "image" with nothing stored — prompt for a file instead of switching.
+  if (bg === 'image' && !ITEM_SETTINGS.bgImage) {
+    var picker = document.getElementById('item-bg-image-file');
+    if (picker) picker.click();
+    document.querySelectorAll('input[name="its-bg"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.bg); });
+    return;
+  }
+  ITEM_SETTINGS.bg = bg;
+  saveItemSettings();
+  if (bg === 'black') document.documentElement.removeAttribute('data-bg');
+  else                document.documentElement.setAttribute('data-bg', bg);
+  if (bg === 'image') {
+    document.documentElement.style.setProperty('--bg-image', ITEM_SETTINGS.bgImage ? 'url("' + ITEM_SETTINGS.bgImage + '")' : 'none');
+  }
+  // Transparent <-> opaque needs a window recreate (Electron limitation) —
+  // main.js handles that in the set-itemtracker-bg IPC handler.
+  if (window.electronAPI && window.electronAPI.setItemTrackerBg) window.electronAPI.setItemTrackerBg(bg);
+}
+
+function updateItemBgImageStatus() {
+  var lbl = document.getElementById('item-bg-image-status');
+  if (lbl) lbl.textContent = ITEM_SETTINGS.bgImage ? 'Image loaded' : 'No image';
+}
+
+// Add/remove .filled (+ the chosen effect class) on one slot. Only acts on a
+// transition so the effect animation doesn't replay on every refresh.
+function applyOneItemFill(el, isFilled) {
+  if (!el) return;
+  var was = el.classList.contains('filled');
+  if (isFilled === was) return;
+  if (isFilled) {
+    el.classList.remove('fx-falling', 'fx-fade', 'fx-edges');
+    el.classList.add('filled');
+    if (ITEM_SETTINGS.fillEffect === 'falling')   { void el.offsetWidth; el.classList.add('fx-falling'); }
+    if (ITEM_SETTINGS.fillEffect === 'starburst') { void el.offsetWidth; el.classList.add('fx-fade'); }
+    if (ITEM_SETTINGS.fillEffect === 'none')      { void el.offsetWidth; el.classList.add('fx-edges'); }
+  } else {
+    el.classList.remove('filled', 'fx-falling', 'fx-fade', 'fx-edges');
+  }
+}
+
+// Re-evaluate every item slot's fill from current item state. Exposed as a
+// global so items.js can call it whenever item state changes.
+function refreshItemFills() {
+  var on = ITEM_SETTINGS.fillEnabled;
+  document.querySelectorAll('.item-slot[data-item-key]').forEach(function(slot) {
+    if (slot.classList.contains('go-mode')) return;
+    var key = slot.dataset.itemKey;
+    if (!key || key === 'stats') return;
+    var have = on && items[key] && items[key].currentState > 0;
+    applyOneItemFill(slot, have);
+  });
+  var grid = document.querySelector('.bottle-grid');
+  if (grid) {
+    var anyBottle = ['bottle1','bottle2','bottle3','bottle4'].some(function(b){
+      return items[b] && items[b].currentState > 0;
+    });
+    applyOneItemFill(grid, on && anyBottle);
+  }
+}
+window.refreshItemFills = refreshItemFills;
+
+// ── Settings popup ───────────────────────────────────────────────────────────
+function openItemSettings() {
+  document.querySelectorAll('input[name="its-bg"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.bg); });
+  document.getElementById('item-opt-fill-enabled').checked = ITEM_SETTINGS.fillEnabled;
+  document.querySelectorAll('input[name="its-fill-color"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.fillColor); });
+  document.querySelectorAll('input[name="its-fill-effect"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.fillEffect); });
+  document.getElementById('item-opt-fill-custom').value = ITEM_SETTINGS.fillCustom;
+  document.querySelectorAll('input[name="its-chests-color"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.chestsColor); });
+  document.getElementById('item-opt-chests-custom').value = ITEM_SETTINGS.chestsCustom;
+  document.querySelectorAll('input[name="its-complete-color"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.completeColor); });
+  document.getElementById('item-opt-complete-custom').value = ITEM_SETTINGS.completeCustom;
+  document.getElementById('item-opt-dungeon-fill').checked = ITEM_SETTINGS.dungeonFillEnabled;
+  document.getElementById('item-opt-dungeon-box').checked  = ITEM_SETTINGS.dungeonBoxEnabled;
+  document.getElementById('item-opt-show-boss').checked    = ITEM_SETTINGS.showBoss;
+  syncItemFillSub();
+  updateItemBgImageStatus();
+  document.getElementById('item-settings-overlay').classList.remove('hidden');
+}
+function closeItemSettings() {
+  document.getElementById('item-settings-overlay').classList.add('hidden');
+}
+function syncItemFillSub() {
+  var sub = document.getElementById('item-fill-sub');
+  if (!sub) return;
+  if (ITEM_SETTINGS.fillEnabled) sub.classList.remove('disabled');
+  else                          sub.classList.add('disabled');
+}
+
+function wireItemSettingsHandlers() {
+  document.querySelectorAll('input[name="its-bg"]').forEach(function(r) {
+    r.addEventListener('change', function() { if (r.checked) applyItemBg(r.value); });
+  });
+  document.getElementById('item-opt-fill-enabled').addEventListener('change', function(e) {
+    ITEM_SETTINGS.fillEnabled = e.target.checked;
+    saveItemSettings(); syncItemFillSub(); refreshItemFills();
+  });
+  document.querySelectorAll('input[name="its-fill-color"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      ITEM_SETTINGS.fillColor = r.value;
+      saveItemSettings(); applyItemFillVariable();
+    });
+  });
+  document.getElementById('item-opt-fill-custom').addEventListener('input', function(e) {
+    ITEM_SETTINGS.fillCustom = e.target.value;
+    if (ITEM_SETTINGS.fillColor === 'custom') applyItemFillVariable();
+    saveItemSettings();
+  });
+  document.querySelectorAll('input[name="its-fill-effect"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      ITEM_SETTINGS.fillEffect = r.value;
+      saveItemSettings();
+    });
+  });
+  document.querySelectorAll('input[name="its-chests-color"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      ITEM_SETTINGS.chestsColor = r.value;
+      saveItemSettings(); applyItemDungeonColors();
+    });
+  });
+  document.getElementById('item-opt-chests-custom').addEventListener('input', function(e) {
+    ITEM_SETTINGS.chestsCustom = e.target.value;
+    if (ITEM_SETTINGS.chestsColor === 'custom') applyItemDungeonColors();
+    saveItemSettings();
+  });
+  document.querySelectorAll('input[name="its-complete-color"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      ITEM_SETTINGS.completeColor = r.value;
+      saveItemSettings(); applyItemDungeonColors();
+    });
+  });
+  document.getElementById('item-opt-complete-custom').addEventListener('input', function(e) {
+    ITEM_SETTINGS.completeCustom = e.target.value;
+    if (ITEM_SETTINGS.completeColor === 'custom') applyItemDungeonColors();
+    saveItemSettings();
+  });
+  document.getElementById('item-opt-dungeon-fill').addEventListener('change', function(e) {
+    ITEM_SETTINGS.dungeonFillEnabled = e.target.checked;
+    saveItemSettings(); applyItemDungeonFill();
+  });
+  document.getElementById('item-opt-dungeon-box').addEventListener('change', function(e) {
+    ITEM_SETTINGS.dungeonBoxEnabled = e.target.checked;
+    saveItemSettings(); applyItemDungeonBox();
+  });
+  document.getElementById('item-opt-show-boss').addEventListener('change', function(e) {
+    ITEM_SETTINGS.showBoss = e.target.checked;
+    saveItemSettings(); applyShowBoss();
+  });
+  // Background image picker
+  var fileInput = document.getElementById('item-bg-image-file');
+  if (fileInput) {
+    fileInput.addEventListener('change', function(e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function() {
+        if (!saveItemBgImage(reader.result)) return;
+        updateItemBgImageStatus();
+        applyItemBg('image');
+        document.querySelectorAll('input[name="its-bg"]').forEach(function(r){ r.checked = (r.value === 'image'); });
+      };
+      reader.onerror = function() { alert('Could not read that file.'); };
+      reader.readAsDataURL(file);
+      fileInput.value = '';
+    });
+  }
+  var clearBtn = document.getElementById('item-bg-image-clear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      saveItemBgImage('');
+      updateItemBgImageStatus();
+      document.documentElement.style.removeProperty('--bg-image');
+      if (ITEM_SETTINGS.bg === 'image') {
+        applyItemBg('black');
+        document.querySelectorAll('input[name="its-bg"]').forEach(function(r){ r.checked = (r.value === 'black'); });
+      }
+    });
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeItemSettings();
+  });
+}
+
+function initItemSettings() {
+  loadItemSettings();
+  // Move the overlay out of <body> — body gets CSS zoom when the tracker is
+  // scaled, which would shift the fixed-position modal out of the viewport.
+  var overlay = document.getElementById('item-settings-overlay');
+  if (overlay && overlay.parentElement !== document.documentElement) {
+    document.documentElement.appendChild(overlay);
+  }
+  applyItemFillVariable();
+  applyItemDungeonColors();
+  applyItemDungeonFill();
+  applyItemBg(ITEM_SETTINGS.bg);
+  applyItemDungeonBox();
+  applyShowBoss();
+  refreshItemFills();
+  wireItemSettingsHandlers();
+}
+
 // ── DOMContentLoaded: init tracker then connect via items.js stack ────────────
 document.addEventListener('DOMContentLoaded', function() {
   // createTracker() was already called by items.js DOMContentLoaded handler.
+  // Initialise the settings customization (needs the rendered slots).
+  initItemSettings();
   // Start WS using items.js's own connectWebSocket (already has UI hooks).
   connectWebSocket();
   // Broadcast initial prizes and full item snap once DOM is ready

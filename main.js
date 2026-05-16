@@ -13,6 +13,7 @@ let timerWin      = null;
 let broadcastWin  = null;
 let broadcastBg   = 'black';
 let timerBg       = 'black';
+let itemTrackerBg = 'black';
 
 function findAppRoot() {
   const candidates = [
@@ -67,13 +68,13 @@ function createLauncher() {
 }
 
 // ── Item Tracker ──────────────────────────────────────────────────────────────
-function openItemTracker(scale, wsHost, wsPort, bg, dungeonItems) {
-  if (itemWin && !itemWin.isDestroyed()) { itemWin.focus(); return; }
+function createItemTrackerWindow(scale, wsHost, wsPort, bg, dungeonItems, bossShuffle, bounds) {
   const s = parseFloat(scale) || 1.0;
   const isTransparent = bg === 'transparent';
   const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', transparent: '#00000000' };
-  itemWin = new BrowserWindow({
-    width: Math.ceil(500 * s), height: Math.ceil(620 * s),
+  const opts = {
+    width:  (bounds && bounds.width)  || Math.ceil(500 * s),
+    height: (bounds && bounds.height) || Math.ceil(620 * s),
     resizable: true,
     useContentSize: true,
     title: 'Item Tracker',
@@ -92,15 +93,26 @@ function openItemTracker(scale, wsHost, wsPort, bg, dungeonItems) {
       nodeIntegration: false,
       webSecurity: false,
     }
-  });
+  };
+  if (bounds && bounds.x !== undefined && bounds.y !== undefined) {
+    opts.x = bounds.x;
+    opts.y = bounds.y;
+  }
+  itemWin = new BrowserWindow(opts);
   itemWin.setMenuBarVisibility(false);
-  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}`;
+  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}&bossshuffle=${bossShuffle||'yes'}`;
   itemWin.loadURL(toFileUrl('itemtracker.html') + q);
   itemWin.on('closed', () => { itemWin = null; });
+  itemTrackerBg = bg || 'black';
+}
+
+function openItemTracker(scale, wsHost, wsPort, bg, dungeonItems, bossShuffle) {
+  if (itemWin && !itemWin.isDestroyed()) { itemWin.focus(); return; }
+  createItemTrackerWindow(scale, wsHost, wsPort, bg, dungeonItems, bossShuffle);
 }
 
 // ── Map ───────────────────────────────────────────────────────────────────────
-function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, dungeonItems, swordless) {
+function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, dungeonItems, swordless, bossShuffle) {
   if (mapWin && !mapWin.isDestroyed()) { mapWin.focus(); return; }
   const pct = parseInt(zoom) || 100;
   const size = Math.round(512 * pct / 100);
@@ -124,7 +136,7 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
     }
   });
   mapWin.setMenuBarVisibility(false);
-  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}`;
+  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}&bossshuffle=${bossShuffle||'yes'}`;
   mapWin.loadURL(toFileUrl('map.html') + q);
   mapWin.on('closed', () => { mapWin = null; });
 }
@@ -227,8 +239,8 @@ function openBroadcast(bg) {
 // ── IPC ───────────────────────────────────────────────────────────────────────
 ipcMain.on('launch', (event, opts) => {
   store.set('settings', opts);
-  if (opts.which === 'items' || opts.which === 'both') openItemTracker(opts.scale, opts.wsHost, opts.wsPort, opts.trackerBg, opts.dungeonItems);
-  if (opts.which === 'map'   || opts.which === 'both') openMap(opts.zoom, opts.layout, opts.enemizer, opts.gtCrystals, opts.wsHost, opts.wsPort, opts.gamemode, opts.dungeonItems, opts.swordless);
+  if (opts.which === 'items' || opts.which === 'both') openItemTracker(opts.scale, opts.wsHost, opts.wsPort, opts.trackerBg, opts.dungeonItems, opts.bossshuffle);
+  if (opts.which === 'map'   || opts.which === 'both') openMap(opts.zoom, opts.layout, opts.enemizer, opts.gtCrystals, opts.wsHost, opts.wsPort, opts.gamemode, opts.dungeonItems, opts.swordless, opts.bossshuffle);
   if (opts.which === 'timer') openTimer(opts.wsHost, opts.wsPort, opts.timerColor, opts.timerBg);
   if (opts.which === 'broadcast') openBroadcast(opts.trackerBg || 'black');
 });
@@ -300,6 +312,38 @@ ipcMain.handle('set-timer-bg', (event, bg) => {
   const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', custom: '#000000' };
   if (bgColors[bg]) win.setBackgroundColor(bgColors[bg]);
   timerBg = bg;
+});
+
+ipcMain.handle('set-itemtracker-bg', (event, bg) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || itemWin !== win) return;
+
+  const wasTransparent    = itemTrackerBg === 'transparent';
+  const willBeTransparent = bg === 'transparent';
+
+  // Toggling transparency requires a window recreate (Electron limitation).
+  if (wasTransparent !== willBeTransparent) {
+    const bounds = win.getBounds();
+    // Pull scale / ws / dungeonItems from the window URL so the recreate matches.
+    const currentUrl   = new URL(win.webContents.getURL());
+    const scale        = currentUrl.searchParams.get('scale')        || '1';
+    const wsHost       = currentUrl.searchParams.get('wshost')       || 'localhost';
+    const wsPort       = currentUrl.searchParams.get('wsport')       || '23074';
+    const dungeonItems = currentUrl.searchParams.get('dungeonitems') || 'standard';
+    const bossShuffle  = currentUrl.searchParams.get('bossshuffle')  || 'yes';
+    setImmediate(() => {
+      if (itemWin === win) itemWin = null;
+      if (!win.isDestroyed()) win.close();
+      createItemTrackerWindow(scale, wsHost, wsPort, bg, dungeonItems, bossShuffle, bounds);
+    });
+    return;
+  }
+
+  // Same transparency mode — just swap the solid background color.
+  // 'image' keeps a black native window colour; the renderer paints the image.
+  const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', image: '#000000' };
+  if (bgColors[bg]) win.setBackgroundColor(bgColors[bg]);
+  itemTrackerBg = bg;
 });
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
