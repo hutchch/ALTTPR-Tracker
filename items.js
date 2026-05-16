@@ -1538,7 +1538,13 @@ function processRoomData(data) {
             if (items < 0) items = 0;
             // High-water mark on itemCount too — prevents dip during prize/boss sequences
             items = Math.max(items, dungeons[key].itemCount || 0);
-            
+            // Hard cap at maxItems. DP / ToH / GT have a floor-item location
+            // (0x04 mask) that can briefly count toward chestsOpened before the
+            // SRAM small-key counter ticks up, which would otherwise let the
+            // subtraction lag and render e.g. 3/2. The cap keeps the displayed
+            // value within bounds for every dungeon regardless of mode.
+            if (items > dungeon.maxItems) items = dungeon.maxItems;
+
             // Update if changed
             if (items !== dungeon.itemCount) {
                 dungeons[key].itemCount = items;
