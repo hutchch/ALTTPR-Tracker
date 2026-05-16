@@ -46,7 +46,7 @@
 | **SP** | Moon Pearl + Mirror + Flippers + DW South | Hookshot (+ Hammer) |
 | **SW** | Moon Pearl + DW NW | Firerod (+ Sword) |
 | **TT** | Moon Pearl + DW NW | Hammer |
-| **IP** | Moon Pearl + Flippers + Titans Mitt + Bombos/Firerod | Hammer; 2 keys OR 1 key+Somaria (KS/MCK) |
+| **IP** | Moon Pearl + Flippers + Titans Mitt + Bombos/Firerod | Hammer+Hookshot; 2 keys OR 1 key+Somaria (KS/MCK) |
 | **MM** | Flute + Titans Mitt + assigned Medallion + Boots/Hookshot | Somaria + Lamp |
 | **TR** | Moon Pearl + Hammer + Titans Mitt + Somaria + assigned Medallion + Sword | Firerod + Lamp |
 | **GT** | N crystals (configurable 1–7) | N crystals |
@@ -124,7 +124,7 @@
 | **SP** | DW | Mirror + Flippers + DW South | Hookshot |
 | **SW** | DW | Always | Firerod (+ Sword) |
 | **TT** | DW | Always | Hammer |
-| **IP** | DW | Flippers + Bombos/Firerod (no Titans Mitt needed) | Hammer; 2 keys OR 1 key+Somaria (KS/MCK) |
+| **IP** | DW | Flippers + Bombos/Firerod (no Titans Mitt needed) | Hammer+Hookshot; 2 keys OR 1 key+Somaria (KS/MCK) |
 | **MM** | DW Mire | LW Village + (Flute OR Mirror) + Medallion + Boots/Hookshot | Somaria + Lamp |
 | **TR** | DW DM | **Front entrance**: DW DM + Somaria + Medallion + Sword | Firerod + Lamp |
 | | | **Back entrance**: DW DM + Pearl + (Titans+Hammer OR Hookshot) + Mirror → yellow | — |
