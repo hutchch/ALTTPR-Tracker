@@ -1055,7 +1055,12 @@ function checkLogic(it) {
     100: function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) return (powder && hammer) ? 'green' : 'red';
-           if (!powder) return 'red'; return (hammer||(dwNW&&mirror))?'green':'red';
+           if (!powder) return 'red';
+           // Standard: powder + (hammer OR mirror-back-from-DW). The mirror
+           // path lands at the specific DW tile that only titans mitt + pearl
+           // can reach — the looser dwNW (glove+hammer etc.) gets you into
+           // DW NW but not to that tile, so it doesn't suffice here.
+           return (hammer || (pearl && titan && mirror)) ? 'green' : 'red';
          },
     101: function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
