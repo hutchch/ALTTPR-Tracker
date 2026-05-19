@@ -29,10 +29,7 @@ Emulator setup can be found uner [Emulator Setup](https://github.com/hutchch/Emu
 
 <img width="1246" height="1583" alt="image" src="https://github.com/user-attachments/assets/96cd9f78-7bba-44d9-b866-106abdc05219" />
 New Game:
-<img width="1247" height="1603" alt="image" src="https://github.com/user-attachments/assets/bee52b42-a590-4a9c-8535-78724a26cb8f" />
-
-
-
+<img width="1248" height="1609" alt="image" src="https://github.com/user-attachments/assets/73f2671e-f0af-419e-be94-6e04e4803898" />
 
 ______________________________________________________________________
 
