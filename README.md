@@ -1,4 +1,4 @@
-<h1>ALTTPR Tracker (v1.1.10 release)</h1>
+<h1>ALTTPR Tracker (v1.1.11 release)</h1>
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
@@ -14,7 +14,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Standard
    - Open
    - Inverted
- - Boss Shuffle (Used to track dungeon bosses) - (v1.1.11- Coming soon)
+ - Boss Shuffle (Used to track dungeon bosses) - (v1.1.11)
  - Enemizer or normal mode
  - Sword or Swordless
  - Item Tracker Broadcast View (Customizable)
@@ -27,7 +27,10 @@ Tracker Application can be downloaded under [Releases](https://github.com/hutchc
 Emulator setup can be found uner [Emulator Setup](https://github.com/hutchch/Emulator-Setup)
 </p>
 
-<img width="1242" height="1525" alt="image" src="https://github.com/user-attachments/assets/c8a4b087-188e-4aed-9ed9-a5c31b0dc6a6" />
+<img width="1246" height="1583" alt="image" src="https://github.com/user-attachments/assets/96cd9f78-7bba-44d9-b866-106abdc05219" />
+New Game:
+<img width="1252" height="1589" alt="image" src="https://github.com/user-attachments/assets/30331559-cd09-4fe6-896a-a6cf7a343919" />
+
 
 
 
