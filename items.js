@@ -2048,6 +2048,13 @@ function resetItemTracker() {
         window.trackerItems.pendants     = 0;
         window.trackerItems.greenPendant = 0;
         window.trackerItems.redCrystal   = 0;
+        // Medallion assignments (MM / TR labels on bombos/ether/quake). The
+        // item tracker's own labels are cleared above, but trackerItems is
+        // what broadcastItemSnap sends to the broadcast view — without this,
+        // the snap re-applies the old assignment after the newgame resetAll
+        // already cleared the labels there.
+        window.trackerItems.mmMedallion  = 0;
+        window.trackerItems.trMedallion  = 0;
         // Reset every dungeon's per-dungeon small-key tracking. Previously
         // only CT and SP were cleared here, so the other nine dungeons kept
         // their stale *SmallKeysMax across New Game. Because the auto-tracker
