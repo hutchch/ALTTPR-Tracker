@@ -29,8 +29,7 @@ Emulator setup can be found uner [Emulator Setup](https://github.com/hutchch/Emu
 
 <img width="1246" height="1583" alt="image" src="https://github.com/user-attachments/assets/96cd9f78-7bba-44d9-b866-106abdc05219" />
 New Game:
-<img width="1252" height="1589" alt="image" src="https://github.com/user-attachments/assets/30331559-cd09-4fe6-896a-a6cf7a343919" />
-
+<img width="1245" height="1579" alt="image" src="https://github.com/user-attachments/assets/d68d8a47-3f22-4ef5-b346-44567214d637" />
 
 
 
@@ -102,7 +101,7 @@ With customization
   - <img width="358" height="303" alt="image" src="https://github.com/user-attachments/assets/f6dd6d36-8606-406d-bf61-718ecd86d3f8" />
   - <img width="310" height="615" alt="image" src="https://github.com/user-attachments/assets/8880ad04-1bbc-4380-8576-6d2038386120" />
 
-Boss Tracking (introduced in v1.1.11) (Coming Soon)
+Boss Tracking (introduced in v1.1.11) 
 
 - <img width="245" height="141" alt="image" src="https://github.com/user-attachments/assets/319fbdff-64f7-496f-9b20-af04e43c2d1f" />
 - <img width="211" height="50" alt="image" src="https://github.com/user-attachments/assets/ee975e82-6fdb-45b6-a21e-d73524e20355" />
