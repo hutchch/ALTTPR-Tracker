@@ -1968,6 +1968,9 @@ function updateItemState(itemKey, state) {
     refreshAllBossCircles();
     // …and the item-background fills (settings customization)
     if (window.refreshItemFills) window.refreshItemFills();
+    // Push updated bossOk state to map so stripe clears when autotracker
+    // grants a boss-required item (e.g. icerod unlocking Trinexx stripe).
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
 }
 
 function resetItemTracker() {
