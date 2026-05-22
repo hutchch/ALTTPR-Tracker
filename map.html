@@ -1720,9 +1720,8 @@ window.refreshMapLogic = function() {
     //   - red    : boss unknown ('?') AND the dungeon isn't reachable
     //   - yellow : boss unknown AND the dungeon is available/possible
     //   - none   : boss-ok (requirement met) or boss defeated
-    var _bossShuffle  = (window.trackerSettings && window.trackerSettings.bossShuffle) || 'yes';
     var _bossDefeated = el.classList.contains('cleared') || el.classList.contains('boss-cleared');
-    if (_bossShuffle !== 'no' && !['ct','gt'].includes(key) && !_bossDefeated) {
+    if (!['ct','gt'].includes(key) && !_bossDefeated) {
       // Boss state lives on DUNGEONS (persistent) — survives trackerItems
       // replacement on every items/prizes snap, so the stripe doesn't briefly
       // flicker when a snap arrives right after the user picks a boss.
