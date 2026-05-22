@@ -1171,10 +1171,26 @@ function broadcastItemSnap() {
     });
     // Derive bottle count for map logic (trackerItems.bottle)
     snap.bottle = ['bottle1','bottle2','bottle3','bottle4'].filter(k => items[k] && items[k].currentState > 0).length;
-    snap.crystals     = (window.trackerItems && window.trackerItems.crystals)     || 0;
-    snap.pendants     = (window.trackerItems && window.trackerItems.pendants)     || 0;
-    snap.greenPendant = (window.trackerItems && window.trackerItems.greenPendant) || 0;
-    snap.redCrystal   = (window.trackerItems && window.trackerItems.redCrystal)   || 0;
+    // Compute crystal/pendant counts from DOM prize images (same as processInventoryData).
+    // Reading from trackerItems here would always return 0 on the item-tracker side,
+    // causing the map's greenPendant/redCrystal to be zeroed on every snap and making
+    // Sahasrahla / Pyramid Fairy checks flash red after the prize is collected.
+    (function() {
+        var cc=0, rc=0, pc=0, gpc=0;
+        Object.keys(typeof dungeons !== 'undefined' ? dungeons : {}).forEach(function(k) {
+            var slot = document.querySelector('[data-dungeon-key="' + k + '"] .prize-img');
+            if (!slot || !slot.src.includes('1.png')) return;
+            var src = slot.src;
+            if      (src.includes('greenpendant')) { pc++; gpc++; }
+            else if (src.includes('pendant'))      { pc++; }
+            else if (src.includes('redcrystal'))   { cc++; rc++; }
+            else if (src.includes('crystal'))      { cc++; }
+        });
+        snap.crystals     = cc;
+        snap.pendants     = pc;
+        snap.greenPendant = gpc;
+        snap.redCrystal   = rc;
+    })();
     snap.mmMedallion  = (window.trackerItems && window.trackerItems.mmMedallion)  || 0;
     snap.trMedallion  = (window.trackerItems && window.trackerItems.trMedallion)  || 0;
     snap.ctSmallKeys  = (window.trackerItems && window.trackerItems.ctSmallKeys)  || 0;

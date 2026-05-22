@@ -155,24 +155,10 @@ html.dfill-on .dungeon-slot.prize-obtained {
 }
 
 /* Drop the GT box to the bottom of its row when the stats box overflows down
-   far enough to overlap it. Two cases:
-   1. Key Sanity / MCK modes — the stats row gains a CT counter (set via the
-      .gt-bottom class added by createTracker).
-   2. Boss circles hidden (launcher Boss Shuffle = No, or Show Boss setting
-      unchecked) — the REVIVALS row sits where the boss circle used to be,
-      and now overlaps GT. Catch GT directly via the data-dungeon-key
-      attribute. */
-.dungeon-slot.gt-bottom,
-html.no-boss-shuffle .dungeon-slot[data-dungeon-key="gt"] {
+   far enough to overlap it (Key Sanity / MCK modes — the stats row gains a
+   CT counter set via the .gt-bottom class added by createTracker). */
+.dungeon-slot.gt-bottom {
     align-self: flex-end;
-}
-
-/* Boss circles hidden: row 5 (dungeons) loses ~27px per crystal box, so the
-   stats box's overflow now lands ON TOP of GT (REVIVALS dips into the GT box
-   border). Add a gap between row 4 (stats) and row 5 so REVIVALS clears the
-   top of GT. */
-html.no-boss-shuffle .tracker-row.stats-row {
-    margin-bottom: 16px;
 }
 
 .dungeon-content {
@@ -297,10 +283,16 @@ html.no-boss-shuffle .tracker-row.stats-row {
 /* Pendant dungeons: circle sits in the counts column, under the chest count */
 .dungeon-counts-pendant > .boss-circle { margin-top: 2px; }
 
-/* Boss Shuffle = No (set from the launcher): bosses are vanilla, so hide the
-   boss circles entirely. The dungeon-counts column collapses and the row
-   layout adjusts naturally. */
-html.no-boss-shuffle .boss-circle { display: none; }
+/* Boss Shuffle = No: bosses are vanilla fixed assignments. Circles stay visible
+   but are non-interactive (pointer-events off, no hover highlight). */
+html.no-boss-shuffle .boss-circle {
+    cursor: default;
+    pointer-events: none;
+}
+html.no-boss-shuffle .boss-circle:hover {
+    border-color: #555;
+    background: transparent;
+}
 
 .boss-img {
     width: 16px;                        /* intentionally smaller than the 24px circle */

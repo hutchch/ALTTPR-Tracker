@@ -145,11 +145,24 @@ try {
   window._dungeonItemsMode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
 
   // Boss shuffle flag — when "no" the bosses are vanilla so we hide the boss
-  // circles entirely (a CSS rule on html.no-boss-shuffle .boss-circle handles
-  // the actual hiding).
+  // When boss shuffle is off, circles stay visible but are locked to vanilla
+  // assignments (CSS disables interaction; DOMContentLoaded seeds the bosses).
   window._bossShuffle = p.get('bossshuffle') || localStorage.getItem('alttp-bossshuffle') || 'yes';
   if (window._bossShuffle === 'no') {
     document.documentElement.classList.add('no-boss-shuffle');
+    // Pre-populate vanilla boss assignments once the dungeon slots exist.
+    // Boss numbers match items.js boss image indices (boss1.png … boss10.png):
+    //   1=Armos Knights, 2=Lanmolas, 3=Moldorm, 4=Helmasaur King,
+    //   5=Arrghus, 6=Mothula, 7=Blind, 8=Kholdstare, 9=Vitreous, 10=Trinexx
+    var VANILLA_BOSSES = {
+      ep: 1, dp: 2, toh: 3, pod: 4, sp: 5,
+      sw: 6, tt: 7, ip: 8, mm: 9, tr: 10
+    };
+    document.addEventListener('DOMContentLoaded', function() {
+      Object.keys(VANILLA_BOSSES).forEach(function(key) {
+        if (typeof setBoss === 'function') setBoss(key, VANILLA_BOSSES[key]);
+      });
+    });
   }
 
   // Set mode label in bottom bar
