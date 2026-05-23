@@ -2,6 +2,7 @@
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
+Join the [Discord](https://discord.gg/EERp4v2SEs)
 
  - Dungeon Item Shuffle
    - Standard
@@ -35,6 +36,8 @@ Windows Setup Guides
 - [Windows SNES9x-RR Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9X%E2%80%90RR)
 
 </p>
+
+
 
 <img width="1246" height="1583" alt="image" src="https://github.com/user-attachments/assets/96cd9f78-7bba-44d9-b866-106abdc05219" />
 New Game:
