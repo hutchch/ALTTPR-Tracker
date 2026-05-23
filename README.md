@@ -208,6 +208,8 @@ Thanks to [LordHoell](https://linktr.ee/lordhoell) for indirectly providing idea
 
 
 
+______________________________________________________________________
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/hutch755) 
 
-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/hutch755)
+All work done is on my own time to help get more players into the community.  Donations are not expected, but always appreciated. Thank you for your support. 
 
