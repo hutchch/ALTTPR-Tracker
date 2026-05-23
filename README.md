@@ -1,3 +1,4 @@
+***
 <h1>ALTTPR Tracker (v1.1.11 release)</h1>
 <p>
 
