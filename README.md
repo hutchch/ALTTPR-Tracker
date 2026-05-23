@@ -211,9 +211,12 @@ Special Thanks to [Jedi Master T8ter](https://linktr.ee/jedi_master_t8ter) for s
 Thanks to [LordHoell](https://linktr.ee/lordhoell) for indirectly providing ideas for the ItemTracker and for providing the idea on how to vibe code the map, [Max2dgam1ng](https://linktr.ee/max2dgam1ng) for getting me into this game, and playing on stream, [Limpbagel](https://linktr.ee/limpbagel) for tutorials, game knowledge and pointing me to [Stonks tracker](https://thettracker.vercel.app/) which gave ideas on some of the elements used in the Itemtracker, and finally the [ALTTPR community](https://alttpr.com) their hard work with randomizer as well as providing the [Community Tracker](https://alttprtracker.mfns.dev/index.html).
 
 
+***
+For questions or announcements Join the [Discord](https://discord.gg/EERp4v2SEs)
+***
 
-______________________________________________________________________
+
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/hutch755) 
 
-All work done is on my own time to help get more players into the community.  Donations are not expected, but always appreciated. Thank you for your support. 
+All work done is on my own time to help get more players in the community.  Donations are not expected, but always appreciated. Thank you for your support. 
 
