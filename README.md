@@ -29,9 +29,10 @@ User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hut
 Emulator setup can be found: [Emulator Setup](https://github.com/hutchch/Emulator-Setup)
 
 Windows Setup Guides
--  [Windows RetroArch Setup](https://github.com/hutchch/Emulator-Setup/wiki/Retroarch-Setup)
--  [Windows Bizhawk Setup](https://github.com/hutchch/Emulator-Setup/wiki/Bizhawk)
--  [Windows SNES9x Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9x)
+- [Windows RetroArch Setup](https://github.com/hutchch/Emulator-Setup/wiki/Retroarch-Setup)
+- [Windows Bizhawk Setup](https://github.com/hutchch/Emulator-Setup/wiki/Bizhawk)
+- [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9x%E2%80%90EMUNWA)
+- [Windows SNES9x-RR Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9X%E2%80%90RR)
 
 </p>
 
