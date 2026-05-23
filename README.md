@@ -2,7 +2,8 @@
 <p>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
-Join the [Discord](https://discord.gg/EERp4v2SEs)
+
+For questions or announcements Join the [Discord](https://discord.gg/EERp4v2SEs)
 
  - Dungeon Item Shuffle
    - Standard
