@@ -24,7 +24,15 @@ This is as-is.  These files are to assist in the game, and provided to help othe
 
 Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
 
-Emulator setup can be found uner [Emulator Setup](https://github.com/hutchch/Emulator-Setup)
+User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR-Tracker-User-Guide.pdf)
+
+Emulator setup can be found: [Emulator Setup](https://github.com/hutchch/Emulator-Setup)
+
+Windows Setup Guides
+-  [Windows RetroArch Setup](https://github.com/hutchch/Emulator-Setup/wiki/Retroarch-Setup)
+-  [Windows Bizhawk Setup](https://github.com/hutchch/Emulator-Setup/wiki/Bizhawk)
+-  [Windows SNES9x Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9x)
+
 </p>
 
 <img width="1246" height="1583" alt="image" src="https://github.com/user-attachments/assets/96cd9f78-7bba-44d9-b866-106abdc05219" />
