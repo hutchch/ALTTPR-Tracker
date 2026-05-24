@@ -1738,6 +1738,7 @@ function processInventoryData(data) {
                     if (bigkeyImg) {
                         bigkeyImg.src = `${BASE_URL}/bigkey1.png`;
                     }
+                    updateDungeonCountDisplay(key);
                     if (window.broadcastItemSnap) window.broadcastItemSnap();
                 }
             }
@@ -1754,9 +1755,8 @@ function processInventoryData(data) {
                     if (compassImg) {
                         compassImg.src = `${BASE_URL}/compass1.png`;
                     }
-                    // Tell the broadcast view (and any other listeners) about the
-                    // new compass state — matches the big-key handler above and
-                    // the manual compass-click handler.
+                    // Recalculate chest item count now that compass is subtracted.
+                    updateDungeonCountDisplay(key);
                     if (window.broadcastItemSnap) window.broadcastItemSnap();
                 }
             }
@@ -1773,9 +1773,10 @@ function processInventoryData(data) {
                     if (mapImg) {
                         mapImg.src = `${BASE_URL}/map1.png`;
                     }
+                    // Recalculate chest item count now that map is subtracted.
+                    updateDungeonCountDisplay(key);
                     // Notify map window so it can show map1.png as prize placeholder
                     if (typeof broadcastPrizes === 'function') setTimeout(broadcastPrizes, 50);
-                    // Tell the broadcast view about the new map state.
                     if (window.broadcastItemSnap) window.broadcastItemSnap();
                 }
             }
