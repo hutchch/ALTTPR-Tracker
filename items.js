@@ -1552,8 +1552,6 @@ function processRoomData(data) {
                 items = chestsOpened - dungeonItems - smallKeySubtract;
             }
             if (items < 0) items = 0;
-            // High-water mark on itemCount too — prevents dip during prize/boss sequences
-            items = Math.max(items, dungeons[key].itemCount || 0);
             // Hard cap at maxItems. DP / ToH / GT have a floor-item location
             // (0x04 mask) that can briefly count toward chestsOpened before the
             // SRAM small-key counter ticks up, which would otherwise let the
