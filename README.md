@@ -33,14 +33,17 @@ User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/wiki)
 
 Emulator setup can be found: [Emulator Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Emulator-Setup)
 
-Windows Setup Guides
-- [Windows RetroArch Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Retroarch-Setup)
-- [Windows Bizhawk Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Bizhawk)
-- [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9x%E2%80%90EMUNWA)
-- [Windows SNES9x-RR Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9X%E2%80%90RR)
+Windows Emulator Setup Guides
+- [Windows RetroArch Setup](https://github.com/hutchch/Emulator-Setup/wiki/Retroarch-Setup)
+- [Windows Bizhawk Setup](https://github.com/hutchch/Emulator-Setup/wiki/Bizhawk)
+- [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9x%E2%80%90EMUNWA)
+- [Windows SNES9x-RR Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9X%E2%80%90RR)
+
+ macOS Emulator Setup Guide
+- [macOS RetroArch v1.22.2](https://github.com/hutchch/ALTTPR-Tracker/wiki/Retroarch-MacOS-Setup)
+- [macOs Mesen](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen2-%E2%80%90-(MacOS)) Will Work, not fully tested.
 
 </p>
-
 
 
 <img width="1246" height="1583" alt="image" src="https://github.com/user-attachments/assets/96cd9f78-7bba-44d9-b866-106abdc05219" />
