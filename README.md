@@ -29,15 +29,15 @@ This is as-is.  These files are to assist in the game, and provided to help othe
 
 Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
 
-User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR-Tracker-User-Guide.pdf)
+User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/wiki)
 
-Emulator setup can be found: [Emulator Setup](https://github.com/hutchch/Emulator-Setup)
+Emulator setup can be found: [Emulator Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Emulator-Setup)
 
 Windows Setup Guides
-- [Windows RetroArch Setup](https://github.com/hutchch/Emulator-Setup/wiki/Retroarch-Setup)
-- [Windows Bizhawk Setup](https://github.com/hutchch/Emulator-Setup/wiki/Bizhawk)
-- [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9x%E2%80%90EMUNWA)
-- [Windows SNES9x-RR Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9X%E2%80%90RR)
+- [Windows RetroArch Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Retroarch-Setup)
+- [Windows Bizhawk Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Bizhawk)
+- [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9x%E2%80%90EMUNWA)
+- [Windows SNES9x-RR Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9X%E2%80%90RR)
 
 </p>
 
@@ -52,7 +52,7 @@ ______________________________________________________________________
 <h2> Descriptions/Instructions</h2>
 <p>A browser-based item and map tracker for A Link to the Past Randomizer runs. Tracks your items, dungeon progress, and overworld checks with real-time logic coloring — and supports autotracking via QUsb2Snes or SNI.
 
-User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/blob/main/Hutch-ALTTPR-Tracker-User-Guide.pdf)
+User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/wiki)
 
 </p>
 ______________________________________________________________________
