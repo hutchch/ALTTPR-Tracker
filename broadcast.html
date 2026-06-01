@@ -118,7 +118,8 @@ html[data-bg="transparent"] .bbg-bar * {
 }
 .bslot.filled.fx-edges::before,
 .bslot-bottles.filled.fx-edges::before,
-.bright-slot.bslot-icon.filled.fx-edges::before {
+.bright-slot.bslot-icon.filled.fx-edges::before,
+.bcombo-img.filled.fx-edges::before {
   -webkit-mask-image: radial-gradient(circle at 50% 50%,
     transparent calc(var(--edges-reveal, 0%) - 0.5%),
     #000        var(--edges-reveal, 0%));
@@ -159,6 +160,60 @@ html[data-bg="transparent"] .bbg-bar * {
 .bslot-bottles.filled.fx-edges::before   { animation: fx-edges   1.0s ease-in;  }
 .bminibottle { display: flex; align-items: center; justify-content: center; position: relative; z-index: 2; }
 .bminibottle img { width: 18px; height: 18px; image-rendering: pixelated; }
+
+/* Combined dual-item slot (e.g. Powder/Mushroom, Flute/Shovel)
+   Upper-left item / lower-right item, diagonal fill per sub-item. */
+.bslot-combo {
+  width: 40px; height: 40px;
+  position: relative; flex-shrink: 0;
+}
+/* First child = upper-left */
+.bcombo-img:first-child {
+  position: absolute; top: 1px; left: 1px;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
+/* Second child = lower-right */
+.bcombo-img:last-child {
+  position: absolute; bottom: 1px; right: 1px;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
+.bcombo-img img { width: 20px; height: 20px; image-rendering: pixelated; image-rendering: crisp-edges; position: relative; z-index: 2; }
+
+/* Per-item triangular fill via ::before on each .bcombo-img */
+.bcombo-img::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--item-fill-color, #2ecc71);
+  opacity: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 3px;
+}
+/* Upper-left triangle: top-left → top-right → bottom-left */
+.bcombo-img:first-child::before  { clip-path: polygon(0% 0%, 100% 0%, 0% 100%); }
+/* Lower-right triangle: top-right → bottom-right → bottom-left */
+.bcombo-img:last-child::before   { clip-path: polygon(100% 0%, 100% 100%, 0% 100%); }
+
+.bcombo-img.filled::before { opacity: 0.7; }
+.bcombo-img.filled.fx-falling::before { animation: fx-falling 0.6s ease-out; }
+.bcombo-img.filled.fx-fade::before    { animation: fx-fade    0.9s ease-out; }
+.bcombo-img.filled.fx-edges::before   { animation: fx-edges   1.0s ease-in;  }
+
+/* Go Mode button */
+.bgo-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid currentColor;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: bold; font-family: Arial, sans-serif;
+  color: #666; background: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+.bgo-btn.on      { background: #2ecc71; color: #000; }
+.bgo-btn.feeling { background: #eee600; color: #000; }
 
 /* Right-column: agahnim / gomode / stats — wider so they line up vertically */
 .bright-slot {
@@ -309,6 +364,69 @@ html[data-bg="transparent"] .bbg-bar * {
 }
 .bsettings-btn:hover { border-color: #4dff88; color: #fff; }
 
+/* ── Item Animation overlay ─────────────────────────────────────────────── */
+#item-anim-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 20000;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+#item-anim-overlay.anim-visible {
+  opacity: 1;
+  pointer-events: none;
+}
+#item-anim-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 1;
+}
+#item-anim-img {
+  width: 40px; height: 40px;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+  transform-origin: center center;
+  position: relative; z-index: 2;
+}
+#item-anim-label {
+  position: absolute; bottom: 18px; left: 0; right: 0;
+  text-align: center;
+  font-family: Arial, sans-serif; font-size: 22px; font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 12px rgba(0,0,0,0.9), 1px 1px 3px #000, -1px -1px 3px #000;
+  letter-spacing: 1px;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+#item-anim-overlay.anim-visible #item-anim-label.label-show { opacity: 1; }
+
+/* Phase 1: spin in from tiny → window height over 1.4s */
+@keyframes item-spin-grow {
+  0%   { transform: scale(0.05) rotate(0deg);   opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: scale(var(--anim-peak-scale)) rotate(720deg); opacity: 1; }
+}
+/* Phase 2: shrink back to slot-size over 0.8s */
+@keyframes item-shrink {
+  0%   { transform: scale(var(--anim-peak-scale)) rotate(720deg); }
+  100% { transform: scale(1) rotate(720deg); }
+}
+/* Phase 3: slot bounce — the slot img does a quick pop when item settles */
+@keyframes slot-bounce {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  70%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+#item-anim-img.phase-grow   { animation: item-spin-grow 1.4s cubic-bezier(0.2,0,0.4,1) forwards; }
+#item-anim-img.phase-shrink { animation: item-shrink    0.8s cubic-bezier(0.4,0,0.2,1) forwards; }
+
+.slot-bounce { animation: slot-bounce 0.35s ease-out; }
+
 /* Settings modal -------------------------------------------------------- */
 #settings-overlay {
   position: fixed; inset: 0;
@@ -373,6 +491,7 @@ html[data-bg="transparent"] .bbg-bar * {
   background: #2a2a2a; border: 1px solid #444; border-radius: 3px;
   padding: 2px 6px; cursor: pointer; outline: none;
 }
+
 </style>
 </head>
 <body>
@@ -384,6 +503,13 @@ html[data-bg="transparent"] .bbg-bar * {
 </div>
 <div class="bbg-bar">
   <button class="bsettings-btn" onclick="openSettings()">⚙ Settings</button>
+</div>
+
+<!-- Item animation overlay -->
+<div id="item-anim-overlay">
+  <canvas id="item-anim-canvas"></canvas>
+  <img id="item-anim-img" src="" alt="">
+  <div id="item-anim-label"></div>
 </div>
 
 <div id="settings-overlay" class="hidden" onclick="if(event.target===this)closeSettings()">
@@ -440,6 +566,65 @@ html[data-bg="transparent"] .bbg-bar * {
         <div class="settings-radios">
           <label><input type="radio" name="view-style" value="modern"> Modern</label>
           <label><input type="radio" name="view-style" value="classic"> Classic</label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Item Animation</h4>
+        <div class="settings-row">
+          <label><input type="checkbox" id="opt-item-anim"> Item Animation</label>
+        </div>
+        <div class="settings-sub" id="item-anim-sub">
+          <div class="settings-row">
+            <label><input type="checkbox" id="opt-anim-label"> Show Item Name</label>
+          </div>
+          <div class="sub-label">Animation Background</div>
+          <div class="settings-radios">
+            <label><input type="radio" name="anim-bg" value="none"> None</label>
+            <label><input type="radio" name="anim-bg" value="stars"> Falling Stars</label>
+            <label><input type="radio" name="anim-bg" value="starburst"> Starburst</label>
+          </div>
+          <div class="settings-sub" id="anim-colors-sub">
+            <div class="sub-label">Color Theme</div>
+            <div class="settings-radios">
+              <label><input type="radio" name="anim-color-preset" value="blue"> Blue</label>
+              <label><input type="radio" name="anim-color-preset" value="green"> Green</label>
+              <label><input type="radio" name="anim-color-preset" value="purple"> Purple</label>
+              <label><input type="radio" name="anim-color-preset" value="custom"> Custom</label>
+            </div>
+            <div class="settings-sub" id="anim-custom-colors-sub">
+              <div class="sub-label">Color A</div>
+              <div class="settings-row">
+                <input type="color" class="settings-color-picker" id="opt-anim-color-a" value="#3498db">
+                <span id="anim-color-a-hex" style="font-size:10px;color:#888;">#3498db</span>
+              </div>
+              <div class="sub-label">Color B (lighter)</div>
+              <div class="settings-row">
+                <input type="color" class="settings-color-picker" id="opt-anim-color-b" value="#88ccff">
+                <span id="anim-color-b-hex" style="font-size:10px;color:#888;">#88ccff</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Go Mode Sound</h4>
+        <div class="settings-row">
+          <label><input type="checkbox" id="opt-gomode-sound"> Play sound on Go Mode</label>
+        </div>
+        <div class="settings-sub" id="gomode-sound-sub">
+          <div class="settings-row">
+            <label class="bsettings-btn" style="cursor:pointer;margin:0;">
+              Browse...
+              <input type="file" accept="audio/*" id="opt-gomode-sound-file" style="display:none;">
+            </label>
+            <span id="gomode-sound-status" style="font-size:10px;color:#888;">No file</span>
+          </div>
+          <div class="settings-row">
+            <button type="button" class="bsettings-btn" id="opt-gomode-sound-clear" style="margin:0;">Clear</button>
+            <button type="button" class="bsettings-btn" id="opt-gomode-sound-test" style="margin:0;">▶ Test</button>
+          </div>
         </div>
       </div>
 
@@ -503,7 +688,15 @@ var SETTINGS = {
   showChests:    true,
   dungeonFillEnabled: true, // When false the chests-done/prize-done tints are suppressed
   dungeonBoxEnabled:  true, // When false the default dark slot container is hidden — flat dungeons
-  viewStyle:     'modern'   // 'modern' | 'classic'
+  viewStyle:       'modern',     // 'modern' | 'classic'
+  itemAnimEnabled: false,        // When true, full-screen spin-in animation on item collect
+  animShowLabel:   true,         // Show item name at bottom during animation
+  gomodeSoundEnabled: false,     // Play a sound when Go Mode (level 1) is activated
+  gomodeSoundData:    '',        // data: URL of the audio file
+  animBg:           'none',      // 'none' | 'stars' | 'starburst'
+  animColorPreset:  'blue',      // 'blue' | 'green' | 'purple' | 'custom'
+  animColorA:       '#3498db',   // color A (primary)
+  animColorB:       '#88ccff'    // color B (lighter complement)
 };
 
 var FILL_COLORS = {
@@ -539,7 +732,15 @@ function loadSettings() {
     SETTINGS.showChests    = localStorage.getItem('alttp-broadcast-show-chests')     !== 'false';
     SETTINGS.dungeonFillEnabled = localStorage.getItem('alttp-broadcast-dungeon-fill') !== 'false';
     SETTINGS.dungeonBoxEnabled  = localStorage.getItem('alttp-broadcast-dungeon-box')  !== 'false';
-    SETTINGS.viewStyle     = localStorage.getItem('alttp-broadcast-view-style')      || SETTINGS.viewStyle;
+    SETTINGS.viewStyle       = localStorage.getItem('alttp-broadcast-view-style')        || SETTINGS.viewStyle;
+    SETTINGS.itemAnimEnabled    = localStorage.getItem('alttp-broadcast-item-anim') === 'true';
+    SETTINGS.animShowLabel      = localStorage.getItem('alttp-broadcast-anim-label') !== 'false';
+    SETTINGS.gomodeSoundEnabled = localStorage.getItem('alttp-broadcast-gomode-sound') === 'true';
+    SETTINGS.gomodeSoundData    = localStorage.getItem('alttp-broadcast-gomode-sound-data') || '';
+    SETTINGS.animBg          = localStorage.getItem('alttp-broadcast-anim-bg')            || SETTINGS.animBg;
+    SETTINGS.animColorPreset = localStorage.getItem('alttp-broadcast-anim-color-preset') || SETTINGS.animColorPreset;
+    SETTINGS.animColorA      = localStorage.getItem('alttp-broadcast-anim-color-a')      || SETTINGS.animColorA;
+    SETTINGS.animColorB      = localStorage.getItem('alttp-broadcast-anim-color-b')      || SETTINGS.animColorB;
   } catch (e) {}
   // URL bg overrides stored bg
   var p = new URLSearchParams(window.location.search);
@@ -568,6 +769,13 @@ function saveSettings() {
     localStorage.setItem('alttp-broadcast-dungeon-fill',    SETTINGS.dungeonFillEnabled ? 'true' : 'false');
     localStorage.setItem('alttp-broadcast-dungeon-box',     SETTINGS.dungeonBoxEnabled  ? 'true' : 'false');
     localStorage.setItem('alttp-broadcast-view-style',      SETTINGS.viewStyle);
+    localStorage.setItem('alttp-broadcast-item-anim',        SETTINGS.itemAnimEnabled    ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-anim-label',      SETTINGS.animShowLabel      ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-gomode-sound',    SETTINGS.gomodeSoundEnabled ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-anim-bg',            SETTINGS.animBg);
+    localStorage.setItem('alttp-broadcast-anim-color-preset', SETTINGS.animColorPreset);
+    localStorage.setItem('alttp-broadcast-anim-color-a',      SETTINGS.animColorA);
+    localStorage.setItem('alttp-broadcast-anim-color-b',      SETTINGS.animColorB);
   } catch (e) {}
 }
 
@@ -617,11 +825,18 @@ function applyDungeonVisibility() {
 }
 
 // Toggle the default container (background + border) on every dungeon slot.
+// When box is disabled, also strip all completion-state classes so nothing
+// renders a visible box even if fill/prize state is technically met.
 function applyDungeonBox() {
   Object.keys(dngEls).forEach(function(key) {
     var d = dngEls[key]; if (!d) return;
     d.slot.classList.toggle('no-box', !SETTINGS.dungeonBoxEnabled);
+    if (!SETTINGS.dungeonBoxEnabled) {
+      d.slot.classList.remove('prize-done', 'chests-done', 'prize-only');
+    }
   });
+  // If box was just re-enabled, re-derive completion state from current data
+  if (SETTINGS.dungeonBoxEnabled) applyDungeonFill();
 }
 
 // Re-evaluate the chests-done / prize-done classes from the current DOM state.
@@ -635,9 +850,10 @@ function applyDungeonFill() {
     var m = parseInt(parts[1]) || 0;
     var allChests = c >= m && m > 0;
     var prizeDone = (d.prize.src || '').indexOf('1.png') !== -1;
-    var fillOn   = SETTINGS.dungeonFillEnabled;
+    var fillOn   = SETTINGS.dungeonFillEnabled && SETTINGS.dungeonBoxEnabled;
     d.slot.classList.toggle('prize-done',  fillOn && allChests && prizeDone);
     d.slot.classList.toggle('chests-done', fillOn && allChests && !prizeDone);
+    if (!SETTINGS.dungeonBoxEnabled) d.slot.classList.remove('prize-only');
   });
 }
 
@@ -713,6 +929,18 @@ function openSettings() {
   document.getElementById('opt-dungeon-fill').checked   = SETTINGS.dungeonFillEnabled;
   document.getElementById('opt-dungeon-box').checked    = SETTINGS.dungeonBoxEnabled;
   document.querySelectorAll('input[name="view-style"]').forEach(function(r) { r.checked = (r.value === SETTINGS.viewStyle); });
+  document.getElementById('opt-item-anim').checked      = SETTINGS.itemAnimEnabled;
+  document.getElementById('opt-anim-label').checked     = SETTINGS.animShowLabel;
+  document.getElementById('opt-gomode-sound').checked   = SETTINGS.gomodeSoundEnabled;
+  updateGomodeSoundStatus();
+  document.querySelectorAll('input[name="anim-bg"]').forEach(function(r) { r.checked = (r.value === SETTINGS.animBg); });
+  document.querySelectorAll('input[name="anim-color-preset"]').forEach(function(r) { r.checked = (r.value === SETTINGS.animColorPreset); });
+  document.getElementById('opt-anim-color-a').value = SETTINGS.animColorA;
+  document.getElementById('anim-color-a-hex').textContent = SETTINGS.animColorA;
+  document.getElementById('opt-anim-color-b').value = SETTINGS.animColorB;
+  document.getElementById('anim-color-b-hex').textContent = SETTINGS.animColorB;
+  syncAnimSubEnabled();
+  syncGomodeSoundSub();
   syncFillSubEnabled();
   updateBgImageStatus();
   document.getElementById('settings-overlay').classList.remove('hidden');
@@ -724,6 +952,57 @@ function syncFillSubEnabled() {
   var sub = document.getElementById('fill-sub');
   if (SETTINGS.fillEnabled) sub.classList.remove('disabled');
   else                       sub.classList.add('disabled');
+}
+function syncGomodeSoundSub() {
+  var sub = document.getElementById('gomode-sound-sub');
+  if (SETTINGS.gomodeSoundEnabled) sub.classList.remove('disabled');
+  else                              sub.classList.add('disabled');
+}
+function updateGomodeSoundStatus() {
+  var el = document.getElementById('gomode-sound-status');
+  if (el) el.textContent = SETTINGS.gomodeSoundData ? 'File loaded' : 'No file';
+}
+function playGomodeSound() {
+  if (!SETTINGS.gomodeSoundEnabled || !SETTINGS.gomodeSoundData) return;
+  try {
+    var audio = new Audio(SETTINGS.gomodeSoundData);
+    audio.play();
+  } catch(e) {}
+}
+
+// Preset color pairs: [colorA, colorB]
+var ANIM_COLOR_PRESETS = {
+  blue:   ['#3498db', '#88ccff'],
+  green:  ['#2ecc71', '#88ffbb'],
+  purple: ['#b675ff', '#ddb8ff']
+};
+
+function applyAnimColorPreset(preset) {
+  if (preset === 'custom') return; // leave pickers as-is
+  var pair = ANIM_COLOR_PRESETS[preset];
+  if (!pair) return;
+  SETTINGS.animColorA = pair[0];
+  SETTINGS.animColorB = pair[1];
+  document.getElementById('opt-anim-color-a').value = pair[0];
+  document.getElementById('anim-color-a-hex').textContent = pair[0];
+  document.getElementById('opt-anim-color-b').value = pair[1];
+  document.getElementById('anim-color-b-hex').textContent = pair[1];
+}
+
+function syncAnimSubEnabled() {
+  var sub = document.getElementById('item-anim-sub');
+  if (SETTINGS.itemAnimEnabled) sub.classList.remove('disabled');
+  else                           sub.classList.add('disabled');
+
+  var colorsSub = document.getElementById('anim-colors-sub');
+  var showColors = SETTINGS.itemAnimEnabled && SETTINGS.animBg !== 'none';
+  if (showColors) colorsSub.classList.remove('disabled');
+  else             colorsSub.classList.add('disabled');
+
+  var customSub = document.getElementById('anim-custom-colors-sub');
+  var showCustom = showColors && SETTINGS.animColorPreset === 'custom';
+  if (showCustom) customSub.classList.remove('disabled');
+  else             customSub.classList.add('disabled');
 }
 
 function wireSettingsHandlers() {
@@ -810,6 +1089,72 @@ function wireSettingsHandlers() {
     applyDungeonBox();
   });
 
+  // Go Mode Sound
+  document.getElementById('opt-gomode-sound').addEventListener('change', function(e) {
+    SETTINGS.gomodeSoundEnabled = e.target.checked;
+    saveSettings(); syncGomodeSoundSub();
+  });
+  document.getElementById('opt-gomode-sound-file').addEventListener('change', function(e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function() {
+      SETTINGS.gomodeSoundData = reader.result;
+      try { localStorage.setItem('alttp-broadcast-gomode-sound-data', reader.result); } catch(err) {
+        alert('Audio file too large to store. Try a smaller file.');
+        SETTINGS.gomodeSoundData = '';
+      }
+      updateGomodeSoundStatus();
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
+  document.getElementById('opt-gomode-sound-clear').addEventListener('click', function() {
+    SETTINGS.gomodeSoundData = '';
+    try { localStorage.removeItem('alttp-broadcast-gomode-sound-data'); } catch(e) {}
+    updateGomodeSoundStatus();
+  });
+  document.getElementById('opt-gomode-sound-test').addEventListener('click', function() {
+    playGomodeSound();
+  });
+  // Item Animation toggle
+  document.getElementById('opt-item-anim').addEventListener('change', function(e) {
+    SETTINGS.itemAnimEnabled = e.target.checked;
+    saveSettings(); syncAnimSubEnabled();
+  });
+  // Show Item Name toggle
+  document.getElementById('opt-anim-label').addEventListener('change', function(e) {
+    SETTINGS.animShowLabel = e.target.checked;
+    saveSettings();
+  });
+  // Animation background
+  document.querySelectorAll('input[name="anim-bg"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      SETTINGS.animBg = r.value;
+      saveSettings(); syncAnimSubEnabled();
+    });
+  });
+  // Color preset radios
+  document.querySelectorAll('input[name="anim-color-preset"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      SETTINGS.animColorPreset = r.value;
+      applyAnimColorPreset(r.value);
+      saveSettings(); syncAnimSubEnabled();
+    });
+  });
+  // Custom color pickers
+  document.getElementById('opt-anim-color-a').addEventListener('input', function(e) {
+    SETTINGS.animColorA = e.target.value;
+    document.getElementById('anim-color-a-hex').textContent = e.target.value;
+    saveSettings();
+  });
+  document.getElementById('opt-anim-color-b').addEventListener('input', function(e) {
+    SETTINGS.animColorB = e.target.value;
+    document.getElementById('anim-color-b-hex').textContent = e.target.value;
+    saveSettings();
+  });
   // View Style — swap Modern / Classic layout
   document.querySelectorAll('input[name="view-style"]').forEach(function(r) {
     r.addEventListener('change', function() {
@@ -916,13 +1261,13 @@ var MODERN_ROWS = {
 };
 
 // Classic layout — 5 rows × 8 cells. Dungeon slots render in a compact
-// "label + prize" form via the .bdng-slot.classic CSS modifier. Bug net,
-// half magic, and the stats panel are dropped.
+// "label + prize" form via the .bdng-slot.classic CSS modifier.
+// 'powmush' = combined Powder/Mushroom cell; 'fluteshovel' = combined Flute/Shovel cell.
 var CLASSIC_ROWS = {
-  row1: ['bow','boomerang','hookshot','bomb','powder','gloves','sword','ep'],
-  row2: ['firerod','icerod','bombos','ether','quake','boots','shield','dp'],
-  row3: ['lamp','hammer','flute','book','moonpearl','flippers','tunic','toh'],
-  row4: ['bottles','somaria','byrna','cape','mirror','mushroom','net','agahnim'],
+  row1: ['bow','boomerang','hookshot','bomb','powmush','boots','sword','ep'],
+  row2: ['firerod','icerod','bombos','ether','quake','gloves','shield','dp'],
+  row3: ['lamp','hammer','fluteshovel','net','book','flippers','tunic','toh'],
+  row4: ['bottles','somaria','byrna','cape','mirror','moonpearl','halfmagic','agahnim'],
   row5: ['pod','sp','sw','tt','ip','mm','tr','gomode']
 };
 
@@ -947,6 +1292,11 @@ var state = {
   boots:0,flippers:0,tunic:0,gomode:0,
   mmMedallion:0,trMedallion:0,checks:0,deaths:0,bonks:0,
 };
+// Combo slot keys — not real state keys, just layout sentinels
+var COMBO_SLOTS = {
+  powmush:     { keys: ['powder','mushroom'] },
+  fluteshovel: { keys: ['flute','shovel'] },
+};
 
 var slotEls = {};   // key -> img element (for items)
 var slotContainers = {}; // key -> the .bslot/.bslot-bottles wrapper that gets .filled
@@ -963,9 +1313,10 @@ var maxState = {};
 // the current visual state already matches the requested one. Cleared on
 // rebuildRows / resetAll so a fresh DOM forces re-application.
 var _appliedItemState    = {};   // key (e.g. 'bow') -> last applied numeric state
+var _animSuppressNext    = true; // suppress animation on the very first snap (startup seed)
+var _appliedGomode       = -1;
 var _appliedDungeonState = {};   // key -> { chests, max, bigkey, map, compass, smallKeys, maxKeys, prize, obtained, classes }
 var _appliedMedallion    = { mm: -1, tr: -1 };
-var _appliedGomode       = -1;
 var _appliedStats        = { checks: null, deaths: null, bonks: null };
 
 // Snap coalescing — if multiple snap/prizes messages arrive within ~50 ms
@@ -1062,9 +1413,19 @@ function buildRows() {
       slotContainers['bottles'] = grid;
       rowEl.appendChild(grid); return;
     }
+    if (COMBO_SLOTS[key]) {
+      var combo = COMBO_SLOTS[key];
+      var wrap = document.createElement('div'); wrap.className = 'bslot-combo';
+      combo.keys.forEach(function(ck) {
+        var cell = document.createElement('div'); cell.className = 'bcombo-img';
+        var i = document.createElement('img'); i.src = imgSrc(ck, 0);
+        slotEls[ck] = i; cell.appendChild(i); wrap.appendChild(cell);
+        // Each sub-item gets its own container so fill is applied per-item
+        slotContainers[ck] = cell;
+      });
+      rowEl.appendChild(wrap); return;
+    }
     if (key === 'gomode') {
-      // Modern uses the wide right-column slot; Classic uses a regular
-      // 40x40 .bslot so the GO button matches the items / dungeons around it.
       var wrap = document.createElement('div');
       wrap.className = (SETTINGS.viewStyle === 'classic') ? 'bslot' : 'bright-slot';
       var btn = document.createElement('div'); btn.className = 'bgo-btn'; btn.textContent = 'GO';
@@ -1125,12 +1486,13 @@ function rebuildRows() {
   slotEls = {};
   slotContainers = {};
   dngEls = {};
+  _animSuppressNext = true;    // next snap re-seeds the new layout, not new collects
   // Reset the "last applied to DOM" caches — the new DOM starts at defaults
   // so the next snap must actually write through.
   _appliedItemState    = {};
+  _appliedGomode       = -1;
   _appliedDungeonState = {};
   _appliedMedallion    = { mm: -1, tr: -1 };
-  _appliedGomode       = -1;
   _appliedStats        = { checks: null, deaths: null, bonks: null };
   // buildRows() removes/rebuilds the .bcast-row elements wholesale
   buildRows();
@@ -1144,7 +1506,7 @@ function rebuildRows() {
 // ── Item fill helpers ────────────────────────────────────────────────────
 function isFilledFor(key, val) {
   if (!SETTINGS.fillEnabled) return false;
-  if (key === 'gomode' || key === 'stats') return false;
+  if (key === 'stats' || key === 'gomode') return false;
   return (val|0) > 0;
 }
 
@@ -1177,7 +1539,14 @@ function refreshAllFills() {
       applyFill('bottles', slotContainers['bottles'], isFilledFor('bottles', anyBottle ? 1 : 0));
       return;
     }
-    if (key === 'gomode' || key === 'stats') return;
+    if (COMBO_SLOTS[key]) {
+      // Each sub-item fills its own triangular half independently
+      COMBO_SLOTS[key].keys.forEach(function(ck) {
+        applyFill(ck, slotContainers[ck], isFilledFor(ck, state[ck]||0));
+      });
+      return;
+    }
+    if (key === 'stats') return;
     var c = slotContainers[key]; if (!c) return;
     applyFill(key, c, isFilledFor(key, state[key]||0));
   });
@@ -1187,23 +1556,49 @@ function updateItem(key, val) {
   if (key === 'gomode') {
     var btn = slotEls['gomode']; if (!btn) return;
     if (_appliedGomode === val) return;
+    var prev = _appliedGomode;
     _appliedGomode = val;
-    btn.className = 'bgo-btn' + (val===1?' on':val===2?' feeling':'');
-    btn.style.color = val>0 ? '#000' : '#666';
+    btn.className = 'bgo-btn' + (val === 1 ? ' on' : val === 2 ? ' feeling' : '');
+    if (val === 1 && prev !== 1) playGomodeSound();
     return;
   }
   var el = slotEls[key]; if (!el) return;
+  // Use _appliedItemState as prev — state[] is already updated by applySnap
+  // before updateItem is called, so we can't diff from state[key] here.
+  var prevApplied = _appliedItemState[key] !== undefined ? _appliedItemState[key] : 0;
   state[key] = val;
   // Skip the DOM write if this item is already showing the requested state.
   if (_appliedItemState[key] === val) return;
   _appliedItemState[key] = val;
   el.src = imgSrc(key, val);
 
-  // Update fill state — bottles fill is keyed on the parent
+  // Trigger animation when value increases (item newly obtained / upgraded).
+  var isBottle = (key === 'bottle1' || key === 'bottle2' || key === 'bottle3' || key === 'bottle4');
+  var bottleAlreadyOwned = isBottle && ['bottle1','bottle2','bottle3','bottle4'].some(function(b) {
+    return b !== key && (state[b]||0) > 0;
+  });
+  if (SETTINGS.itemAnimEnabled && !_animSuppressNext && val > prevApplied && key !== 'bomb' && !bottleAlreadyOwned) {
+    var animLabel = ITEM_NAMES[key] || key;
+    if (key === 'boomerang') {
+      var gotBlue = (val & 1) && !(prevApplied & 1);
+      var gotRed  = (val & 2) && !(prevApplied & 2);
+      animLabel = gotRed && !gotBlue ? 'Red Boomerang' : 'Blue Boomerang';
+    }
+    if (val > 1 && (key === 'sword' || key === 'gloves' || key === 'shield' || key === 'tunic' || key === 'mirror')) {
+      animLabel = animLabel + ' (Lv ' + val + ')';
+    }
+    if (key === 'gomode') {
+      animLabel = val === 2 ? 'Go Mode Feeling!' : 'Go Mode!';
+    }
+    queueItemAnim(key, imgSrc(key, val), animLabel);
+  }
+
+  // Update fill — bottles key fill on parent container; combo sub-items each have their own container
   if (key === 'bottle1' || key === 'bottle2' || key === 'bottle3' || key === 'bottle4') {
     var anyBottle = ['bottle1','bottle2','bottle3','bottle4'].some(function(b){ return (state[b]||0) > 0; });
     applyFill('bottles', slotContainers['bottles'], isFilledFor('bottles', anyBottle ? 1 : 0));
   } else {
+    // Combo sub-items each have their own slotContainer (.bcombo-img cell)
     applyFill(key, slotContainers[key], isFilledFor(key, val));
   }
 }
@@ -1244,9 +1639,9 @@ function applySnap(snap) {
   Object.keys(Rs).filter(function(k){ return /^row\d+$/.test(k); }).forEach(function(rk){ allKeys = allKeys.concat(Rs[rk]); });
   allKeys.forEach(function(key) {
     if (key==='bottles') ['bottle1','bottle2','bottle3','bottle4'].forEach(function(bk){updateItem(bk,state[bk]||0);});
-    else if (key!=='stats' && key!=='gomode' && !isDungeonKey(key)) updateItem(key,state[key]||0);
+    else if (COMBO_SLOTS[key]) COMBO_SLOTS[key].keys.forEach(function(ck){updateItem(ck,state[ck]||0);});
+    else if (key!=='stats' && !isDungeonKey(key)) updateItem(key,state[key]||0);
   });
-  updateItem('gomode', snap.gomode!==undefined ? snap.gomode : state.gomode||0);
   updateMedallions();
 
   if (snap.checks !== undefined && slotEls['stat_check'] && _appliedStats.checks !== snap.checks) {
@@ -1314,8 +1709,14 @@ function applySnap(snap) {
     if (prize !== undefined) {
       var prizeSrc = BASE+'/'+prize+(obtained?'1':'0')+'.png';
       if (prize !== cache.prize || !!obtained !== !!cache.obtained) {
+        var prevObtainedSnap = !!cache.obtained;
         d.prize.src = prizeSrc;
         cache.prize = prize; cache.obtained = !!obtained;
+        if (obtained && !prevObtainedSnap && !_animSuppressNext && SETTINGS.itemAnimEnabled) {
+          var snapPrizeName  = { crystal:'Crystal', redcrystal:'Red Crystal', greenpendant:'Green Pendant', pendant:'Pendant' }[prize] || 'Prize';
+          var snapPrizeLabel = (DUNGEON_NAMES[key] || key.toUpperCase()) + ' ' + snapPrizeName;
+          queueItemAnim('_dungeon_' + key, BASE + '/' + prize + '1.png', snapPrizeLabel);
+        }
       }
     }
 
@@ -1324,7 +1725,7 @@ function applySnap(snap) {
     var srcNow   = d.prize.src || '';
     var prizeDone = srcNow.indexOf('1.png') !== -1;
     var allChests = !!cache.chestsFull;
-    var fillOn   = SETTINGS.dungeonFillEnabled;
+    var fillOn   = SETTINGS.dungeonFillEnabled && SETTINGS.dungeonBoxEnabled;
     var wantPrize  = fillOn && allChests && prizeDone;
     var wantChests = fillOn && allChests && !prizeDone;
     if (cache.prizeDoneClass !== wantPrize)   { d.slot.classList.toggle('prize-done',  wantPrize);  cache.prizeDoneClass  = wantPrize; }
@@ -1332,22 +1733,25 @@ function applySnap(snap) {
 
     // Green outline when the boss is defeated (prize collected) but the
     // dungeon's chests aren't all done yet. Applied to every dungeon now.
-    var wantPrizeOnly = prizeDone && !allChests;
+    var wantPrizeOnly = SETTINGS.dungeonBoxEnabled && prizeDone && !allChests;
     if (cache.pendantClass !== wantPrizeOnly) { d.slot.classList.toggle('prize-only', wantPrizeOnly); cache.pendantClass = wantPrizeOnly; }
   });
 
   // Recompute item fills against new state
   refreshAllFills();
+  // After the first snap the broadcast is fully seeded — allow animations from now on
+  _animSuppressNext = false;
 }
 
 function resetAll() {
   Object.keys(state).forEach(function(k){state[k]=0;});
-  maxState = {};                 // forget sticky items on new game
+  maxState = {};
+  _animSuppressNext = true;      // next snap is the post-reset seed, not a new collect
   // Force every diff guard to "unknown" so resetAll cleanly re-writes every slot.
   _appliedItemState    = {};
+  _appliedGomode       = -1;
   _appliedDungeonState = {};
   _appliedMedallion    = { mm: -1, tr: -1 };
-  _appliedGomode       = -1;
   _appliedStats        = { checks: null, deaths: null, bonks: null };
   applySnap(state);
   ['stat_check','stat_death','stat_bonk'].forEach(function(k){if(slotEls[k])slotEls[k].textContent='0';});
@@ -1373,19 +1777,203 @@ function applyPrizes(prizes) {
     var p = prizes[key]; if (!p) return;
     var prizeName = p.name || 'crystal';
     var obtained  = !!p.obtained;
+
+    // Detect obtained flip for animation (cache is in _appliedDungeonState)
+    var cache = _appliedDungeonState[key] || (_appliedDungeonState[key] = {});
+    var prevObtained = !!cache.obtained;
+
     d.prize.src = BASE + '/' + prizeName + (obtained ? '1' : '0') + '.png';
+    cache.prize   = prizeName;
+    cache.obtained = obtained;
+
+    // Animate dungeon defeat if newly obtained and not suppressed
+    if (obtained && !prevObtained && !_animSuppressNext && SETTINGS.itemAnimEnabled) {
+      var dngPrizeName  = { crystal:'Crystal', redcrystal:'Red Crystal', greenpendant:'Green Pendant', pendant:'Pendant' }[prizeName] || 'Prize';
+      var dngPrizeLabel = (DUNGEON_NAMES[key] || key.toUpperCase()) + ' ' + dngPrizeName;
+      queueItemAnim('_dungeon_' + key, BASE + '/' + prizeName + '1.png', dngPrizeLabel);
+    }
 
     var parts = d.chestVal.textContent.split('/');
     var cNow  = parseInt(parts[0]) || 0;
     var mNow  = parseInt(parts[1]) || 0;
     var allChests = cNow >= mNow && mNow > 0;
-    var fillOn = SETTINGS.dungeonFillEnabled;
+    var fillOn = SETTINGS.dungeonFillEnabled && SETTINGS.dungeonBoxEnabled;
     d.slot.classList.toggle('prize-done',  fillOn && allChests && obtained);
     d.slot.classList.toggle('chests-done', fillOn && allChests && !obtained);
 
     // Boss defeated but chests remain — green outline on every dungeon.
-    d.slot.classList.toggle('prize-only', obtained && !allChests);
+    d.slot.classList.toggle('prize-only', SETTINGS.dungeonBoxEnabled && obtained && !allChests);
   });
+}
+
+// ── Item name labels for animation overlay ───────────────────────────────
+var ITEM_NAMES = {
+  bow:'Bow', hookshot:'Hookshot', bomb:'Bombs',
+  mushroom:'Mushroom', powder:'Magic Powder', firerod:'Fire Rod', icerod:'Ice Rod',
+  moonpearl:'Moon Pearl', sword:'Sword', agahnim:'Agahnim Defeated',
+  bombos:'Bombos', ether:'Ether', quake:'Quake',
+  lamp:'Lamp', hammer:'Hammer', shovel:'Shovel', flute:'Flute',
+  net:'Bug-Catching Net', gloves:'Power Gloves', shield:'Shield', book:'Book of Mudora',
+  bottle1:'Bottle', somaria:'Cane of Somaria', byrna:'Cane of Byrna',
+  cape:'Magic Cape', mirror:'Magic Mirror', halfmagic:'Half Magic',
+  boots:'Pegasus Boots', flippers:'Flippers', tunic:'Tunic',
+  gomode:'Go Mode!'
+};
+var DUNGEON_NAMES = {
+  ep:'Eastern Palace', dp:'Desert Palace', toh:'Tower of Hera',
+  pod:'Palace of Darkness', sp:'Swamp Palace', sw:'Skull Woods',
+  tt:"Thieves' Town", ip:'Ice Palace', mm:'Misery Mire', tr:'Turtle Rock'
+};
+
+// ── Item Animation Engine ────────────────────────────────────────────────
+var _animQueue   = [];
+var _animRunning = false;
+var _animKey     = null;
+
+function queueItemAnim(key, imgSrcUrl, label) {
+  if (!SETTINGS.itemAnimEnabled) return;
+  _animQueue.push({ key: key, src: imgSrcUrl, label: label || '' });
+  if (!_animRunning) _nextAnim();
+}
+
+function _nextAnim() {
+  if (_animQueue.length === 0) { _animRunning = false; return; }
+  _animRunning = true;
+  var entry = _animQueue.shift();
+  _animKey = entry.key;
+  _playItemAnim(entry.src, entry.label || '', _nextAnim);
+}
+
+function _playItemAnim(src, label, done) {
+  var overlay   = document.getElementById('item-anim-overlay');
+  var animImg   = document.getElementById('item-anim-img');
+  var animLabel = document.getElementById('item-anim-label');
+  var canvas    = document.getElementById('item-anim-canvas');
+  var container = document.querySelector('.broadcast-container');
+
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  var peakScale = Math.round((window.innerHeight / 40) * 10) / 10;
+  overlay.style.setProperty('--anim-peak-scale', peakScale);
+
+  animImg.src = src;
+  animImg.className = '';
+
+  var stopBg = _startAnimBg(canvas);
+
+  container.style.transition = 'opacity 0.2s ease';
+  container.style.opacity = '0';
+  overlay.classList.add('anim-visible');
+
+  if (animLabel) {
+    animLabel.textContent = (SETTINGS.animShowLabel && label) ? label : '';
+    animLabel.classList.toggle('label-show', !!(SETTINGS.animShowLabel && label));
+  }
+
+  setTimeout(function() {
+    animImg.classList.add('phase-grow');
+    setTimeout(function() {
+      animImg.classList.remove('phase-grow');
+      void animImg.offsetWidth;
+      animImg.classList.add('phase-shrink');
+      setTimeout(function() {
+        stopBg();
+        overlay.classList.remove('anim-visible');
+        if (animLabel) { animLabel.classList.remove('label-show'); animLabel.textContent = ''; }
+        container.style.opacity = '1';
+        var slotImg = slotEls[_animKey] || null;
+        if (slotImg) {
+          slotImg.classList.remove('slot-bounce');
+          void slotImg.offsetWidth;
+          slotImg.classList.add('slot-bounce');
+          slotImg.addEventListener('animationend', function h() {
+            slotImg.classList.remove('slot-bounce');
+            slotImg.removeEventListener('animationend', h);
+          });
+        }
+        setTimeout(done, 260);
+      }, 820);
+    }, 1420);
+  }, 220);
+}
+
+function _startAnimBg(canvas) {
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  var stopped = false;
+  var rafId = null;
+
+  if (SETTINGS.animBg === 'stars') {
+    var NUM_STARS = 60;
+    var stars = [];
+    for (var i = 0; i < NUM_STARS; i++) { stars.push(_makeStarParticle(W, H, true)); }
+    function drawStars() {
+      if (stopped) { ctx.clearRect(0, 0, W, H); return; }
+      ctx.clearRect(0, 0, W, H);
+      for (var s = 0; s < stars.length; s++) {
+        var st = stars[s];
+        st.x += st.vx; st.y += st.vy; st.life -= 1;
+        if (st.x > W + 40 || st.y > H + 40 || st.life <= 0) { stars[s] = _makeStarParticle(W, H, false); continue; }
+        var col = (s % 2 === 0) ? SETTINGS.animColorA : SETTINGS.animColorB;
+        var alpha = Math.min(1, st.life / 20) * st.alpha;
+        var tailX = st.x - st.vx * st.tail, tailY = st.y - st.vy * st.tail;
+        var grad = ctx.createLinearGradient(tailX, tailY, st.x, st.y);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, _hexToRgba(col, alpha));
+        ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(st.x, st.y);
+        ctx.strokeStyle = grad; ctx.lineWidth = st.width; ctx.stroke();
+        ctx.beginPath(); ctx.arc(st.x, st.y, st.width * 0.8, 0, Math.PI * 2);
+        ctx.fillStyle = _hexToRgba(col, alpha); ctx.fill();
+      }
+      rafId = requestAnimationFrame(drawStars);
+    }
+    drawStars();
+  } else if (SETTINGS.animBg === 'starburst') {
+    var NUM_BEAMS = 16;
+    var startTime = performance.now();
+    var cx = W / 2, cy = H / 2;
+    var maxR = Math.sqrt(cx * cx + cy * cy) + 10;
+    function drawBurst(now) {
+      if (stopped) { ctx.clearRect(0, 0, W, H); return; }
+      var elapsed = (now - startTime) / 1000;
+      ctx.clearRect(0, 0, W, H);
+      var rotSpeed = 0.4, baseAngle = elapsed * rotSpeed;
+      var sliceAngle = (Math.PI * 2) / NUM_BEAMS;
+      for (var b = 0; b < NUM_BEAMS; b++) {
+        var a1 = baseAngle + b * sliceAngle, a2 = a1 + sliceAngle * 0.5;
+        var col = (b % 2 === 0) ? SETTINGS.animColorA : SETTINGS.animColorB;
+        var fadeAlpha = Math.min(1, elapsed / 0.3) * 0.55;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, maxR, a1, a2); ctx.closePath();
+        ctx.fillStyle = _hexToRgba(col, fadeAlpha); ctx.fill();
+      }
+      var fadeR = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(W, H) * 0.32);
+      fadeR.addColorStop(0, 'rgba(0,0,0,0.85)'); fadeR.addColorStop(0.6, 'rgba(0,0,0,0.2)'); fadeR.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = fadeR; ctx.fillRect(0, 0, W, H);
+      rafId = requestAnimationFrame(drawBurst);
+    }
+    rafId = requestAnimationFrame(drawBurst);
+  } else {
+    ctx.clearRect(0, 0, W, H);
+  }
+
+  return function stop() { stopped = true; if (rafId) cancelAnimationFrame(rafId); ctx.clearRect(0, 0, W, H); };
+}
+
+function _makeStarParticle(W, H, scatter) {
+  var speed = 4 + Math.random() * 6;
+  var angle = Math.PI / 4 + (Math.random() - 0.5) * 0.3;
+  var x, y;
+  if (scatter) { x = Math.random() * W; y = Math.random() * H; }
+  else if (Math.random() < 0.5) { x = Math.random() * W; y = -10; }
+  else { x = -10; y = Math.random() * H; }
+  return { x:x, y:y, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed,
+           width:1+Math.random()*2, tail:4+Math.random()*6, alpha:0.5+Math.random()*0.5, life:40+Math.floor(Math.random()*60) };
+}
+
+function _hexToRgba(hex, alpha) {
+  var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return 'rgba('+r+','+g+','+b+','+alpha.toFixed(3)+')';
 }
 
 // ── BroadcastChannel ─────────────────────────────────────────────────────
@@ -1412,7 +2000,8 @@ buildRows();
 applyDungeonVisibility();
 applyBg(SETTINGS.bg);
 wireSettingsHandlers();
-
+syncAnimSubEnabled();
+if (SETTINGS.animColorPreset !== 'custom') applyAnimColorPreset(SETTINGS.animColorPreset);
 setTimeout(function() {
   try { new BroadcastChannel('alttp-tracker').postMessage({type:'requestSnap'}); } catch(e) {}
 }, 500);

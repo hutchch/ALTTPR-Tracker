@@ -7,5 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setBroadcastBg:   (bg) => ipcRenderer.invoke('set-broadcast-bg', bg),
   setTimerBg:       (bg) => ipcRenderer.invoke('set-timer-bg', bg),
   setItemTrackerBg: (bg) => ipcRenderer.invoke('set-itemtracker-bg', bg),
+  registerNewgameHotkey:   (accel) => ipcRenderer.invoke('register-newgame-hotkey', accel),
+  unregisterNewgameHotkey: ()      => ipcRenderer.invoke('unregister-newgame-hotkey'),
+  onNewgame: (cb) => ipcRenderer.on('newgame', cb),
   isElectron:   true,
 });

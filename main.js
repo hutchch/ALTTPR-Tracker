@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const url  = require('url');
 const fs   = require('fs');
@@ -247,6 +247,7 @@ ipcMain.on('launch', (event, opts) => {
 
 ipcMain.handle('load-settings', () => store.get('settings', {}));
 
+
 ipcMain.handle('get-paths', () => {
   const root = getRoot();
   return {
@@ -345,6 +346,43 @@ ipcMain.handle('set-itemtracker-bg', (event, bg) => {
   if (bgColors[bg]) win.setBackgroundColor(bgColors[bg]);
   itemTrackerBg = bg;
 });
+
+// ── New Game global hotkey ────────────────────────────────────────────────────
+let newgameHotkey = null; // currently registered accelerator string, or null
+
+function fireNewgame() {
+  // Send only to itemtracker — resetItemTracker() will BroadcastChannel
+  // the newgame event to map and broadcast windows itself.
+  if (itemWin && !itemWin.isDestroyed()) {
+    itemWin.webContents.send('newgame');
+  }
+}
+
+ipcMain.handle('register-newgame-hotkey', (event, accelerator) => {
+  // Unregister any existing hotkey first
+  if (newgameHotkey) {
+    globalShortcut.unregister(newgameHotkey);
+    newgameHotkey = null;
+  }
+  try {
+    const ok = globalShortcut.register(accelerator, fireNewgame);
+    if (ok) { newgameHotkey = accelerator; return { ok: true }; }
+    return { ok: false, error: 'Accelerator already in use or invalid' };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('unregister-newgame-hotkey', () => {
+  if (newgameHotkey) {
+    globalShortcut.unregister(newgameHotkey);
+    newgameHotkey = null;
+  }
+  return { ok: true };
+});
+
+// Clean up on quit
+app.on('will-quit', () => { globalShortcut.unregisterAll(); });
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {

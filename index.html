@@ -45,7 +45,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 
 <h1>⚔ ALTTP Tracker</h1>
   <p style="text-align: center;">
-  <small>Version 1.1.12</small>
+  <small>Version 1.1.13 </small>
 </p>
 <div class="section">
   <h2>Connection</h2>
@@ -221,6 +221,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   <div class="info" style="padding-left:15px;margin-top:6px;color:#8353d5;font-style:italic;;">⚠ Pause will only work while the game is in a menu. (See User Guide)</div>
 </div>
 
+
 <script>
 var IS_ELECTRON = !!(window.electronAPI && window.electronAPI.isElectron);
 
@@ -317,26 +318,28 @@ function launchBoth() {
   }
 }
 
-// Restore saved values — in Electron pull from electron-store, fallback to localStorage
+
+// ── Restore saved values — in Electron pull from electron-store, fallback to localStorage
 window.addEventListener('DOMContentLoaded', async function() {
   var saved = {};
   if (IS_ELECTRON) {
     saved = await window.electronAPI.loadSettings();
   }
   var fields = {
-    'ws-host':    saved.wsHost     || localStorage.getItem('alttp-ws-host'),
-    'ws-port':    saved.wsPort     || localStorage.getItem('alttp-ws-port'),
-    'item-scale': saved.scale      || localStorage.getItem('alttp-item-scale'),
-    'map-zoom':   saved.zoom       || localStorage.getItem('alttp-map-zoom'),
-    'gt-crystals':saved.gtCrystals || localStorage.getItem('alttp-gt-crystals'),
-    'gamemode-select': saved.gamemode || localStorage.getItem('alttp-gamemode'),
-    'timer-color': saved.timerColor   || localStorage.getItem('alttp-timer-color'),
-    'timer-bg':    saved.timerBg      || localStorage.getItem('alttp-timer-bg'),
-    'tracker-bg':  saved.trackerBg    || localStorage.getItem('alttp-tracker-bg'),
-    'dungeon-items-restore': saved.dungeonItems || localStorage.getItem('alttp-dungeon-items'),
+    'ws-host':           saved.wsHost        || localStorage.getItem('alttp-ws-host'),
+    'ws-port':           saved.wsPort        || localStorage.getItem('alttp-ws-port'),
+    'item-scale':        saved.scale         || localStorage.getItem('alttp-item-scale'),
+    'map-zoom':          saved.zoom          || localStorage.getItem('alttp-map-zoom'),
+    'gt-crystals':       saved.gtCrystals    || localStorage.getItem('alttp-gt-crystals'),
+    'gamemode-select':   saved.gamemode      || localStorage.getItem('alttp-gamemode'),
+    'dungeonitems-select': saved.dungeonItems || localStorage.getItem('alttp-dungeon-items'),
+    'timer-color':       saved.timerColor    || localStorage.getItem('alttp-timer-color'),
+    'timer-bg':          saved.timerBg       || localStorage.getItem('alttp-timer-bg'),
+    'tracker-bg':        saved.trackerBg     || localStorage.getItem('alttp-tracker-bg'),
   };
   for (var id in fields) {
-    if (fields[id]) document.getElementById(id).value = fields[id];
+    var el = document.getElementById(id);
+    if (el && fields[id]) el.value = fields[id];
   }
   var enemizer = saved.enemizer || localStorage.getItem('alttp-enemizer') || 'yes';
   var el = document.querySelector('input[name="enemizer"][value="' + enemizer + '"]');
@@ -359,6 +362,7 @@ window.addEventListener('DOMContentLoaded', async function() {
   if (tcCust && document.getElementById('timer-color-custom')) document.getElementById('timer-color-custom').value = tcCust;
   var tbCust = localStorage.getItem('alttp-timer-bg-custom');
   if (tbCust && document.getElementById('timer-bg-custom'))    document.getElementById('timer-bg-custom').value    = tbCust;
+
 });
 </script>
 </body>
