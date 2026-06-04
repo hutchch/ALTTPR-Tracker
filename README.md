@@ -9,6 +9,9 @@ This is as-is.  These files are to assist in the game, and provided to help othe
 ***
 :warning: NOTE:  All documention was moved to a wiki.  See: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/wiki)
 
+***
+
+### FEATURES:
  - Dungeon Item Shuffle
    - Standard
    - Map/Compass
@@ -26,10 +29,16 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Item Tracker Broadcast View (Customizable)
  - Item marking on the map
 
-<i>Each mode takes many hours to build.  I have commited over several hundred hours into this project. There are no plans to incorporate Entrance shuffle, ShopSanity, or Retro modes.  My apologies. </i>
 
+<i>Each mode takes many hours to build.  I have commited over several hundred hours into this project. There are no plans to incorporate Entrance shuffle, ShopSanity, or Retro modes.  My apologies. </i>
+***
+
+### DOWNLOAD: 
 Tracker Application can be downloaded under [Releases](https://github.com/hutchch/ALTTPR-Tracker/releases)
 
+***
+
+### SETUP GUIDES:
 User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/wiki)
 
 Emulator setup can be found: [Emulator Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Emulator-Setup)
@@ -48,14 +57,15 @@ Windows Emulator Setup Guides
 
 ***
 
-Logic
-[Current Logic](https://github.com/hutchch/ALTTPR-Tracker/blob/main/LOGIC-README.md)
+### LOGIC
+- [Logic Reference](https://github.com/hutchch/ALTTPR-Tracker/wiki/Logic-Reference)
 
 ***
 
 <img width="1637" height="1134" alt="image" src="https://github.com/user-attachments/assets/78b1504f-6aac-4815-b0fa-525d6b6e8f17" />
 
 ***
+
 
 Special Thanks to [Jedi Master T8ter](https://linktr.ee/jedi_master_t8ter) for showing this tracker on stream and testing it.  
 Thanks to [LordHoell](https://linktr.ee/lordhoell) for indirectly providing ideas for the ItemTracker and for providing the idea on how to vibe code the map, [Max2dgam1ng](https://linktr.ee/max2dgam1ng) for getting me into this game, and playing on stream, [Limpbagel](https://linktr.ee/limpbagel) for tutorials, game knowledge and pointing me to [Stonks tracker](https://thettracker.vercel.app/) which gave ideas on some of the elements used in the Itemtracker, and finally the [ALTTPR community](https://alttpr.com) their hard work with randomizer as well as providing the [Community Tracker](https://alttprtracker.mfns.dev/index.html).
