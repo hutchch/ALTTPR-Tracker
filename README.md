@@ -28,7 +28,10 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Sword or Swordless
  - Item Tracker Broadcast View (Customizable)
  - Item marking on the map
-
+ - Automatic Timer 
+   - Starts when Game Play is detected
+   - Stops in the Triforce Room
+   - Can Only Pause in a menu (This is due to reading the game modes for auto start and stop) 
 
 <i>Each mode takes many hours to build.  I have commited over several hundred hours into this project. There are no current plans to incorporate Entrance shuffle, ShopSanity, or Retro modes.  My apologies. </i>
 ***
