@@ -65,8 +65,13 @@ Windows Emulator Setup Guides
 <img width="1637" height="1134" alt="image" src="https://github.com/user-attachments/assets/78b1504f-6aac-4815-b0fa-525d6b6e8f17" />
 
 ***
+Here are some alternate trackers.  Please take a look and try them out 
+ - [Hoell-Tracker](https://github.com/lordhoell/HoellTracker)
+ - [PopTracker](https://poptracker.github.io/)
+ - [OpenTracker](https://github.com/trippsc2/OpenTracker/releases)
+ - [ALTTPR Community Tracker](https://alttprtracker.mfns.dev/)
 
-
+***
 Special Thanks to [Jedi Master T8ter](https://linktr.ee/jedi_master_t8ter) for showing this tracker on stream and testing it.  
 Thanks to [LordHoell](https://linktr.ee/lordhoell) for indirectly providing ideas for the ItemTracker and for providing the idea on how to vibe code the map, [Max2dgam1ng](https://linktr.ee/max2dgam1ng) for getting me into this game, and playing on stream, [Limpbagel](https://linktr.ee/limpbagel) for tutorials, game knowledge and pointing me to [Stonks tracker](https://thettracker.vercel.app/) which gave ideas on some of the elements used in the Itemtracker, and finally the [ALTTPR community](https://alttpr.com) their hard work with randomizer as well as providing the [Community Tracker](https://alttprtracker.mfns.dev/index.html).
 
