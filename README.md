@@ -66,10 +66,11 @@ Windows Emulator Setup Guides
 
 ***
 Here are some alternate trackers.  Please take a look and try them out 
- - [Hoell-Tracker](https://github.com/lordhoell/HoellTracker)
- - [PopTracker](https://poptracker.github.io/)
- - [OpenTracker](https://github.com/trippsc2/OpenTracker/releases)
- - [ALTTPR Community Tracker](https://alttprtracker.mfns.dev/)
+ - [Hoell-Tracker](https://github.com/lordhoell/HoellTracker) (Release is on the right side)
+ - [PopTracker](https://poptracker.github.io/) (Release is on the right side)
+ - [OpenTracker](https://github.com/trippsc2/OpenTracker/) (Release is on the right side) 
+ - [ALTTPR Community Tracker](https://alttprtracker.mfns.dev/) (Webpage) 
+ - [Stonks Stat Tracker](https://thettracker.vercel.app/) (Webpage) 
 
 ***
 Special Thanks to [Jedi Master T8ter](https://linktr.ee/jedi_master_t8ter) for showing this tracker on stream and testing it.  
