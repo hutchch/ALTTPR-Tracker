@@ -39,9 +39,87 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 #btn-timer { background: #2a0a3a; color: #c084fc; border: 1px solid #6a2a9a; }
 #btn-timer:hover { background: #4a1a6a; }
 .divider { border: none; border-top: 1px solid #222; margin: 4px 0 12px; }
+
+/* ── Settings gear button ── */
+#app-settings-btn {
+  position: fixed; top: 10px; right: 10px;
+  background: #1a1a1a; border: 1px solid #333; color: #666;
+  border-radius: 50%; width: 28px; height: 28px;
+  font-size: 15px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: color 0.15s, border-color 0.15s;
+  z-index: 100;
+}
+#app-settings-btn:hover { color: #aaa; border-color: #555; }
+
+/* ── App settings panel ── */
+#app-settings-panel {
+  display: none;
+  position: fixed; top: 44px; right: 10px;
+  background: #1a1a1a; border: 1px solid #333;
+  border-radius: 6px; padding: 12px 14px;
+  min-width: 220px; z-index: 99;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+#app-settings-panel.open { display: block; }
+#app-settings-panel h4 {
+  margin: 0 0 10px; font-size: 11px; color: #555;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.app-settings-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px; font-size: 12px; color: #999;
+}
+#check-update-btn {
+  flex: 1; padding: 6px 10px; font-size: 12px; cursor: pointer;
+  background: #1a2e4a; color: #7ab8f5;
+  border: 1px solid #2a4e7a; border-radius: 4px;
+  transition: background 0.15s;
+}
+#check-update-btn:hover { background: #2a4a6a; }
+#check-update-btn:disabled { opacity: 0.5; cursor: default; }
+#update-panel-status {
+  font-size: 10px; color: #666; margin-top: 2px;
+}
+
+/* ── Update notification bar ── */
+#update-bar {
+  display: none;
+  background: #1a2e1a; border: 1px solid #2a5a2a;
+  border-radius: 4px; padding: 7px 10px;
+  margin-bottom: 10px;
+  font-size: 12px; color: #4dff88;
+  align-items: center; gap: 8px;
+}
+#update-bar.visible { display: flex; }
+#update-bar.error   { background: #2e1a1a; border-color: #5a2a2a; color: #ff7777; }
+#install-update-btn {
+  margin-left: auto; padding: 4px 10px;
+  background: #2a5a2a; color: #4dff88;
+  border: 1px solid #4dff88; border-radius: 4px;
+  font-size: 11px; cursor: pointer; white-space: nowrap;
+}
+#install-update-btn:hover { background: #3a7a3a; }
 </style>
 </head>
 <body>
+
+<!-- Settings gear -->
+<button id="app-settings-btn" title="App Settings" onclick="toggleAppSettings()">⚙</button>
+
+<!-- App settings panel -->
+<div id="app-settings-panel">
+  <h4>App Settings</h4>
+  <div class="app-settings-row">
+    <button id="check-update-btn" onclick="manualCheckUpdate()">Check for Updates</button>
+  </div>
+  <div id="update-panel-status"></div>
+</div>
+
+<!-- Update notification bar (shown when update available/ready) -->
+<div id="update-bar">
+  <span id="update-bar-msg">Checking for updates…</span>
+</div>
 
 <h1>⚔ ALTTP Tracker</h1>
   <p style="text-align: center;">
@@ -364,6 +442,90 @@ window.addEventListener('DOMContentLoaded', async function() {
   if (tbCust && document.getElementById('timer-bg-custom'))    document.getElementById('timer-bg-custom').value    = tbCust;
 
 });
+
+// ── App Settings panel ────────────────────────────────────────────────────────
+function toggleAppSettings() {
+  var panel = document.getElementById('app-settings-panel');
+  panel.classList.toggle('open');
+}
+// Close panel when clicking outside
+document.addEventListener('click', function(e) {
+  var panel = document.getElementById('app-settings-panel');
+  var btn   = document.getElementById('app-settings-btn');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && e.target !== btn) {
+    panel.classList.remove('open');
+  }
+});
+
+// ── Auto-update UI ────────────────────────────────────────────────────────────
+(function() {
+  if (!window.electronAPI || !window.electronAPI.onUpdateStatus) return;
+
+  var bar        = document.getElementById('update-bar');
+  var barMsg     = document.getElementById('update-bar-msg');
+  var panelStatus = document.getElementById('update-panel-status');
+  var checkBtn   = document.getElementById('check-update-btn');
+
+  function setBar(msg, type, showInstall) {
+    bar.className = 'visible' + (type === 'error' ? ' error' : '');
+    barMsg.textContent = msg;
+    // Remove any existing install button
+    var existing = document.getElementById('install-update-btn');
+    if (existing) existing.remove();
+    if (showInstall) {
+      var btn = document.createElement('button');
+      btn.id = 'install-update-btn';
+      btn.textContent = '↓ Download';
+      btn.onclick = function() { window.electronAPI.installUpdate(); };
+      bar.appendChild(btn);
+    }
+  }
+
+  function hideBar() {
+    bar.className = '';
+  }
+
+  function setPanelStatus(msg, color) {
+    panelStatus.textContent = msg;
+    panelStatus.style.color = color || '#666';
+  }
+
+  window.electronAPI.onUpdateStatus(function(data) {
+    var status = data.status;
+    var info   = data.info;
+
+    if (status === 'checking') {
+      setPanelStatus('Checking…', '#666');
+      checkBtn.disabled = true;
+    }
+    else if (status === 'up-to-date') {
+      hideBar();
+      setPanelStatus('You\'re up to date.', '#4dff88');
+      checkBtn.disabled = false;
+    }
+    else if (status === 'available') {
+      var ver = info && info.version ? ' v' + info.version : '';
+      setBar('Update' + ver + ' available — click to download.', 'info', true);
+      setPanelStatus('Update' + ver + ' available.', '#7ab8f5');
+      checkBtn.disabled = false;
+    }
+  });
+})();
+
+function manualCheckUpdate() {
+  if (!window.electronAPI || !window.electronAPI.checkForUpdates) return;
+  document.getElementById('update-panel-status').textContent = 'Checking…';
+  document.getElementById('update-panel-status').style.color = '#666';
+  var btn = document.getElementById('check-update-btn');
+  btn.disabled = true;
+  // Re-enable after 10s in case the error was suppressed and no status arrives
+  setTimeout(function() {
+    btn.disabled = false;
+    var status = document.getElementById('update-panel-status');
+    if (status.textContent === 'Checking…') status.textContent = '';
+  }, 10000);
+  window.electronAPI.checkForUpdates();
+}
 </script>
 </body>
 </html>

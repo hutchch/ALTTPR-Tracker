@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
+const https = require('https');
 const path = require('path');
 const url  = require('url');
 const fs   = require('fs');
@@ -73,7 +74,7 @@ function createItemTrackerWindow(scale, wsHost, wsPort, bg, dungeonItems, bossSh
   const isTransparent = bg === 'transparent';
   const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', transparent: '#00000000' };
   const opts = {
-    width:  (bounds && bounds.width)  || Math.ceil(500 * s),
+    width:  (bounds && bounds.width)  || Math.ceil(480 * s),
     height: (bounds && bounds.height) || Math.ceil(620 * s),
     resizable: true,
     useContentSize: true,
@@ -194,8 +195,8 @@ function createBroadcastWindow(bg, bounds) {
   const isTransparent = bg === 'transparent';
   const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', transparent: '#00000000' };
   const opts = {
-    width:  (bounds && bounds.width)  || 520,
-    height: (bounds && bounds.height) || 245,
+    width:  (bounds && bounds.width)  || 500,
+    height: (bounds && bounds.height) || (process.platform === 'win32' ? 220 : 250),
     resizable: true,
     useContentSize: true,
     title: 'ALTTP Broadcast View',
@@ -347,6 +348,72 @@ ipcMain.handle('set-itemtracker-bg', (event, bg) => {
   itemTrackerBg = bg;
 });
 
+// ── Update checker (notification-only, no auto-download) ─────────────────────
+const CURRENT_VERSION = app.getVersion();
+const RELEASES_URL    = 'https://github.com/hutchch/ALTTPR-Tracker/releases';
+const API_URL         = 'https://api.github.com/repos/hutchch/ALTTPR-Tracker/releases/latest';
+
+function sendUpdateStatus(status, info) {
+  if (launcherWin && !launcherWin.isDestroyed()) {
+    launcherWin.webContents.send('update-status', { status, info: info || null });
+  }
+}
+
+function compareVersions(a, b) {
+  const pa = a.replace(/^v/, '').split('.').map(Number);
+  const pb = b.replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0, nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
+function fetchLatestRelease(callback) {
+  const opts = {
+    hostname: 'api.github.com',
+    path:     '/repos/hutchch/ALTTPR-Tracker/releases/latest',
+    headers:  { 'User-Agent': 'ALTTPR-Tracker-Updater' },
+    timeout:  8000,
+  };
+  const req = https.get(opts, (res) => {
+    if (res.statusCode !== 200) { callback(null); return; }
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => {
+      try {
+        const json = JSON.parse(data);
+        callback(json.tag_name || null);  // e.g. "v1.1.14"
+      } catch(e) { callback(null); }
+    });
+  });
+  req.on('error',   () => callback(null));
+  req.on('timeout', () => { req.destroy(); callback(null); });
+}
+
+function checkForUpdates() {
+  sendUpdateStatus('checking');
+  fetchLatestRelease((tagName) => {
+    if (!tagName) {
+      // No response — network down, API unavailable, etc. Stay quiet.
+      sendUpdateStatus('up-to-date');
+      return;
+    }
+    if (compareVersions(tagName, CURRENT_VERSION) > 0) {
+      sendUpdateStatus('available', { version: tagName.replace(/^v/, ''), url: RELEASES_URL });
+    } else {
+      sendUpdateStatus('up-to-date');
+    }
+  });
+}
+
+ipcMain.handle('check-for-updates', () => checkForUpdates());
+ipcMain.handle('install-update', () => {
+  const { shell } = require('electron');
+  shell.openExternal(RELEASES_URL);
+});
+
 // ── New Game global hotkey ────────────────────────────────────────────────────
 let newgameHotkey = null; // currently registered accelerator string, or null
 
@@ -390,6 +457,8 @@ app.whenReady().then(() => {
   console.log('resourcesPath    :', process.resourcesPath);
   console.log('appRoot          :', getRoot());
   createLauncher();
+  // Check for updates a few seconds after launch so the window is ready
+  setTimeout(() => checkForUpdates(), 3000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createLauncher();
   });

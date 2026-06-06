@@ -354,7 +354,8 @@ html[data-bg="transparent"] .bbg-bar * {
   background: #111;
   border-top: 1px solid #222;
   flex-shrink: 0;
-  position: sticky; bottom: 0; width: 100%;
+  position: relative; z-index: 30000;
+  width: 100%;
 }
 .bsettings-btn {
   font-family: Arial, sans-serif; font-size: 10px; color: #ccc;
@@ -366,7 +367,9 @@ html[data-bg="transparent"] .bbg-bar * {
 
 /* ── Item Animation overlay ─────────────────────────────────────────────── */
 #item-anim-overlay {
-  position: fixed; inset: 0;
+  position: fixed; top: 0; left: 0; right: 0;
+  /* bottom is set dynamically in JS to stop above the bbg-bar */
+  bottom: 0;
   display: flex; align-items: center; justify-content: center;
   z-index: 20000;
   background: #000;
@@ -1851,10 +1854,16 @@ function _playItemAnim(src, label, done) {
   var canvas    = document.getElementById('item-anim-canvas');
   var container = document.querySelector('.broadcast-container');
 
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
+  // Clip overlay to stop above the bottom bar so it stays visible
+  var bar = document.querySelector('.bbg-bar');
+  var barH = bar ? bar.getBoundingClientRect().height : 0;
+  overlay.style.bottom = barH + 'px';
 
-  var peakScale = Math.round((window.innerHeight / 40) * 10) / 10;
+  var overlayH = window.innerHeight - barH;
+  canvas.width  = window.innerWidth;
+  canvas.height = overlayH;
+
+  var peakScale = Math.round((overlayH / 40) * 10) / 10;
   overlay.style.setProperty('--anim-peak-scale', peakScale);
 
   animImg.src = src;
