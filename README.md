@@ -30,7 +30,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Item marking on the map
 
 
-<i>Each mode takes many hours to build.  I have commited over several hundred hours into this project. There are no plans to incorporate Entrance shuffle, ShopSanity, or Retro modes.  My apologies. </i>
+<i>Each mode takes many hours to build.  I have commited over several hundred hours into this project. There are no current plans to incorporate Entrance shuffle, ShopSanity, or Retro modes.  My apologies. </i>
 ***
 
 ### DOWNLOAD: 
