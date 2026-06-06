@@ -65,10 +65,12 @@ Windows Emulator Setup Guides
 <img width="1637" height="1134" alt="image" src="https://github.com/user-attachments/assets/78b1504f-6aac-4815-b0fa-525d6b6e8f17" />
 
 ***
+### Alternative Trackers:
 Here are some alternate trackers.  Please take a look and try them out 
  - [HoellTracker](https://github.com/lordhoell/HoellTracker) (The Lord Himself - Release is on the right side)
  - [PopTracker](https://poptracker.github.io/) (Release is on the right side)
- - [OpenTracker](https://github.com/trippsc2/OpenTracker/) (Release is on the right side) 
+ - [OpenTracker](https://github.com/trippsc2/OpenTracker/) (Release is on the right side)
+ - [EmoTracker](https://github.com/EmoTracker-Community/EmoTracker) (Release is on the right side)
  - [ALTTPR Community Tracker](https://alttprtracker.mfns.dev/) (Webpage) 
  - [Stonks Stat Tracker](https://thettracker.vercel.app/) (Webpage) 
 
