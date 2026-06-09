@@ -875,10 +875,26 @@ function cycleDungeonPrize(dungeonKey, slot) {
 // are collected, green once they are (or immediately, for bosses with no
 // requirement).
 var BOSS_REQUIREMENTS = {
-    4:  function() { return hasBossItem('hammer') || hasBossItem('bomb'); },           // Helmasaur King
-    5:  function() { return hasBossItem('hookshot'); },                               // Arrghus
-    8:  function() { return hasBossItem('bombos') || hasBossItem('firerod'); },        // Kholdstare
-    10: function() { return hasBossItem('firerod') && hasBossItem('icerod'); }         // Trinexx
+    // Armos Knights: Bow OR Byrna OR Somaria OR Fire Rod OR Hammer OR Ice Rod OR Sword
+    1:  function() { return hasBossItem('bow') || hasBossItem('byrna') || hasBossItem('somaria') || hasBossItem('firerod') || hasBossItem('hammer') || hasBossItem('icerod') || hasBossItem('sword'); },
+    // Lanmolas: Bow OR Byrna OR Somaria OR Fire Rod OR Hammer OR Ice Rod OR Sword
+    2:  function() { return hasBossItem('bow') || hasBossItem('byrna') || hasBossItem('somaria') || hasBossItem('firerod') || hasBossItem('hammer') || hasBossItem('icerod') || hasBossItem('sword'); },
+    // Moldorm: Hammer OR Sword
+    3:  function() { return hasBossItem('hammer') || hasBossItem('sword'); },
+    // Helmasaur King: (Hammer OR Bombs) AND Sword
+    4:  function() { return (hasBossItem('hammer') || hasBossItem('bomb')) && hasBossItem('sword'); },
+    // Arrghus: Hookshot + (Bow OR Fire Rod OR Hammer OR Ice Rod OR Sword)
+    5:  function() { return hasBossItem('hookshot') && (hasBossItem('bow') || hasBossItem('firerod') || hasBossItem('hammer') || hasBossItem('icerod') || hasBossItem('sword')); },
+    // Mothula: Fire Rod OR Hammer OR Byrna OR Somaria OR Sword
+    6:  function() { return hasBossItem('firerod') || hasBossItem('hammer') || hasBossItem('byrna') || hasBossItem('somaria') || hasBossItem('sword'); },
+    // Blind: Byrna OR Somaria OR Hammer OR Sword
+    7:  function() { return hasBossItem('byrna') || hasBossItem('somaria') || hasBossItem('hammer') || hasBossItem('sword'); },
+    // Kholdstare: (Fire Rod OR Bombos) + (Hammer OR Sword)
+    8:  function() { return (hasBossItem('firerod') || hasBossItem('bombos')) && (hasBossItem('hammer') || hasBossItem('sword')); },
+    // Vitreous: Bow OR Hammer OR Sword
+    9:  function() { return hasBossItem('bow') || hasBossItem('hammer') || hasBossItem('sword'); },
+    // Trinexx: (Fire Rod AND Ice Rod) + (Hammer OR Sword)
+    10: function() { return hasBossItem('firerod') && hasBossItem('icerod') && (hasBossItem('hammer') || hasBossItem('sword')); }
 };
 
 function hasBossItem(key) {
@@ -2089,6 +2105,18 @@ function resetItemTracker() {
         // entries so the same staleness can't bite us on big-key visuals.
         ['ep','dp','toh','pod','sp','sw','tt','ip','mm','tr','gt'].forEach(function(k) {
             window.trackerItems[k + 'BigKey'] = 0;
+        });
+    }
+
+    // If boss shuffle is off, re-seed vanilla bosses — resetItemTracker wiped them
+    // and DOMContentLoaded won't fire again, so we must reapply manually.
+    if (window._bossShuffle === 'no' && typeof setBoss === 'function') {
+        var VANILLA_BOSSES = {
+            ep: 1, dp: 2, toh: 3, pod: 4, sp: 5,
+            sw: 6, tt: 7, ip: 8, mm: 9, tr: 10
+        };
+        Object.keys(VANILLA_BOSSES).forEach(function(key) {
+            setBoss(key, VANILLA_BOSSES[key]);
         });
     }
 
