@@ -74,6 +74,7 @@ const KNOWN_ALTTP_MODES = [
 ];
 let readTimer = null;
 let previousSRAM = null;
+let _bombClearTimer = null; // debounce: only clear bombs after sustained 0 reading
 
 const items = {
     bow: {
@@ -822,6 +823,8 @@ function createTracker() {
                     e.preventDefault();
                     if (['bombos', 'ether', 'quake'].includes(itemKey)) {
                         cycleMedallionLabel(itemKey, itemSlot);
+                    } else if (items[itemKey].isGoMode) {
+                        toggleGoModeFeeling(itemKey, itemSlot);
                     }
                 });
                 
@@ -881,8 +884,8 @@ var BOSS_REQUIREMENTS = {
     2:  function() { return hasBossItem('bow') || hasBossItem('byrna') || hasBossItem('somaria') || hasBossItem('firerod') || hasBossItem('hammer') || hasBossItem('icerod') || hasBossItem('sword'); },
     // Moldorm: Hammer OR Sword
     3:  function() { return hasBossItem('hammer') || hasBossItem('sword'); },
-    // Helmasaur King: (Hammer OR Bombs) AND Sword
-    4:  function() { return (hasBossItem('hammer') || hasBossItem('bomb')) && hasBossItem('sword'); },
+    // Helmasaur King: Hammer OR (Bombs AND (Sword OR Bow))
+    4:  function() { return hasBossItem('hammer') || (hasBossItem('bomb') && (hasBossItem('sword') || hasBossItem('bow'))); },
     // Arrghus: Hookshot + (Bow OR Fire Rod OR Hammer OR Ice Rod OR Sword)
     5:  function() { return hasBossItem('hookshot') && (hasBossItem('bow') || hasBossItem('firerod') || hasBossItem('hammer') || hasBossItem('icerod') || hasBossItem('sword')); },
     // Mothula: Fire Rod OR Hammer OR Byrna OR Somaria OR Sword
@@ -1171,6 +1174,28 @@ function cycleItem(itemKey, slot) {
     // Item state changed — re-evaluate boss circle requirement colors
     refreshAllBossCircles();
     // …and the item-background fills (settings customization)
+    if (window.refreshItemFills) window.refreshItemFills();
+}
+
+// Right-click on Go Mode: toggle directly between "Go Mode" (1) and
+// "Go Mode Feeling" (2) without cycling through "Off". If currently Off,
+// right-click jumps straight to "Go Mode Feeling".
+function toggleGoModeFeeling(itemKey, slot) {
+    const item = items[itemKey];
+    item.currentState = (item.currentState === 2) ? 1 : 2;
+
+    const newState = item.states[item.currentState];
+    if (newState.color === '#666') {
+        slot.style.color = newState.color;
+        slot.style.background = 'transparent';
+    } else {
+        slot.style.color = '#000';
+        slot.style.background = newState.color;
+    }
+    slot.dataset.itemName = newState.name;
+
+    broadcastItemSnap();
+    refreshAllBossCircles();
     if (window.refreshItemFills) window.refreshItemFills();
 }
 
@@ -1627,7 +1652,22 @@ function processInventoryData(data) {
         else if (changed(0x01)) updateIfBetter('boomerang', data[0x01]);
     }
     if (newbit(0x02, 0x01)) updateItemState('hookshot', 1); // 0x342
-    if (changed(0x03)) updateItemState('bomb', data[0x03] > 0 ? 1 : 0); // 0x343
+    if (changed(0x03)) {
+        if (data[0x03] > 0) {
+            // Bombs present — cancel any pending clear and ensure state is on
+            if (_bombClearTimer) { clearTimeout(_bombClearTimer); _bombClearTimer = null; }
+            updateIfBetter('bomb', 1);
+        } else if (items['bomb'].currentState > 0) {
+            // Bombs read as 0 but tracker shows them — debounce 5s before clearing
+            // to avoid save/quit SRAM blips removing bombs mid-game
+            if (!_bombClearTimer) {
+                _bombClearTimer = setTimeout(function() {
+                    _bombClearTimer = null;
+                    updateItemState('bomb', 0);
+                }, 5000);
+            }
+        }
+    }
     
     // Mushroom/Powder - check randomizer logic first (0x38c)
     if (changed(0x4C)) { // 0x38C - Randomizer mushroom/powder/flute/shovel tracking
@@ -2072,6 +2112,7 @@ function resetItemTracker() {
     if (revivalEl) revivalEl.textContent = '0';
 
     // Reset SRAM state so autotracking picks up fresh
+    if (_bombClearTimer) { clearTimeout(_bombClearTimer); _bombClearTimer = null; }
     previousSRAM = null;
     previousRoomData = null;
     roomChunk1 = null;

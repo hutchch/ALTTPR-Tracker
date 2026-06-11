@@ -1309,7 +1309,7 @@ var dngEls  = {};
 // report state 0 (e.g. on save & quit) for things like bombs even though the
 // player has clearly already collected them; on the broadcast we want to
 // avoid the green-then-flash-off ugliness. Cleared on 'newgame'.
-var STICKY_ITEMS = ['bomb'];
+var STICKY_ITEMS = []; // bomb stickiness moved to items.js debounce (_bombClearTimer)
 var maxState = {};
 
 // Per-element "last applied" caches. We use these to skip DOM writes when
@@ -1347,7 +1347,18 @@ function applyPrizesCoalesced(prizes) {
 }
 function _flushSnap() {
   _snapTimer = null;
-  if (_pendingSnap)   { var s = _pendingSnap;   _pendingSnap   = null; applySnap(s); }
+  if (_pendingSnap) {
+    var s = _pendingSnap; _pendingSnap = null;
+    // Detect save-file load: broadcast state is near-zero but incoming snap
+    // carries many items — this is a seed, not a live collect. Suppress anim.
+    var ITEM_KEYS = ['sword','shield','bow','hookshot','firerod','icerod','bombos',
+      'ether','quake','lamp','hammer','shovel','flute','net','book','bottle1',
+      'somaria','byrna','cape','mirror','boots','flippers','halfmagic','moonpearl'];
+    var currentNonZero = ITEM_KEYS.filter(function(k){ return (state[k]||0) > 0; }).length;
+    var incomingNonZero = ITEM_KEYS.filter(function(k){ return (s[k]||0) > 0; }).length;
+    if (currentNonZero <= 2 && incomingNonZero >= 5) _animSuppressNext = true;
+    applySnap(s);
+  }
   if (_pendingPrizes) { var p = _pendingPrizes; _pendingPrizes = null; applyPrizes(p); }
 }
 
@@ -1509,7 +1520,7 @@ function rebuildRows() {
 // ── Item fill helpers ────────────────────────────────────────────────────
 function isFilledFor(key, val) {
   if (!SETTINGS.fillEnabled) return false;
-  if (key === 'stats' || key === 'gomode') return false;
+  if (key === 'stats' || key === 'gomode' || key === 'agahnim') return false;
   return (val|0) > 0;
 }
 
@@ -1587,7 +1598,9 @@ function updateItem(key, val) {
       var gotRed  = (val & 2) && !(prevApplied & 2);
       animLabel = gotRed && !gotBlue ? 'Red Boomerang' : 'Blue Boomerang';
     }
-    if (val > 1 && (key === 'sword' || key === 'gloves' || key === 'shield' || key === 'tunic' || key === 'mirror')) {
+    if (val >= 1 && TIERED_ITEM_NAMES[key] && TIERED_ITEM_NAMES[key][val]) {
+      animLabel = TIERED_ITEM_NAMES[key][val];
+    } else if (val > 1 && key === 'mirror') {
       animLabel = animLabel + ' (Lv ' + val + ')';
     }
     if (key === 'gomode') {
@@ -1747,6 +1760,7 @@ function applySnap(snap) {
 }
 
 function resetAll() {
+  abortItemAnim();
   Object.keys(state).forEach(function(k){state[k]=0;});
   maxState = {};
   _animSuppressNext = true;      // next snap is the post-reset seed, not a new collect
@@ -1822,6 +1836,14 @@ var ITEM_NAMES = {
   boots:'Pegasus Boots', flippers:'Flippers', tunic:'Tunic',
   gomode:'Go Mode!'
 };
+
+// Tiered item names — used instead of ITEM_NAMES + "(Lv N)" when val > 1
+var TIERED_ITEM_NAMES = {
+  sword:  ['', "Fighter's Sword", 'Master Sword', 'Tempered Sword', 'Golden Sword'],
+  gloves: ['', 'Power Glove', "Titan's Mitt"],
+  shield: ['', 'Blue Shield', 'Red Shield', 'Mirror Shield'],
+  tunic:  ['', 'Blue Mail', 'Red Mail']
+};
 var DUNGEON_NAMES = {
   ep:'Eastern Palace', dp:'Desert Palace', toh:'Tower of Hera',
   pod:'Palace of Darkness', sp:'Swamp Palace', sw:'Skull Woods',
@@ -1829,14 +1851,37 @@ var DUNGEON_NAMES = {
 };
 
 // ── Item Animation Engine ────────────────────────────────────────────────
-var _animQueue   = [];
-var _animRunning = false;
-var _animKey     = null;
+var _animQueue      = [];
+var _animRunning    = false;
+var _animKey        = null;
+var _animAbortToken = 0;    // incremented to cancel in-flight animation timers
+var _animStopBgFn   = null; // active background stop function, if any
 
 function queueItemAnim(key, imgSrcUrl, label) {
   if (!SETTINGS.itemAnimEnabled) return;
+  // Cap the queue at 3 total — if already at/over the limit, drop the oldest
+  // pending items so we only show the most recent ones.
+  if (_animQueue.length >= 3) _animQueue = _animQueue.slice(-2);
   _animQueue.push({ key: key, src: imgSrcUrl, label: label || '' });
   if (!_animRunning) _nextAnim();
+}
+
+function abortItemAnim() {
+  _animAbortToken++;          // invalidates all pending setTimeout callbacks
+  _animQueue = [];
+  _animRunning = false;
+  if (_animStopBgFn) { try { _animStopBgFn(); } catch(e) {} _animStopBgFn = null; }
+  // Force overlay back to hidden state immediately
+  var overlay   = document.getElementById('item-anim-overlay');
+  var animLabel = document.getElementById('item-anim-label');
+  var animImg   = document.getElementById('item-anim-img');
+  var charEl    = document.getElementById('item-anim-character');
+  var container = document.querySelector('.broadcast-container');
+  if (overlay)   { overlay.classList.remove('anim-visible'); overlay.style.bottom = ''; }
+  if (animLabel) { animLabel.textContent = ''; animLabel.classList.remove('label-show'); }
+  if (animImg)   { animImg.className = ''; animImg.style.opacity = ''; }
+  if (charEl)    { charEl.classList.remove('char-show'); }
+  if (container) { container.style.opacity = '1'; container.style.transition = ''; }
 }
 
 function _nextAnim() {
@@ -1848,6 +1893,8 @@ function _nextAnim() {
 }
 
 function _playItemAnim(src, label, done) {
+  var myToken = _animAbortToken;   // capture — if this changes we've been aborted
+
   var overlay   = document.getElementById('item-anim-overlay');
   var animImg   = document.getElementById('item-anim-img');
   var animLabel = document.getElementById('item-anim-label');
@@ -1870,6 +1917,7 @@ function _playItemAnim(src, label, done) {
   animImg.className = '';
 
   var stopBg = _startAnimBg(canvas);
+  _animStopBgFn = stopBg;
 
   container.style.transition = 'opacity 0.2s ease';
   container.style.opacity = '0';
@@ -1881,13 +1929,17 @@ function _playItemAnim(src, label, done) {
   }
 
   setTimeout(function() {
+    if (_animAbortToken !== myToken) return;
     animImg.classList.add('phase-grow');
     setTimeout(function() {
+      if (_animAbortToken !== myToken) return;
       animImg.classList.remove('phase-grow');
       void animImg.offsetWidth;
       animImg.classList.add('phase-shrink');
       setTimeout(function() {
+        if (_animAbortToken !== myToken) return;
         stopBg();
+        _animStopBgFn = null;
         overlay.classList.remove('anim-visible');
         if (animLabel) { animLabel.classList.remove('label-show'); animLabel.textContent = ''; }
         container.style.opacity = '1';
@@ -1901,7 +1953,10 @@ function _playItemAnim(src, label, done) {
             slotImg.removeEventListener('animationend', h);
           });
         }
-        setTimeout(done, 260);
+        setTimeout(function() {
+          if (_animAbortToken !== myToken) return;
+          done();
+        }, 260);
       }, 820);
     }, 1420);
   }, 220);
