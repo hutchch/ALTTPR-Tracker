@@ -23,6 +23,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Standard
    - Open
    - Inverted
+ - Entrance Door Shuffle (In Development)
  - Boss Shuffle (Used to track dungeon bosses) - (v1.1.11)
  - Enemizer or normal mode
  - Sword or Swordless
