@@ -1,0 +1,500 @@
+// ── Entrance reachability logic (ported subset of alttptracker-main/js/chests.js) ──
+// Supports both Open and Inverted game modes in entrance shuffle.
+// Public API: EntLogic.checkEntranceAvailability(name, items, prizes) -> "available" | "unavailable"
+// where `name` matches a key in logic_entrances (see ref_logic_entrances.js).
+
+(function (window) {
+  "use strict";
+
+  function getEntranceLogic() {
+    return window.logic_entrances || {};
+  }
+
+  var items, prizes;
+
+  // ── small helpers ──────────────────────────────────────────────────────────
+  function melee() { return items.sword > 0 || items.hammer; }
+  function melee_bow() { return melee() || items.bow > 1; }
+  function cane() { return items.somaria || items.byrna; }
+  function rod() { return items.firerod || items.icerod; }
+  function canHitSwitch() { return items.bomb || melee_bow() || cane() || rod() || items.boomerang > 0 || items.hookshot; }
+  function canHitRangedSwitch() { return items.bomb || items.bow > 0 || items.boomerang > 0 || items.somaria || rod(); }
+  function activeFlute() { return items.flute > 1 || (items.flute > 0 && canReachLightWorld()); }
+  function activeFluteInverted() { return items.flute > 1 || (items.flute > 0 && canReachInvertedLightWorld()); }
+
+  function pendantCheck(type) {
+    var pendant_count = 0;
+    var green_pendant = false;
+    for (var k = 0; k < 10; k++) {
+      if ((prizes[k] === 1 || prizes[k] === 2) && items["boss" + k]) pendant_count++;
+      if (prizes[k] === 1 && items["boss" + k]) green_pendant = true;
+    }
+    if (type === "green") return green_pendant;
+    if (type === "all") return pendant_count === 3;
+    return false;
+  }
+  function crystalCheck() {
+    var crystal_count = 0;
+    for (var k = 0; k < 10; k++) {
+      if ((prizes[k] === 3 || prizes[k] === 4) && items["boss" + k]) crystal_count++;
+    }
+    return crystal_count;
+  }
+
+  // ── connector / synthetic region helpers ──────────────────────────────────
+  function hasFoundEntranceName(name) {
+    var conns = window._entConnections;
+    if (conns && conns.length) {
+      for (var i = 0; i < conns.length; i++) {
+        if (conns[i][0] === name || conns[i][1] === name) return true;
+      }
+    }
+    var foundNames = window._entSyntheticFoundEntrances;
+    if (foundNames && foundNames.length && foundNames.indexOf(name) !== -1) return true;
+    return false;
+  }
+  function hasFoundRegion() { return false; }
+
+  // Authoritative set of south LW entrances (from entrances_data.json world:"light",
+  // excluding Death Mountain entrances). Positive list — anything NOT here is DW/DM/dungeon.
+  var LW_ENTRANCES = window.ALL_LW_ENTRANCES || {
+    '20 Rupee Cave':1,'50 Rupee Cave':1,'Agahnims Tower':1,'Aginahs Cave':1,
+    'Bat Cave Cave':1,'Bat Cave Drop':1,'Blacksmiths Hut':1,'Blinds Hideout':1,
+    'Bonk Fairy (Light)':1,'Bonk Rock Cave':1,'Bush Covered House':1,'Capacity Upgrade':1,
+    'Cave 45':1,'Checkerboard Cave':1,'Chicken House':1,'Dam':1,
+    'Desert Fairy':1,'Desert Palace Entrance (East)':1,'Desert Palace Entrance (North)':1,
+    'Desert Palace Entrance (South)':1,'Desert Palace Entrance (West)':1,'Eastern Palace':1,
+    'Elder House (East)':1,'Elder House (West)':1,
+    'Fortune Teller (Light)':1,'Good Bee Cave':1,'Graveyard Cave':1,
+    'Hyrule Castle Entrance (East)':1,'Hyrule Castle Entrance (South)':1,
+    'Hyrule Castle Entrance (West)':1,'Hyrule Castle Secret Entrance Drop':1,
+    'Hyrule Castle Secret Entrance Stairs':1,'Ice Rod Cave':1,
+    'Kakariko Gamble Game':1,'Kakariko Shop':1,'Kakariko Well Cave':1,'Kakariko Well Drop':1,
+    'Kings Grave':1,'Lake Hylia Fairy':1,'Lake Hylia Fortune Teller':1,'Lake Hylia Shop':1,
+    'Library':1,'Light Hype Fairy':1,'Light World Bomb Hut':1,'Links House':1,
+    'Long Fairy Cave':1,'Lost Woods Gamble':1,'Lost Woods Hideout Drop':1,
+    'Lost Woods Hideout Stump':1,'Lumberjack House':1,'Lumberjack Tree Cave':1,
+    'Lumberjack Tree Tree':1,'Mini Moldorm Cave':1,'North Fairy Cave':1,
+    'North Fairy Cave Drop':1,'Potion Shop':1,'Sahasrahlas Hut':1,
+    'Sanctuary':1,'Sanctuary Grave':1,'Sick Kids House':1,
+    'Snitch Lady (East)':1,'Snitch Lady (West)':1,
+    'Tavern (Front)':1,'Tavern North':1,'Two Brothers House (East)':1,
+    'Two Brothers House (West)':1,'Waterfall of Wishing':1,
+  };
+  // Legacy alias so any code using DW_ENTRANCES still works via !DW_ENTRANCES[name]
+  // In inverted, checks if any connector endpoint or labeled entrance is a
+  // known south LW entrance. Uses positive LW_ENTRANCES list — avoids false
+  // positives from DW/DM entrances missing from a negative exclusion list.
+  function hasFoundLightWorldEntrance() {
+    var conns = window._entConnections;
+    if (conns && conns.length) {
+      for (var i = 0; i < conns.length; i++) {
+        if (LW_ENTRANCES[conns[i][0]] || LW_ENTRANCES[conns[i][1]]) return true;
+      }
+    }
+    var labels = window._entLabels;
+    if (labels) {
+      var names = Object.keys(labels);
+      for (var j = 0; j < names.length; j++) {
+        if (LW_ENTRANCES[names[j]]) return true;
+      }
+    }
+    return false;
+  }
+
+  // ── canReach* — Open mode ─────────────────────────────────────────────────
+  function canReachLightWorld() { return true; } // Open mode: always reachable
+
+  function canReachUpperWestDeathMountain() {
+    if (items.flute >= 1 && items.mirror) return true;
+    if (hasFoundEntranceName("Tower of Hera") || (hasFoundEntranceName("Paradox Cave (Top)") && items.hammer)) return true;
+    if (items.mirror && hasFoundRegion([])) return true;
+    if (items.hookshot && items.mirror && hasFoundRegion([])) return true;
+    return false;
+  }
+  function canReachLowerWestDeathMountain() {
+    if (items.flute >= 1) return true;
+    if (canReachUpperWestDeathMountain()) return true;
+    return false;
+  }
+  function canReachUpperEastDeathMountain() {
+    if (hasFoundEntranceName("Paradox Cave (Top)") || (canReachUpperWestDeathMountain() && items.hammer)) return true;
+    if (items.flute >= 1 && items.mirror && items.hammer) return true;
+    return false;
+  }
+  function canReachLowerEastDeathMountain() {
+    if (items.flute >= 1 && items.hookshot) return true;
+    if (items.hookshot && canReachLowerWestDeathMountain()) return true;
+    if (canReachUpperWestDeathMountain() && items.hammer) return true;
+    if (canReachUpperEastDeathMountain()) return true;
+    return false;
+  }
+  function canReachUpperDarkDeathMountain() {
+    if (items.hammer && items.glove === 2 && canReachUpperEastDeathMountain()) return true;
+    return false;
+  }
+  function canReachLowerWestDarkDeathMountain() {
+    return canReachLowerWestDeathMountain() || canReachUpperDarkDeathMountain();
+  }
+  function canReachLowerEastDarkDeathMountain() {
+    return canReachUpperDarkDeathMountain() || (canReachLowerEastDeathMountain() && items.glove === 2);
+  }
+  function canLeaveNorthEastDarkWorldSouth() {
+    return items.moonpearl && (items.glove || items.hammer || items.flippers);
+  }
+  function canLeaveNorthEastDarkWorldWest() {
+    return items.moonpearl && items.hookshot;
+  }
+  function canLeaveSouthEastDarkWorld() {
+    return items.moonpearl && items.flippers;
+  }
+  function canReachEastDarkWorld() {
+    if (items.agahnim) return true;
+    if (items.moonpearl && items.glove && items.hammer) return true;
+    if (items.moonpearl && items.glove > 1 && items.flippers) return true;
+    if ((items.hammer || items.flippers) && items.moonpearl && canReachSouthDarkWorld(true)) return true;
+    if (canLeaveSouthEastDarkWorld() && canReachSouthEastDarkWorld(true)) return true;
+    return false;
+  }
+  function canReachNorthEastDarkWorld() {
+    if (canReachEastDarkWorld() && items.moonpearl && (items.flippers || items.glove > 0 || items.hammer)) return true;
+    return false;
+  }
+  function canReachWestDarkWorld(toEastDarkWorld) {
+    if (items.moonpearl && (items.glove === 2 || (items.glove && items.hammer))) return true;
+    if (!toEastDarkWorld) {
+      if (canLeaveNorthEastDarkWorldWest() && canReachNorthEastDarkWorld()) return true;
+    }
+    return false;
+  }
+  function canReachSouthDarkWorld(toEastDarkWorld) {
+    if (items.moonpearl && (items.glove === 2 || (items.glove && items.hammer))) return true;
+    if (!toEastDarkWorld) {
+      if (items.moonpearl && items.hammer && canReachEastDarkWorld()) return true;
+    }
+    if (canReachWestDarkWorld(toEastDarkWorld)) return true;
+    return false;
+  }
+  function canReachSouthEastDarkWorld(toEastDarkWorld) {
+    if (!toEastDarkWorld) {
+      if (items.flippers && items.moonpearl && canReachEastDarkWorld()) return true;
+    }
+    return false;
+  }
+  function canReachSouthWestDarkWorld() {
+    if (items.flute >= 1 && items.glove >= 2) return true;
+    return false;
+  }
+  function canReachHyruleCastleBalcony() {
+    if (canReachEastDarkWorld() && items.mirror) return true;
+    return false;
+  }
+
+  // ── canReach* — Inverted mode ─────────────────────────────────────────────
+  function canReachInvertedLightWorld() {
+    if (!items.moonpearl) return false;
+    if (items.glove >= 2 || (items.glove && items.hammer)) return true;
+    if (items.agahnim) return true;
+    // A connector to any LW entrance means the player physically reached LW
+    if (hasFoundLightWorldEntrance()) return true;
+    return false;
+  }
+
+  function canReachInvertedLightWorldBunny() {
+    if (canReachInvertedLightWorld()) return true;
+    if (items.agahnim) return true;
+    if (hasFoundLightWorldEntrance()) return true;
+    return false;
+  }
+
+  // In inverted, the Dark World is the "home" world — always accessible
+  function canReachInvertedWestDarkWorld()     { return true; }
+  function canReachInvertedSouthDarkWorld()    { return true; }
+
+  function canReachInvertedEastDarkWorld() {
+    if (activeFluteInverted()) return true;
+    if (canReachInvertedSouthDarkWorld() && (items.flippers || items.hammer)) return true;
+    if (items.mirror && canReachInvertedLightWorldBunny()) return true;
+    return false;
+  }
+
+  function canReachInvertedNorthEastDarkWorld() {
+    if (activeFluteInverted()) return true;
+    if (items.mirror && canReachInvertedLightWorld()) return true;
+    if (items.flippers && (canReachInvertedWestDarkWorld() || canReachInvertedSouthDarkWorld() || canReachInvertedEastDarkWorld())) return true;
+    if ((items.hammer || items.glove) && canReachInvertedEastDarkWorld()) return true;
+    return false;
+  }
+
+  function canReachInvertedSouthWestDarkWorld() {
+    if (activeFluteInverted()) return true;
+    if (items.mirror && canReachInvertedLightWorldBunny()) return true;
+    return false;
+  }
+
+  function canReachInvertedSouthEastDarkWorld() {
+    if (activeFluteInverted()) return true;
+    if (items.flippers && canReachInvertedSouthDarkWorld()) return true;
+    if (items.mirror && canReachInvertedLightWorldBunny()) return true;
+    return false;
+  }
+
+  function canReachInvertedDarkDeathMountain() {
+    if (activeFluteInverted()) return true;
+    if (hasFoundEntranceName("Ganons Tower") || hasFoundEntranceName("Spike Cave") ||
+        hasFoundEntranceName("Hookshot Cave") || hasFoundEntranceName("Hookshot Cave Back Entrance") ||
+        hasFoundEntranceName("Superbunny Cave (Top)") || hasFoundEntranceName("Turtle Rock")) return true;
+    if (items.mirror) {
+      if (hasFoundEntranceName("Tower of Hera") || hasFoundEntranceName("Spectacle Rock Cave") ||
+          hasFoundEntranceName("Old Man Cave (East)") || hasFoundEntranceName("Death Mountain Return Cave (East)") ||
+          hasFoundEntranceName("Old Man House (Bottom)") || hasFoundEntranceName("Old Man House (Top)") ||
+          hasFoundEntranceName("Paradox Cave (Top)")) return true;
+      if (items.moonpearl && items.hookshot &&
+          (hasFoundEntranceName("Paradox Cave (Middle)") || hasFoundEntranceName("Paradox Cave (Bottom)") ||
+           hasFoundEntranceName("Spiral Cave") || hasFoundEntranceName("Mimic Cave"))) return true;
+    }
+    return false;
+  }
+
+  function canReachInvertedLowerWestDeathMountain() {
+    if (canReachInvertedDarkDeathMountain()) return true;
+    if (hasFoundEntranceName("Tower of Hera") || hasFoundEntranceName("Spectacle Rock Cave") ||
+        hasFoundEntranceName("Old Man Cave (East)") || hasFoundEntranceName("Death Mountain Return Cave (East)") ||
+        hasFoundEntranceName("Old Man House (Bottom)") || hasFoundEntranceName("Old Man House (Top)")) return true;
+    if (items.moonpearl && items.hookshot &&
+        (hasFoundEntranceName("Paradox Cave (Top)") || hasFoundEntranceName("Paradox Cave (Middle)") ||
+         hasFoundEntranceName("Paradox Cave (Bottom)") || hasFoundEntranceName("Spiral Cave") ||
+         hasFoundEntranceName("Mimic Cave"))) return true;
+    if (items.moonpearl && items.hammer && hasFoundEntranceName("Paradox Cave (Top)")) return true;
+    return false;
+  }
+
+  function canReachInvertedUpperWestDeathMountain() {
+    if (hasFoundEntranceName("Tower of Hera")) return true;
+    if (items.moonpearl && items.hammer && hasFoundEntranceName("Paradox Cave (Top)")) return true;
+    if (canReachInvertedDarkDeathMountain() && items.glove > 1 && items.hammer && items.moonpearl) return true;
+    return false;
+  }
+
+  function canReachInvertedUpperEastDeathMountain() {
+    if (hasFoundEntranceName("Paradox Cave (Top)")) return true;
+    if (hasFoundEntranceName("Tower of Hera") && items.hammer && items.moonpearl) return true;
+    if (canReachInvertedDarkDeathMountain() && items.glove > 1 && items.hammer && items.moonpearl) return true;
+    return false;
+  }
+
+  function canReachInvertedLowerEastDeathMountain() {
+    if (canReachInvertedUpperEastDeathMountain()) return true;
+    if (hasFoundEntranceName("Paradox Cave (Middle)") || hasFoundEntranceName("Paradox Cave (Bottom)") ||
+        hasFoundEntranceName("Spiral Cave") || hasFoundEntranceName("Mimic Cave")) return true;
+    if (items.moonpearl && items.hookshot && canReachInvertedLowerWestDeathMountain()) return true;
+    if (items.glove === 2 && canReachInvertedDarkDeathMountain()) return true;
+    return false;
+  }
+
+  function canReachInvertedLowerEastDarkDeathMountain() {
+    if (canReachInvertedDarkDeathMountain()) return true;
+    if (items.mirror && canReachInvertedLowerWestDeathMountain()) return true;
+    return false;
+  }
+
+  function canReachInvertedHyruleCastleBalcony() {
+    if (hasFoundEntranceName("Hyrule Castle Entrance (West)") || hasFoundEntranceName("Hyrule Castle Entrance (East)") ||
+        hasFoundEntranceName("Agahnims Tower")) return true;
+    if (items.agahnim && items.mirror) return true;
+    return false;
+  }
+
+  // ── bigRequirementSwitch ──────────────────────────────────────────────────
+  function bigRequirementSwitch(requirement) {
+    switch (requirement) {
+      case "agahnim": return !!items.agahnim;
+      case "agahnim2": return !!items.agahnim2;
+      case "boots": return !!items.boots;
+      case "bow": return items.bow > 1;
+      case "bombs": return !!items.bomb;
+      case "book": return !!items.book;
+      case "bottle": return !!items.bottle;
+      case "byrna": return !!items.byrna;
+      case "cape": return !!items.cape;
+      case "flippers": return !!items.flippers;
+      case "flute": return activeFlute();
+      case "firerod": return !!items.firerod;
+      case "glove": return items.glove > 0;
+      case "hammer": return !!items.hammer;
+      case "halfmagic": return !!items.magic;
+      case "hookshot": return !!items.hookshot;
+      case "lantern": return !!items.lantern;
+      case "melee": return melee();
+      case "melee_bow": return melee_bow();
+      case "moonpearl": return !!items.moonpearl;
+      case "mushroom": return !!items.mushroom;
+      case "net": return !!items.net;
+      case "mitts": return items.glove > 1;
+      case "mirror": return !!items.mirror;
+      case "shovel": return !!items.shovel;
+      case "icerod": return !!items.icerod;
+      case "mirrorshield": return items.shield > 2;
+      case "powder": return !!items.powder;
+      case "somaria": return !!items.somaria;
+      case "sword": return items.sword > 0;
+      case "swordbeams": return items.sword > 1;
+      case "greenpendant": return pendantCheck("green");
+
+      case "canKillMostEnemies": return items.sword > 0 || items.hammer || items.bow > 1 || items.somaria || items.byrna || items.firerod;
+      case "canKillOrExplodeMostEnemies": return items.sword > 0 || items.hammer || items.bow > 1 || items.somaria || items.byrna || items.firerod || items.bomb;
+      case "canFightAgahnim": return items.sword > 0 || items.hammer || items.net;
+      case "canLightFires": return !!items.lantern || !!items.firerod;
+      case "canDarkRoomNavigate": return !!items.lantern;
+      case "canTorchRoomNavigate": return !!items.lantern || !!items.firerod;
+      case "canDefeatCurtains": return items.sword > 0;
+      case "canKillWizzrobes": return items.sword > 0 || items.hammer || items.bow > 1 || items.byrna || items.somaria || (items.icerod && (items.bomb || items.hookshot)) || items.firerod;
+      case "canCrossMireGap": return !!items.boots || !!items.hookshot;
+      case "canBurnThings": return !!items.firerod || (items.bombos && items.sword > 0);
+      case "canBurnThingsMaybeSwordless": return !!items.firerod || (items.bombos && items.sword > 0);
+      case "canHitSwitch": return canHitSwitch();
+      case "canDestroyEnergyBarrier": return items.sword > 1;
+      case "canBreakTablets": return items.sword > 1;
+      case "canPullPedestal": return pendantCheck("all");
+      case "canOpenBonkWalls": return !!items.boots || !!items.bomb;
+      case "canHitRangedSwitch": return canHitRangedSwitch();
+      case "canGetBonkableItem": return !!items.boots || (items.sword > 0 && items.quake);
+      case "gtleft": return !!items.hammer && !!items.hookshot && canHitRangedSwitch();
+      case "gtright": return !!items.somaria && !!items.firerod;
+      case "canCrossEnergyBarrier": return items.sword > 1 || !!items.cape;
+      case "canOpenGT": return crystalCheck() >= 7;
+
+      case "canExitTurtleRockWestAndEnterEast": return !!items.bomb;
+      case "canExitTurtleRockBack": return !!items.bomb;
+      case "canOnlyReachTurtleRockMain": return true;
+
+      case "never": return false;
+      default: return true;
+    }
+  }
+
+  // ── evaluator ─────────────────────────────────────────────────────────────
+  function stateOfAllEntrance(requirements) {
+    if (requirements.allOf) {
+      for (var i = 0; i < requirements.allOf.length; i++) {
+        if (!stateOfEntrance(requirements.allOf[i])) return false;
+      }
+    }
+    if (requirements.anyOf) {
+      for (var j = 0; j < requirements.anyOf.length; j++) {
+        if (stateOfEntrance(requirements.anyOf[j])) return true;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // Open-mode region functions
+  var REGION_FUNCS_OPEN = {
+    "South Dark World":               canReachSouthDarkWorld,
+    "East Dark World":                canReachEastDarkWorld,
+    "West Dark World":                canReachWestDarkWorld,
+    "North East Dark World":          canReachNorthEastDarkWorld,
+    "South West Dark World":          canReachSouthWestDarkWorld,
+    "South East Dark World":          canReachSouthEastDarkWorld,
+    "Hyrule Castle Balcony":          canReachHyruleCastleBalcony,
+    "Lower West Death Mountain":      canReachLowerWestDeathMountain,
+    "Lower East Death Mountain":      canReachLowerEastDeathMountain,
+    "Upper West Death Mountain":      canReachUpperWestDeathMountain,
+    "Upper East Death Mountain":      canReachUpperEastDeathMountain,
+    "Lower East Dark Death Mountain": canReachLowerEastDarkDeathMountain,
+    "Lower West Dark Death Mountain": canReachLowerWestDarkDeathMountain,
+    "Upper Dark Death Mountain":      canReachUpperDarkDeathMountain,
+  };
+
+  // Inverted-mode region functions (region names are prefixed "Inverted " in logic_entrances)
+  var REGION_FUNCS_INVERTED = {
+    "Inverted Light World":                     canReachInvertedLightWorld,
+    "Inverted Light World Bunny":               canReachInvertedLightWorldBunny,
+    "Inverted West Dark World":                 canReachInvertedWestDarkWorld,
+    "Inverted South Dark World":                canReachInvertedSouthDarkWorld,
+    "Inverted East Dark World":                 canReachInvertedEastDarkWorld,
+    "Inverted North East Dark World":           canReachInvertedNorthEastDarkWorld,
+    "Inverted South West Dark World":           canReachInvertedSouthWestDarkWorld,
+    "Inverted South East Dark World":           canReachInvertedSouthEastDarkWorld,
+    "Inverted Dark Death Mountain":             canReachInvertedDarkDeathMountain,
+    "Inverted Lower West Death Mountain":       canReachInvertedLowerWestDeathMountain,
+    "Inverted Upper West Death Mountain":       canReachInvertedUpperWestDeathMountain,
+    "Inverted Upper East Death Mountain":       canReachInvertedUpperEastDeathMountain,
+    "Inverted Lower East Death Mountain":       canReachInvertedLowerEastDeathMountain,
+    "Inverted Lower East Dark Death Mountain":  canReachInvertedLowerEastDarkDeathMountain,
+    "Inverted Hyrule Castle Balcony":           canReachInvertedHyruleCastleBalcony,
+  };
+
+  function stateOfEntrance(requirement) {
+    if (typeof requirement === "object") return stateOfAllEntrance(requirement);
+
+    if (requirement.indexOf("canReach|") === 0) {
+      var region = requirement.split("|")[1];
+
+      // Synthetic "found" regions from labeled/connected markers
+      var foundRegions = window._entSyntheticFoundRegions;
+      if (foundRegions && foundRegions.indexOf(region) !== -1) return true;
+
+      // Try inverted REGION_FUNCS first (they have "Inverted" prefix), then open
+      var fn = REGION_FUNCS_INVERTED[region] || REGION_FUNCS_OPEN[region];
+      return fn ? fn() : false;
+    }
+
+    if (requirement.indexOf("hasFoundEntrance|") === 0) {
+      return hasFoundEntranceName(requirement.split("|")[1]);
+    }
+    if (requirement.indexOf("hasFoundMapEntry|") === 0) {
+      return false;
+    }
+
+    return bigRequirementSwitch(requirement);
+  }
+
+  // ── public API ────────────────────────────────────────────────────────────
+  function checkEntranceAvailability(name, itemsObj, prizesObj) {
+    items = itemsObj || {};
+    prizes = prizesObj || [];
+    var logic = getEntranceLogic();
+
+
+    // Agahnim's Tower — inverted requires moonpearl + sword2/cape + balcony access
+    if (name === "Agahnims Tower") {
+      var _atInv = !!(window.trackerSettings && window.trackerSettings.inverted);
+      if (_atInv) {
+        if (!items.moonpearl) return "unavailable";
+        if (!(items.sword >= 2 || items.cape)) return "unavailable";
+        // Balcony reachable via connector to any HC entrance, or vanilla: agahnim + mirror
+        var _atHCNames = {'Agahnims Tower':1,'Hyrule Castle Entrance (West)':1,'Hyrule Castle Entrance (East)':1,'Hyrule Castle Entrance (South)':1};
+        var _atConns = (window._entConnections && window._entConnections.length)
+          ? window._entConnections
+          : (function() { try { return JSON.parse(localStorage.getItem('ent-connections') || '[]'); } catch(e) { return []; } })();
+        var _atBalcony = _atConns.some(function(c) { return _atHCNames[c[0]] || _atHCNames[c[1]]; }) ||
+          (items.agahnim && items.mirror);
+        return _atBalcony ? "available" : "unavailable";
+      }
+    }
+
+    // Pyramid Hole — always requires Aga2 (it's a drop, not a walkable entrance)
+    if (name === "Pyramid Hole") {
+      return items.agahnim2 ? "available" : "unavailable";
+    }
+    // Pyramid Exit — use ref_logic_entrances.js (same as Hyrule Castle Entrance (South)):
+    // Open: always available; Inverted: canReach|Inverted Light World Bunny
+
+    var def = logic[name];
+    if (!def) return "available";
+
+    // Pick Inverted or Open requirements based on current game mode
+    var isInverted = !!(window.trackerSettings && window.trackerSettings.inverted);
+    var requirements = isInverted ? (def.Inverted || def.Open) : (def.Open || def.Inverted);
+    if (!requirements) return "available";
+    return stateOfAllEntrance(requirements) ? "available" : "unavailable";
+  }
+
+  window.EntLogic = {
+    checkEntranceAvailability: checkEntranceAvailability,
+    hasFoundLightWorldEntrance: hasFoundLightWorldEntrance,
+    isKnownDWEntrance: function(name) { return !!DW_ENTRANCES[name]; },
+  };
+})(window);

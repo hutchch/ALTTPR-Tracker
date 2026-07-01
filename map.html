@@ -47,7 +47,7 @@ body {
   min-height: 0;
   padding: 8px 8px 12px 12px;
 }
-#maps { display: inline-flex; flex-direction: row; gap: 12px; }
+#maps { display: inline-flex; flex-direction: row; gap: 12px; position: relative; }
 #maps.vertical { flex-direction: column; }
 
 .map-wrap {
@@ -75,8 +75,225 @@ body {
 .dot.possible  { background: #ffd700; border: 2px solid #000; }
 .dot.visible   { background: #ff8c00; border: 2px solid #000; }
 .dot.unavail   { background: #ff4444; border: 2px solid #000; }
-.dot.cleared   { background: rgba(40,40,40,0.85); border: 1.5px solid #555; }
+.dot.cleared   { background: rgba(40,40,40,0.85); border: 1.5px solid #555; z-index: 0; }
 .dot.hidden    { display: none; pointer-events: none; }
+
+/* ── Entrance markers (entrance shuffle overlay) ───────────────────────── */
+.ent-marker {
+  position: absolute;
+  width: 13px; height: 13px;
+  border: 1.5px solid #000;
+  transform: translate(-50%, -50%) rotate(45deg);
+  cursor: pointer;
+  z-index: 5;
+  background: #888;
+  transition: transform 0.08s;
+}
+.ent-marker:hover { transform: translate(-50%,-50%) rotate(45deg) scale(1.6); z-index: 21; }
+.ent-marker.unconnected { background: #4dff88; }
+.ent-marker.connector   { background: #ED18E2; }
+.ent-marker.dungeon     { background: #c77dff; }
+.ent-marker.location    { background: #ffd700; }
+.ent-marker.connect-pending { box-shadow: 0 0 0 3px #fff; }
+.ent-marker.cleared { background: rgba(70,70,70,0.85); border-color: #666; opacity: 0.75; z-index: 0; }
+.ent-marker.ent-unavailable:not(.cleared) { background: #d32f2f !important; border-color: #7a0000; }
+.ent-marker.ent-dungeon-cleared:not(.cleared) { background: rgba(70,70,70,0.85); border-color: #666; opacity: 0.75; z-index: 0; }
+
+/* Boss status diagonal stripe overlay for dungeon-marked entrance markers
+   (mirrors .dng.boss-stripe-red/yellow, rotated to match the box shape). */
+.ent-marker.boss-stripe-red::after,
+.ent-marker.boss-stripe-yellow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.ent-marker.boss-stripe-red::after {
+  background: linear-gradient(45deg,
+    transparent calc(50% - 2px),
+    #e74c3c   calc(50% - 2px),
+    #e74c3c   calc(50% + 2px),
+    transparent calc(50% + 2px));
+}
+.ent-marker.boss-stripe-yellow::after {
+  background: linear-gradient(45deg,
+    transparent calc(50% - 2px),
+    #ffd54a   calc(50% - 2px),
+    #ffd54a   calc(50% + 2px),
+    transparent calc(50% + 2px));
+}
+
+/* Shape overrides: diamond = unchecked/unmarked (default).
+   Box = marked with a key location code. Circle = connector. */
+.ent-marker.ent-marked {
+  border-radius: 2px;
+  transform: translate(-50%, -50%) rotate(0deg);
+}
+.ent-marker.ent-marked:hover { transform: translate(-50%,-50%) rotate(0deg) scale(1.6); }
+.ent-marker.ent-has-prize {
+  width: 20px; height: 20px;
+}
+.ent-marker.connector {
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotate(0deg);
+}
+.ent-marker.connector:hover { transform: translate(-50%,-50%) rotate(0deg) scale(1.6); }
+.ent-marker-prize {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px; height: 16px;
+  object-fit: contain;
+  pointer-events: none;
+}
+#maps.entrances-hidden .ent-marker { display: none; pointer-events: none; }
+#maps:not(.entrances-hidden) .dot[data-ent-hidden="1"] { display: none; pointer-events: none; }
+#maps:not(.entrances-hidden) .dng[data-ent-hidden="1"] { display: none; pointer-events: none; }
+
+.ent-line {
+  position: absolute;
+  height: 2px;
+  background: #ED18E2;
+  transform-origin: 0 0;
+  z-index: 4;
+  pointer-events: none;
+}
+/* One-way connector: arrowhead at the destination end of the line, pulled
+   back slightly so it points at (rather than sits under) the marker. */
+.ent-line-oneway::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent #ED18E2;
+  transform: translateY(-50%);
+}
+/* One-way connector: small dot marking the source end of the line. */
+.ent-line-oneway::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ED18E2;
+  transform: translateY(-50%);
+}
+#maps.entrances-hidden .ent-line { display: none; }
+
+/* ── Entrance label (right-click → tag with key location code) ── */
+.ent-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  margin-top: -16px; /* sit above the diamond marker */
+  background: #000;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 10px;
+  font-weight: normal;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}
+#maps.entrances-hidden .ent-label { display: none; }
+.ent-label.ent-label-below { margin-top: 16px; /* sit below the diamond marker instead */ }
+.ent-label.ent-label-emoji {
+  font-size: 11px;
+  padding: 1px 3px;
+  line-height: 1.2;
+}
+.ent-label.ent-label-emoji.ent-label-fairy {
+  font-size: 8px;
+  padding: 0 2px;
+}
+.ent-label-gold { color: #ffd700; }
+
+/* ── Entrance right-click menu ── */
+#ent-popup {
+  position: fixed;
+  background: rgba(20, 20, 20, 0.97);
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  z-index: 10001;
+  display: none;
+  font-size: 11px;
+  width: 620px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+#ent-popup.open { display: block; }
+.ent-popup-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2px 6px;
+  border-bottom: 1px solid #333;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+.ent-popup-title { font-size: 12px; color: #fff; font-weight: bold; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ent-popup-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.ent-popup-row label { color: #aaa; }
+.ent-popup-row input[type="text"] {
+  flex: 1; background: #1a1a1a; color: #ccc; border: 1px solid #333;
+  border-radius: 3px; padding: 2px 5px; font-size: 11px;
+}
+.ent-popup-btn {
+  background: #1a1a1a; color: #ccc; border: 1px solid #333;
+  border-radius: 3px; padding: 3px 8px; font-size: 11px; cursor: pointer;
+}
+.ent-popup-btn:hover { background: #333; color: #fff; }
+.ent-popup-btn.active { background: #ED18E2; color: #fff; border-color: #ED18E2; }
+#ent-popup-connect { background: #ED18E2; color: #fff; border-color: #ED18E2; }
+#ent-popup-connect:hover { background: #ff4df3; border-color: #ff4df3; }
+.ent-popup-btn.marked { color: #fff; border: 1px solid #fff; font-weight: bold; box-shadow: 0 0 4px rgba(255,255,255,0.6); }
+.ent-popup-btn.danger { color: #ff8c8c; border-color: #5a2a2a; }
+.ent-popup-btn.danger:hover { background: #3a1414; color: #fff; }
+.ent-popup-section-label { color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 8px 0 4px; }
+.ent-popup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 4px; }
+.ent-popup-grid .ent-popup-btn { padding: 5px 4px; text-align: center; font-size: 11px; white-space: nowrap; }
+.ent-popup-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
+.ent-popup-conn-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.ent-popup-conn-row .swatch { width: 10px; height: 10px; border: 1px solid #000; transform: rotate(45deg); flex-shrink: 0; }
+
+/* ── Notes & Connectors summary popup ── */
+#ent-info-popup {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(20, 20, 20, 0.97);
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  z-index: 10001;
+  display: none;
+  font-size: 11px;
+  width: 980px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+#ent-info-popup.open { display: block; }
+.ent-info-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.ent-info-col { min-width: 0; }
+.ent-info-list { color: #ccc; line-height: 1.6; }
+.ent-info-list .ent-info-empty { color: #666; font-style: italic; }
+.ent-info-list .ent-info-cleared { color: #777; text-decoration: line-through; }
+
+/* ── Connector visibility toggle (independent of overlay toggle) ── */
+#maps.ent-conn-hidden .ent-line { display: none; }
 
 /* ── Check annotations (right-click → tag with item) ── */
 .dot-annotation {
@@ -241,6 +458,14 @@ body {
   <button class="zoom-btn" onclick="changeZoom(-1)">&#8722;</button>
   <span id="zoom-label">100%</span>
   <button class="zoom-btn" onclick="changeZoom(+1)">+</button>
+  <span class="tb-sep" id="ent-sep-1">|</span>
+  <label class="tb-label" id="ent-conn-toggle-wrap" style="cursor:pointer;">
+    <input type="checkbox" id="ent-conn-toggle"> Connectors
+  </label>
+  <span class="tb-sep" id="ent-sep-2">|</span>
+  <button class="zoom-btn" id="ent-info-btn" style="font-size:11px;padding:0 8px;">Notes &amp; Connectors</button>
+  <span class="tb-sep">|</span>
+  <button class="zoom-btn" id="checklist-btn" style="font-size:11px;padding:0 8px;" onclick="openCheckList()">☑ Checks</button>
 </div>
 
 <div id="maps-outer">
@@ -262,6 +487,8 @@ body {
     <span id="conn-status" class="disconnected">● No device</span>
     <button id="reconnect-btn" title="Reconnect to QUsb2Snes" onclick="mapReconnect()">↻</button>
     <button id="reset-btn" title="Reset all checks (new game)" onclick="resetChecks()" style="background:#1a0808;color:#ff6666;border:1px solid #5a2020;border-radius:3px;padding:0 7px;font-size:11px;line-height:1.7;cursor:pointer;" onmouseover="this.style.background='#2a1010'" onmouseout="this.style.background='#1a0808'">⟳ New Game</button>
+    <button class="zoom-btn" id="ent-save-btn" style="font-size:11px;padding:0 8px;display:none;" onclick="saveEntState()">💾 Save</button>
+    <button class="zoom-btn" id="ent-load-btn" style="font-size:11px;padding:0 8px;display:none;" onclick="loadEntState()">📂 Load</button>
   </div>
 </div>
 
@@ -276,6 +503,61 @@ body {
   <div class="popup-grid" id="annotation-grid"></div>
 </div>
 
+<!-- Right-click on entrance marker → add connector / tag key location -->
+<div id="ent-popup">
+  <div class="ent-popup-header">
+    <span class="ent-popup-title" id="ent-popup-title">Entrance</span>
+    <button class="ent-popup-btn danger" id="ent-popup-clear" type="button">Clear Label</button>
+  </div>
+  <div class="ent-popup-row">
+    <button class="ent-popup-btn" id="ent-popup-connect" type="button">Add Connector</button>
+    <label style="display:flex;align-items:center;gap:4px;">Note: <input type="text" id="ent-popup-note" placeholder=""></label>
+    <button class="ent-popup-btn danger" id="ent-popup-note-clear" type="button">Clear Note</button>
+  </div>
+  <div id="ent-popup-connections"></div>
+  <div class="ent-popup-cols" id="ent-popup-cols"></div>
+</div>
+
+<!-- "Notes & Connectors" button → summary popup -->
+<div id="ent-info-popup">
+  <div class="ent-popup-header">
+    <span class="ent-popup-title">Notes &amp; Connectors</span>
+    <label style="display:flex;align-items:center;gap:4px;color:#aaa;margin-left:auto;font-size:11px;">
+      <input type="checkbox" id="ent-info-show-labels" checked> Show labels
+    </label>
+    <button class="ent-popup-btn" id="ent-info-close" type="button">Close</button>
+  </div>
+  <div class="ent-info-cols">
+    <div class="ent-info-col">
+      <div class="ent-popup-row">
+        <span class="ent-popup-section-label" style="margin:0;">Notes</span>
+        <label style="display:flex;align-items:center;gap:4px;color:#aaa;margin-left:auto;">
+          <input type="checkbox" id="ent-info-notes-cleared"> Include cleared
+        </label>
+      </div>
+      <div id="ent-info-notes-list" class="ent-info-list"></div>
+    </div>
+    <div class="ent-info-col">
+      <div class="ent-popup-row">
+        <span class="ent-popup-section-label" style="margin:0;">Connectors</span>
+        <label style="display:flex;align-items:center;gap:4px;color:#aaa;margin-left:auto;">
+          <input type="checkbox" id="ent-info-conns-cleared"> Include cleared
+        </label>
+      </div>
+      <div id="ent-info-conns-list" class="ent-info-list"></div>
+    </div>
+    <div class="ent-info-col" id="ent-info-labels-col">
+      <div class="ent-popup-row">
+        <span class="ent-popup-section-label" style="margin:0;">Labels</span>
+        <label style="display:flex;align-items:center;gap:4px;color:#aaa;margin-left:auto;">
+          <input type="checkbox" id="ent-info-labels-cleared"> Include cleared
+        </label>
+      </div>
+      <div id="ent-info-labels-list" class="ent-info-list"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── Early settings init — must run before any logic scripts ──────────────────
 (function() {
@@ -288,6 +570,7 @@ body {
   window.trackerSettings.bossShuffle  = p.get('bossshuffle')  || localStorage.getItem('alttp-bossshuffle')   || 'yes';
   window.trackerSettings.gtCrystals   = parseInt(p.get('gtcrystals') || localStorage.getItem('alttp-gt-crystals') || '7');
   window.trackerSettings.inverted     = window.trackerSettings.gamemode === 'inverted';
+  window.trackerSettings.entranceShuffle = (p.get('entranceshuffle') || localStorage.getItem('alttp-entrance-shuffle') || 'yes') === 'yes';
 })();
 </script>
 <script>
@@ -302,7 +585,8 @@ body {
 // Single: [offset, mask]   Group: [[offset,mask],...]  All must be set to clear
 window.SRAM_FLAGS = {
   0:  [0x226,0x10],
-  1:  [[0x2bb,0x40],[0x216,0x10]],
+  1:  [0x216,0x10],
+  111: [0x2bb,0x40],
   2:  [0x208,0x10],
   3:  [0x1fc,0x10],
   4:  [0x218,0x10],
@@ -492,6 +776,14 @@ function dungeonColor(key) {
     }
 
     case 'dp':
+      // Entrance shuffle: the DP N (or W/M/E) label can be placed on any
+      // real entrance marker, anywhere on the map — no book/mirror/connector
+      // access check applies at all. Reaching the boss only requires the DP
+      // big key and a light source (lamp or firerod).
+      if (settings.entranceShuffle) {
+        if (!it.dpBigKey || (!it.lamp && !it.firerod)) return 'yellow';
+        return 'green';
+      }
       // Inverted: DP is in LW — requires LW access + book only (mirror route not available in inverted)
       if (!lwAccess) return 'red';
       var hasAccess = inverted ? it.book : (it.book || (it.mirror && it.flute && it.gloves >= 2));
@@ -506,27 +798,34 @@ function dungeonColor(key) {
       }
       return 'green';
 
-    case 'toh':
-      // Inverted: TOH is on DM — accessible via DM portal (glove+pearl)
-      if (!lwDM) return 'red';
-      // Inverted: TOH requires hammer to enter
-      if (inverted && !it.hammer) return 'red';
-      // Access routes (standard/open):
-      // flute + mirror
-      // flute + hookshot + hammer
-      // lamp + gloves + mirror
-      // lamp + gloves + hookshot + hammer
-      var flute   = it.flute >= 1;
-      var gloves  = it.gloves >= 1;
-      var mirror  = it.mirror >= 1;
-      var hookham = it.hookshot && it.hammer;
-      var canAccess = inverted
-        ? (it.hammer)  // inverted: hammer is the requirement; DM portal already checked via lwDM
-        : ((flute && mirror) ||
-           (flute && hookham) ||
-           (it.lamp && gloves && mirror) ||
-           (it.lamp && gloves && hookham));
-      if (!canAccess) return 'red';
+    case 'toh': {
+      // Entrance shuffle: the overworld access route to this entrance is
+      // governed by EntLogic/region reachability (and the synthetic
+      // "found" region grants), not by the normal vanilla item routes
+      // checked below — so skip the outdoor-access check entirely.
+      var isEntShuffle = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+      if (!isEntShuffle) {
+        // Inverted: TOH is on DM — accessible via DM portal (glove+pearl)
+        if (!lwDM) return 'red';
+        // Inverted: TOH requires hammer to enter
+        if (inverted && !it.hammer) return 'red';
+        // Access routes (standard/open):
+        // flute + mirror
+        // flute + hookshot + hammer
+        // lamp + gloves + mirror
+        // lamp + gloves + hookshot + hammer
+        var flute   = it.flute >= 1;
+        var gloves  = it.gloves >= 1;
+        var mirror  = it.mirror >= 1;
+        var hookham = it.hookshot && it.hammer;
+        var canAccess = inverted
+          ? (it.hammer)  // inverted: hammer is the requirement; DM portal already checked via lwDM
+          : ((flute && mirror) ||
+             (flute && hookham) ||
+             (it.lamp && gloves && mirror) ||
+             (it.lamp && gloves && hookham));
+        if (!canAccess) return 'red';
+      }
       if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
         var tohKeys = (it.tohSmallKeys) || 0;
         if (tohKeys < 1) return 'yellow';
@@ -536,6 +835,7 @@ function dungeonColor(key) {
       }
       // Yellow if using flute route without lamp/firerod
       return (it.lamp || it.firerod) ? 'green' : 'yellow';
+    }
 
     case 'hc':
       // Inverted: HC is in LW — requires LW access
@@ -544,11 +844,21 @@ function dungeonColor(key) {
 
     case 'ct': {
       if (inverted) {
-        // Inverted: Aga1 is in GT (DW Death Mountain) — needs to climb DW DM
-        // DW is home world so no pearl needed; glove to reach DM, or flute (needs LW village access to activate)
+        var _ctEntShuffle = !!(settings.entranceShuffle);
+        if (_ctEntShuffle) {
+          // Entrance shuffle inverted: dungeon found via connector — access proven.
+          // Same as non-inverted entrance shuffle: sword1 + lamp to clear.
+          if (!(it.sword >= 1 || (swordless && it.hammer))) return 'red';
+          if (!it.lamp) return 'yellow';
+          if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+            var ctKeysInv = (it.ctSmallKeys) || 0;
+            return ctKeysInv >= 2 ? 'green' : 'red';
+          }
+          return 'green';
+        }
+        // Vanilla inverted: Aga1 is on DW DM — needs glove or flute+lwVillage to climb
         var dwDMAccess = it.gloves >= 1 || (it.flute >= 1 && lwVillage);
         if (!dwDMAccess) return 'red';
-        // Aga1 requires lamp + any sword or hammer (or cape, or swordless hammer)
         if (!it.lamp) return 'red';
         if (!(it.sword >= 1 || it.hammer || it.cape)) return 'red';
         if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
@@ -559,10 +869,30 @@ function dungeonColor(key) {
       }
       // Standard/open: CT is in LW — requires LW access
       if (!lwAccess) return 'red';
+      // Entrance shuffle: only a sword (or hammer if swordless) and lamp are
+      // required — the master-sword/cape requirement below is for the
+      // normal (non-shuffle) route.
+      if (settings.entranceShuffle) {
+        // Keysanity/MCK: having both CT small keys already means the player
+        // has been all the way through the dungeon to get them, so the
+        // marker can go green on keys alone, regardless of lamp/sword.
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var ctKeysEs = (it.ctSmallKeys) || 0;
+          if (ctKeysEs >= 2) return 'green';
+          if (ctKeysEs >= 1) return 'yellow';
+        }
+        if (!(it.sword >= 1 || (swordless && it.hammer))) return 'red';
+        if (!it.lamp) return 'yellow';
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var ctKeysEs2 = (it.ctSmallKeys) || 0;
+          return ctKeysEs2 >= 2 ? 'green' : 'red';
+        }
+        return 'green';
+      }
       // Red until lamp AND (master sword OR cape OR [swordless] hammer)
       if (!it.lamp) return 'red';
       if (!(it.sword >= 2 || it.cape || (swordless && it.hammer))) return 'red';
-      
+
       if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
         var ctKeys = (it.ctSmallKeys) || 0;
         return ctKeys >= 2 ? 'green' : 'red';
@@ -570,7 +900,21 @@ function dungeonColor(key) {
       return 'green';
     }
 
-    case 'pod':
+    case 'pod': {
+      // Entrance shuffle: marking the entrance means it's been found via a
+      // connector — the vanilla moonpearl/Dark World East overworld route
+      // below doesn't apply. Color depends purely on hammer + bow + lamp.
+      var isEntShufflePoD = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+      if (isEntShufflePoD) {
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var podKeysEs = (it.podSmallKeys) || 0;
+          if (podKeysEs < 6) return 'yellow';
+        }
+        if (settings.dungeonItems === 'keysanity') {
+          if (!it.podBigKey) return 'yellow';
+        }
+        return (it.hammer && it.bow && it.lamp) ? 'green' : 'yellow';
+      }
       // Inverted: DW is home world — no moonpearl needed for DW access
       // But still need DW east access route
       if (!inverted && !it.moonpearl) return 'red';
@@ -587,8 +931,37 @@ function dungeonColor(key) {
         if (!it.podBigKey) return 'yellow';
       }
       return 'green';
+    }
 
     case 'sp':
+      // Entrance shuffle: mirror isn't required to reach SP, but the "Dam"
+      // location must be labeled/connected somewhere on the map (same
+      // requirement as Sunken Treasure, check #111).
+      if (settings.entranceShuffle) {
+        // Entrance shuffle: moonpearl and the vanilla DW South access
+        // formula (titan's mitt / hammer+glove / agahnim+hammer) don't
+        // apply — only flippers and the "Dam" connector/label are required.
+        if (!it.flippers) return 'red';
+        // Only the "Dam" LABEL (placed on any real entrance marker) counts —
+        // a bare connector touching the vanilla "Dam" pin's name does NOT,
+        // since in entrance shuffle that pin is just one of many possible
+        // physical locations and isn't inherently special.
+        var spDamFound = false;
+        var spLabels = window._entLabels;
+        if (spLabels) {
+          for (var spName in spLabels) {
+            if (spLabels[spName] === 'Dam') { spDamFound = true; break; }
+          }
+        }
+        if (!spDamFound) return 'red';
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          if (!it.spSmallKeys) return 'yellow';
+        }
+        if (settings.dungeonItems === 'keysanity') {
+          if (!it.spBigKey) return 'yellow';
+        }
+        return it.hookshot ? 'green' : 'yellow';
+      }
       // Inverted: DW is home world — no moonpearl needed
       // Still needs mirror + flippers + DW south access
       if (!inverted && (!it.moonpearl || !it.mirror || !it.flippers)) return 'red';
@@ -605,6 +978,19 @@ function dungeonColor(key) {
       return it.hookshot ? 'green' : 'yellow';
 
     case 'sw': {
+      // Entrance shuffle: marking the entrance means it's been found via a
+      // connector — the vanilla moonpearl/Dark World NW overworld route
+      // below doesn't apply. Yellow needs sword (hammer if swordless);
+      // green additionally needs firerod.
+      var isEntShuffleSW = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+      if (isEntShuffleSW) {
+        var swSwordOk = swordless ? !!it.hammer : !!it.sword;
+        if (!swSwordOk) return 'yellow';
+        if (settings.dungeonItems === 'keysanity') {
+          if (!it.swBigKey) return 'yellow';
+        }
+        return it.firerod ? 'green' : 'yellow';
+      }
       // Inverted: DW is home world — SW accessible from start
       if (!inverted) {
         if (!it.moonpearl) return 'red';
@@ -622,6 +1008,20 @@ function dungeonColor(key) {
     }
 
     case 'tt': {
+      // Entrance shuffle: marking the entrance means it's been found via a
+      // connector — the vanilla moonpearl/Dark World NW overworld route
+      // below doesn't apply. Color depends purely on hammer.
+      var isEntShuffleTT = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+      if (isEntShuffleTT) {
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var ttKeysEs = (it.ttSmallKeys) || 0;
+          if (ttKeysEs < 1) return 'yellow';
+        }
+        if (settings.dungeonItems === 'keysanity') {
+          if (!it.ttBigKey) return 'yellow';
+        }
+        return it.hammer ? 'green' : 'yellow';
+      }
       // Inverted: DW is home world — TT accessible from start, just needs hammer
       if (!inverted) {
         if (!it.moonpearl) return 'red';
@@ -640,9 +1040,29 @@ function dungeonColor(key) {
       return it.hammer ? 'green' : 'yellow';
     }
 
-    case 'ip':
+    case 'ip': {
+      // Entrance shuffle: marking the entrance means it's been found via a
+      // connector — the vanilla moonpearl/flippers/titan's mitt overworld
+      // route below doesn't apply. Color depends purely on (bombos or
+      // firerod) + hammer + hookshot.
+      var isEntShuffleIP = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+      if (isEntShuffleIP) {
+        if (!it.bombos && !it.firerod) return 'red';
+        if (swordless && !it.hammer) return 'red';
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var ipKeysEs = (it.ipSmallKeys) || 0;
+          if (ipKeysEs < 1) return 'yellow';
+          if (ipKeysEs < 2 && !it.somaria) return 'yellow';
+        }
+        if (settings.dungeonItems === 'keysanity') {
+          if (!it.ipBigKey) return 'yellow';
+        }
+        return (it.hammer && it.hookshot) ? 'green' : 'yellow';
+      }
       // Inverted: DW is home world — no moonpearl or titans mitt needed
       if (!inverted && !it.moonpearl) return 'red';
+      // Flippers and Titan's Mitts (gloves >= 2) are needed for the normal
+      // overworld route to IP, but not in entrance shuffle.
       if (!it.flippers) return 'red';
       if (!inverted && it.gloves < 2) return 'red';
       if (!it.bombos && !it.firerod) return 'red';
@@ -661,8 +1081,31 @@ function dungeonColor(key) {
       // the back of the dungeon). Without either it's still completable for
       // the surface checks, hence yellow.
       return (it.hammer && it.hookshot) ? 'green' : 'yellow';
+    }
 
     case 'mm':
+      // Entrance shuffle: if a real entrance marker is labeled "MM", the
+      // Misery Mire entrance has been physically located — titans mitts,
+      // flute, and the medallion are not required to access the dungeon.
+      if (settings.entranceShuffle) {
+        var mmLabelFound = false;
+        var mmLabels = window._entLabels;
+        var mmLogic = window.logic_entrances || {};
+        if (mmLabels) {
+          for (var mmName in mmLabels) {
+            if (mmLabels[mmName] === 'MM' && mmLogic[mmName]) { mmLabelFound = true; break; }
+          }
+        }
+        if (mmLabelFound) {
+          if (!it.boots && !it.hookshot) return 'red';
+          if (!swordless && !it.sword) return 'red';
+          if (swordless && !it.hammer) return 'red';
+          if (settings.dungeonItems === 'keysanity') {
+            if (!it.mmBigKey) return 'yellow';
+          }
+          return (it.somaria && it.lamp) ? 'green' : 'yellow';
+        }
+      }
       // Inverted: DW is home world — no moonpearl or titans mitt needed
       // Access via flute (needs LW village access) or mirror + LW village access
       if (inverted) {
@@ -686,10 +1129,46 @@ function dungeonColor(key) {
       return (it.somaria && it.lamp) ? 'green' : 'yellow';
 
     case 'tr':
+      // Entrance shuffle: "TR B" marks the back/boss entrance, found
+      // physically — overworld access (moonpearl/hammer/titans/medallion/
+      // sword/front-vs-back routing) is governed by EntLogic/region
+      // reachability instead. Only the Cane of Somaria is required to reach
+      // the boss; lamp/firerod/keys still gate full completion.
+      if (window.trackerSettings && window.trackerSettings.entranceShuffle) {
+        if (!it.somaria) return 'red';
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var trKeysShuf = (it.trSmallKeys) || 0;
+          if (trKeysShuf < 4) return 'yellow';
+        }
+        // TR big key is always required for green in entrance shuffle,
+        // regardless of dungeon item mode.
+        if (!it.trBigKey) return 'yellow';
+        return (it.firerod && it.lamp) ? 'green' : 'yellow';
+      }
       // Inverted: DW is home world — no moonpearl, hammer, or titans mitt needed for front entrance
       // Back entrance: DW DM + pearl + (titans+hammer OR hookshot) + somaria + mirror → yellow
       if (!inverted && !it.moonpearl) return 'red';
-      if (!inverted && (!it.hammer || it.gloves < 2)) return 'red';
+      // Must be able to reach LW Death Mountain (gloves to lift rocks, or flute warp)
+      if (!inverted && it.gloves < 1 && it.flute < 1) return 'red';
+      // Must traverse east DW Death Mountain: hammer + titans mitts, then mirror over
+      if (!inverted && (!it.hammer || it.gloves < 2 || !it.mirror)) return 'red';
+      if (!inverted) {
+        if (!it.somaria) return 'red';
+        var hasAllMedsTRn = it.bombos && it.ether && it.quake;
+        if (!hasAllMedsTRn) {
+          if (!it.trMedallion) return 'red';
+          if (!hasMedallion('tr')) return 'red';
+        }
+        if (!swordless && !it.sword) return 'red';
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var trKeysN = (it.trSmallKeys) || 0;
+          if (trKeysN < 4) return 'yellow';
+        }
+        if (settings.dungeonItems === 'keysanity') {
+          if (!it.trBigKey) return 'yellow';
+        }
+        return (it.firerod && it.lamp) ? 'green' : 'yellow';
+      }
       if (inverted) {
         // Check backdoor access
         var dwDMAccess = it.gloves >= 1 || (it.flute >= 1 && lwVillage);
@@ -715,30 +1194,36 @@ function dungeonColor(key) {
         }
         return (it.firerod && it.lamp && it.somaria) ? 'green' : 'yellow';
       }
-      if (!it.somaria) return 'red';
-      var hasAllMedsTR = it.bombos && it.ether && it.quake;
-      if (!hasAllMedsTR) {
-        if (!it.trMedallion) return 'red';
-        if (!hasMedallion('tr')) return 'red';
-      }
-      // Non-swordless: sword required to enter
-      if (!swordless && !it.sword) return 'red';
-      if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
-        var trKeys = (it.trSmallKeys) || 0;
-        if (trKeys < 4) return 'yellow';
-      }
-      if (settings.dungeonItems === 'keysanity') {
-        if (!it.trBigKey) return 'yellow';
-      }
-      return (it.firerod && it.lamp) ? 'green' : 'yellow';
 
     case 'gt': {
-      var req = (window.trackerSettings && window.trackerSettings.gtCrystals) || 7;
+      var isEntShuffleGT = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
       if (inverted) {
-        // Inverted: Ganon is in CT location (LW) — needs LW village portal access + crystal count
-        if (!lwVillage) return 'red';
-        return it.crystals >= req ? 'green' : 'red';
+        // Inverted: 'gt' key = Aga1 (CT dungeon physically on DW DM)
+        // Entrance shuffle: HC balcony connector grants access — needs lamp + sword/hammer/cape
+        var _gtHCNames = {'Agahnims Tower':1,'Hyrule Castle Entrance (West)':1,'Hyrule Castle Entrance (East)':1,'Hyrule Castle Entrance (South)':1};
+        var _gtConns = (window._entConnections && window._entConnections.length)
+          ? window._entConnections
+          : (function() { try { return JSON.parse(localStorage.getItem('ent-connections') || '[]'); } catch(e) { return []; } })();
+        var _gtHCFound = isEntShuffleGT &&
+          _gtConns.some(function(c) { return _gtHCNames[c[0]] || _gtHCNames[c[1]]; });
+        var _gtDWDM = it.gloves >= 1 || (it.flute >= 1 && lwVillage);
+        if (!_gtHCFound && !_gtDWDM) return 'red';
+        if (!it.lamp) return 'red';
+        if (!(it.sword >= 1 || it.hammer || it.cape)) return 'red';
+        if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
+          var _gtCtKeys = (it.ctSmallKeys) || 0;
+          if (_gtCtKeys < 2) return 'red';
+        }
+        return 'green';
       }
+      // Entrance shuffle: no crystal requirement to enter GT. Completing it
+      // requires Hookshot, Hammer, Cane of Somaria, and Bow — yellow until
+      // all four are obtained, then green.
+      if (isEntShuffleGT) {
+        var hasGTItems = it.hookshot && it.hammer && it.somaria && it.bow >= 1 && it.boots;
+        return hasGTItems ? 'green' : 'yellow';
+      }
+      var req = (window.trackerSettings && window.trackerSettings.gtCrystals) || 7;
       return it.crystals >= req ? 'green' : 'red';
     }
 
@@ -829,6 +1314,22 @@ function checkLogic(it) {
          },
     1:   function() { return 'green'; },
     2:   function() { return 'green'; },
+    111: function() { // Sunken Treasure — inside the Dam; needs the Dam entrance located
+           var isEntShuffle = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (!isEntShuffle) return 'green'; // vanilla: Dam access is always available
+           // Only the "Dam" LABEL (placed on any real entrance marker)
+           // counts — a bare connector touching the vanilla "Dam" pin's name
+           // does NOT, since in entrance shuffle that pin isn't inherently
+           // special.
+           var found = false;
+           var labels = window._entLabels;
+           if (labels) {
+             for (var name in labels) {
+               if (labels[name] === 'Dam') { found = true; break; }
+             }
+           }
+           return found ? 'green' : 'red';
+         },
     3:   function() { // Spiral Cave
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) return DMlight ? 'green' : 'yellow';
@@ -869,7 +1370,10 @@ function checkLogic(it) {
     12:  function() { return bomb ? 'green' : 'red'; },
     13:  function() {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
-           var _needPearl = !_inv;
+           var _isEntShuffle13 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           // Entrance shuffle: moonpearl isn't required — the entrance
+           // itself being marked/accessible already accounts for DW access.
+           var _needPearl = !_inv && !_isEntShuffle13;
            if (_needPearl&&!pearl) return 'red'; if (!glove||!hammer) return 'red';
            if (!byrna&&!cape) return 'yellow'; return DMlight ? 'green' : 'yellow';
          },
@@ -910,9 +1414,14 @@ function checkLogic(it) {
     65:  function() {
            var inv2 = window.trackerSettings && window.trackerSettings.inverted;
            if (!inv2) return 'green';
-           // Inverted: LW bottle merchant needs portal access or SuperBunny
+           var entSh2 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (entSh2) {
+             // Inverted entrance shuffle: green only if player has found a Kakariko-area LW entrance
+             var _kFound = typeof window.kakarikoConnectorFound === 'function' && window.kakarikoConnectorFound();
+             return _kFound ? 'green' : 'red';
+           }
            var p2=it.moonpearl>=1,t2=it.gloves>=2,g2=it.gloves>=1,h2=it.hammer>=1,a2=it.agahnim>=1,hk2=it.hookshot>=1,fl2=it.flippers>=1;
-           var sb2 = a2 && !p2; // SuperBunny
+           var sb2 = a2 && !p2; // SuperBunny — non-entrance-shuffle only
            return (p2&&(t2||(g2&&h2)||(a2&&hk2&&(h2||g2||fl2)))) || sb2 ? 'green' : 'red';
          },
     66:  function() { return (it.greenPendant >= 1) ? 'green' : 'red'; },
@@ -950,12 +1459,29 @@ function checkLogic(it) {
          },
     73:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) return (flippers || (mirror && lwAccess) || (superBunny && mirror) || (glove && (hammer || (flute && lwAccess)))) ? 'green' : 'red';
+           var _isEntShuffle73 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_inv && _isEntShuffle73) {
+             // Inverted entrance shuffle: connector to East DW grants area access.
+             // Catfish always requires glove regardless.
+             var _eastRegions = window._entSyntheticFoundRegions || [];
+             var _eastFound = _eastRegions.indexOf('East Dark World') !== -1 || _eastRegions.indexOf('Inverted East Dark World') !== -1;
+             if (_eastFound) return glove ? 'green' : 'red';
+           }
+           // Inverted non-shuffle (and inverted ent-shuffle without East DW connector):
+           // glove is always required; additionally need East DW access.
+           if (_inv) return (glove && (flippers || (mirror && lwAccess) || (superBunny && mirror) || (hammer || (flute && lwAccess)))) ? 'green' : 'red';
            return (dwEast&&glove) ? 'green' : 'red';
          },
     74:  function() { return (flippers||glove) ? 'green' : 'red'; },
     75:  function() { if (!climbDM) return 'red'; return lamp ? 'green' : 'yellow'; },
-    76:  function() { return mushroom ? 'green' : 'red'; },
+    76:  function() {
+           if (mushroom) return 'green';
+           // Inverted entrance shuffle: visible as bunny but need moonpearl to use mushroom
+           var _inv76 = window.trackerSettings && window.trackerSettings.inverted;
+           var _ent76 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_inv76 && _ent76) return 'orange';
+           return 'red';
+         },
     77:  function() { return 'green'; },
     78:  function() { return (aga&&boots) ? 'green' : 'orange'; },
     79:  function() {
@@ -970,17 +1496,32 @@ function checkLogic(it) {
          },
     80:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) return lwAccess ? 'green' : 'red';
+           if (_inv) {
+             if (lwAccess) return (mirror && (dwNW || (aga && pearl && hammer))) ? 'green' : 'orange';
+             var _isEnt80 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+             if (_isEnt80 && window.EntLogic && window.EntLogic.hasFoundLightWorldEntrance && window.EntLogic.hasFoundLightWorldEntrance()) return 'orange';
+             return 'red';
+           }
            if (!mirror) return 'red'; return (dwNW||(aga&&pearl&&hammer))?'green':'red';
          },
     81:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) return lwAccess ? 'green' : 'red';
+           if (_inv) {
+             if (lwAccess) return (dwNW && mirror) ? 'green' : 'orange';
+             var _isEnt81 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+             if (_isEnt81 && window.EntLogic && window.EntLogic.hasFoundLightWorldEntrance && window.EntLogic.hasFoundLightWorldEntrance()) return 'orange';
+             return 'red';
+           }
            return (dwNW&&mirror) ? 'green' : 'red';
          },
     82:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
-           if (_inv) return lwAccess ? 'green' : 'red';
+           if (_inv) {
+             if (lwAccess) return (flute && titan && mirror) ? 'green' : 'orange';
+             var _isEnt82 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+             if (_isEnt82 && window.EntLogic && window.EntLogic.hasFoundLightWorldEntrance && window.EntLogic.hasFoundLightWorldEntrance()) return 'orange';
+             return 'red';
+           }
            return (flute&&titan&&mirror) ? 'green' : 'red';
          },
     83:  function() {
@@ -989,7 +1530,13 @@ function checkLogic(it) {
            return (pearl&&titan&&hammer) ? 'green' : 'red';
          },
     84:  function() { return boots ? 'green' : 'orange'; },
-    85:  function() { return 'green'; },
+    85:  function() {
+           // Inverted entrance shuffle bunny form: can see mushroom but can't pick it up
+           var _inv85 = window.trackerSettings && window.trackerSettings.inverted;
+           var _ent85 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_inv85 && _ent85 && !pearl) return 'orange';
+           return 'green';
+         },
     86:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
@@ -1004,14 +1551,74 @@ function checkLogic(it) {
          },
     87:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           var _ent87 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_inv && _ent87) {
+             var _synth87 = window._entSyntheticFoundRegions || [];
+             var _eastDMInv = _synth87.indexOf('Upper East Death Mountain') !== -1 ||
+                              _synth87.indexOf('Inverted Upper East Death Mountain') !== -1;
+             return _eastDMInv ? 'green' : 'red';
+           }
            if (_inv) return DMlight ? 'green' : 'yellow';
            if (!eastDM) return 'red';
            return (mirror&&pearl&&titan) ? (DMlight?'green':'yellow') : 'orange';
          },
-    88:  function() { return (bomb || boots) ? 'green' : 'red'; },
+    88:  function() { // Race Minigame.
+           var isEntShuffle = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           // Inverted non-shuffle: this LW spot needs portal access (lwAccess)
+           // just to be seen at all — red if that's missing.
+           if (inv && !lwAccess && !isEntShuffle) return 'red';
+           if (isEntShuffle) {
+             // Entrance shuffle: bomb/boots don't gate this — once a
+             // connector to Two Brothers House (West) is found (or mirror +
+             // Dark World access back to it), it's green outright. Without
+             // that, it's still a normal walkable LW spot, so orange.
+             var conns = (window._entConnections && window._entConnections.length)
+               ? window._entConnections
+               : (function() { try { return JSON.parse(localStorage.getItem('ent-connections') || '[]'); } catch(e) { return []; } })();
+             var found = false;
+             if (conns && conns.length) {
+               for (var i = 0; i < conns.length; i++) {
+                 if (conns[i][0] === 'Two Brothers House (West)' || conns[i][1] === 'Two Brothers House (West)') { found = true; break; }
+               }
+             }
+             var _inv88 = !!(window.trackerSettings && window.trackerSettings.inverted);
+             // Inverted: only a direct connector to Two Brothers House (West) grants access
+             var reachable = found || (!_inv88 && mirror && (dwNW || dwEast || dwSouth));
+             return reachable ? 'green' : 'orange';
+           }
+           // Non-entrance-shuffle: needs bomb or boots to solve; otherwise
+           // it's still visible/walkable LW, so orange rather than red.
+           return (bomb || boots) ? 'green' : 'orange';
+         },
     89:  function() {
+           // Entrance shuffle: Desert Ledge sits next to Desert Palace
+           // Entrance (West) — if West has its OWN direct connector, the
+           // ledge is reachable with no glove needed. If access only comes
+           // via North (North's own direct connector, or a "DP N" label
+           // elsewhere), the ledge is reachable too, but North's rock
+           // barrier requires glove.
+           var isEntShuffle89 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (isEntShuffle89 && typeof window.dpEntranceFound === 'function') {
+             if (window.dpEntranceFound('Desert Palace Entrance (West)')) return 'green';
+             var dpNorthDirect89 = window.dpEntranceFound('Desert Palace Entrance (North)') ||
+               (typeof window.dpNorthLabelFound === 'function' && window.dpNorthLabelFound());
+             if (dpNorthDirect89) {
+               var t89dp = window.trackerItems || {};
+               if (t89dp.gloves >= 1) return 'green';
+             }
+           }
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
+             if (isEntShuffle89) {
+               // Inverted entrance shuffle: connector to West/North grants access
+               if (typeof window.dpEntranceFound === 'function' && window.dpEntranceFound('Desert Palace Entrance (West)')) return 'green';
+               var dpNorthInv = typeof window.dpEntranceFound === 'function' && (window.dpEntranceFound('Desert Palace Entrance (North)') || (typeof window.dpNorthLabelFound === 'function' && window.dpNorthLabelFound()));
+               if (dpNorthInv) return glove ? 'green' : 'orange';
+               // Any found LW label or connector means player can walk the desert and see the ledge
+               var _hasLW89 = typeof window.kakarikoConnectorFound === 'function' && window.kakarikoConnectorFound();
+               if (!lwAccess && !_hasLW89) return 'red';
+               return book ? 'green' : 'orange';
+             }
              if (!lwAccess) return 'red';
              return book ? 'green' : 'orange';
            }
@@ -1024,6 +1631,26 @@ function checkLogic(it) {
            return (pearl&&mirror&&(aga||titan||(glove&&hammer))) ? 'green' : 'orange';
          },
     91:  function() {
+           // Entrance shuffle: green only if connector to Bumper Cave (Top),
+           // or connector to Death Mountain Return Cave (West) + mirror.
+           // Otherwise orange. HC group / Bottom entrance is irrelevant.
+           var isEntShuffle91 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (isEntShuffle91) {
+             var conns91 = window._entConnections || [];
+             var labels91 = window._entLabels || {};
+             var bcTopFound = false;
+             var dmRetWestFound = false;
+             for (var ci = 0; ci < conns91.length; ci++) {
+               var ca = conns91[ci][0], cb = conns91[ci][1];
+               if (ca === 'Bumper Cave (Top)' || cb === 'Bumper Cave (Top)') bcTopFound = true;
+               if (ca === 'Death Mountain Return Cave (West)' || cb === 'Death Mountain Return Cave (West)') dmRetWestFound = true;
+             }
+             if (!bcTopFound && labels91['Bumper Cave (Top)']) bcTopFound = true;
+             if (!dmRetWestFound && labels91['Death Mountain Return Cave (West)']) dmRetWestFound = true;
+             if (bcTopFound) return 'green';
+             if (dmRetWestFound && mirror) return 'green';
+             return 'orange';
+           }
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
              // Inverted: Bumper Cave ledge is in DW but needs LW village portal + glove + mirror
@@ -1036,12 +1663,41 @@ function checkLogic(it) {
            return (cape && glove) ? 'green' : 'orange';
          },
     92:  function() {
+           // Entrance shuffle: if East Dark World has been physically reached
+           // via a connector/label (e.g. Lake Hylia Shop <-> Palace of Darkness
+           // Hint), the Pyramid check is reachable regardless of the vanilla
+           // overworld access route.
+           var isEntShufflePyr = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           var pyrEastReached = isEntShufflePyr && window._entSyntheticFoundRegions && window._entSyntheticFoundRegions.indexOf('East Dark World') !== -1;
+           if (pyrEastReached) return 'green';
            var inv3 = window.trackerSettings && window.trackerSettings.inverted;
+           if (inv3 && isEntShufflePyr) {
+             var _conns92 = window._entConnections || [];
+             var _labels92 = window._entLabels || {};
+             var _pyrEnts = { 'Hyrule Castle Entrance (West)':1, 'Hyrule Castle Entrance (East)':1 };
+             var _pyrFound = false;
+             for (var _pi = 0; _pi < _conns92.length; _pi++) {
+               if (_pyrEnts[_conns92[_pi][0]] || _pyrEnts[_conns92[_pi][1]]) { _pyrFound = true; break; }
+             }
+             if (!_pyrFound) {
+               var _lnames92 = Object.keys(_labels92);
+               for (var _li92 = 0; _li92 < _lnames92.length; _li92++) {
+                 if (_pyrEnts[_lnames92[_li92]]) { _pyrFound = true; break; }
+               }
+             }
+             // Agahnim's Tower with Aga2 defeated
+             if (!_pyrFound) {
+               var _aga2_92 = !!(window.trackerItems && (window.trackerItems.agahnim2 || (DUNGEONS.gt && (DUNGEONS.gt.cleared || DUNGEONS.gt.fullyCleared))));
+               var _agaTowerFound = !!_labels92['Agahnims Tower'] || _conns92.some(function(c){ return c[0]==='Agahnims Tower'||c[1]==='Agahnims Tower'; });
+               if (_agaTowerFound && _aga2_92) _pyrFound = true;
+             }
+             return _pyrFound ? 'green' : 'red';
+           }
            if (inv3) return dwEast ? 'green' : 'red';
            return (aga||dwEast) ? 'green' : 'red';
          },
     93:  function() { return dwSouth ? 'green' : 'red'; },
-    94:  function() { return flippers ? 'green' : 'red'; },
+    94:  function() { if (flippers) return 'green'; return glove ? 'orange' : 'red'; },
     95:  function() { return shovel ? 'green' : 'red'; },
     96:  function() {
            var settings = window.trackerSettings || {};
@@ -1120,7 +1776,9 @@ window.checkColor = function(id) {
     if (id === 2) return 'green';
 
     // DW village checks: always accessible from start (home world)
-    var _dwFree = [8, 64, 65, 67, 93];
+    // In inverted entrance shuffle, check 65 (Bottle Merchant) is on the LW map and needs a connector
+    var _isEntShuffleFree = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+    var _dwFree = _isEntShuffleFree ? [8, 64, 67, 93] : [8, 64, 65, 67, 93];
     var _dwBomb = [7, 16];
     if (_dwFree.indexOf(id) !== -1) return 'green';
     if (_dwBomb.indexOf(id) !== -1) return (it.bomb >= 1 || it.bomb === true) ? 'green' : 'red';
@@ -1145,8 +1803,24 @@ window.checkColor = function(id) {
       var lwDMEastAccess  = pearl && glove && (titan || hook);
       var lwVillageAccess = pearl && (aga || titan || (glove && hammer));
     if (id === 109 || id === 110) { /* fall through to checkLogic — DW DM access not gated here */ }
-    else if (id === 65 && aga && !pearl) { /* SuperBunny — Bottle Merchant accessible, fall through */ }
+    else if (id === 65 && aga && !pearl && !(window.trackerSettings && window.trackerSettings.entranceShuffle)) { /* SuperBunny — Bottle Merchant accessible, fall through (non-entrance-shuffle only) */ }
     else if (id === 101 && !pearl && aga && mirror2) { /* SuperBunny + mirror — Blacksmith accessible */ }
+    else if ((id === 70 || id === 74 || id === 90 || id === 94) && pearl && flip && !!(window.trackerSettings && window.trackerSettings.entranceShuffle)) {
+      // Inverted entrance shuffle: water checks accessible via any lake-area entrance + flippers + pearl
+      var _weInv = {
+        'Waterfall of Wishing':1,'North Fairy Cave':1,'North Fairy Cave Drop':1,
+        'Lake Hylia Fairy':1,'Long Fairy Cave':1,'Lake Hylia Shop':1,
+        'Lake Hylia Fortune Teller':1,'Capacity Upgrade':1,
+        'Dark Lake Hylia Fairy':1,'Dark Lake Hylia Shop':1,
+        'Dark Lake Hylia Ledge Fairy':1,'Dark Lake Hylia Ledge Hint':1,'Dark Lake Hylia Ledge Spike Cave':1,
+      };
+      var _wlInv = window._entLabels || {};
+      var _wcInv = window._entConnections || [];
+      var _wfInv = Object.keys(_wlInv).some(function(n) { return _weInv[n]; }) ||
+                   _wcInv.some(function(c) { return _weInv[c[0]] || _weInv[c[1]]; });
+      if (_wfInv) return id === 74 ? (flip||glove?'green':'red') : 'green';
+      // no water entrance found — fall through to normal access check
+    }
     else {
       var _leftDMNoPearl = [75, 79, 86];
       var _topLeftDM = [71];
@@ -1156,32 +1830,34 @@ window.checkColor = function(id) {
                      (_topLeftDM.indexOf(id) !== -1)     ? lwDMTopLeft :
                      (_rightDM.indexOf(id) !== -1)       ? lwDMEastAccess :
                      lwVillageAccess;
-      if (!lwAccess) return 'red';
+      if (!lwAccess) {
+        var _isEntShuffle = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+        // Inverted entrance shuffle: with any south LW connector the player can walk
+        // the overworld as a bunny and access Kakariko-area checks.
+        var _lwVisibleChecks = [65, 66, 68, 76, 84, 85, 87, 88, 89, 90, 5, 6, 14, 15, 69, 95, 96, 97, 98, 99];
+        var _kakFound = typeof window.kakarikoConnectorFound === 'function' && window.kakarikoConnectorFound();
+        if (_isEntShuffle && _lwVisibleChecks.indexOf(id) !== -1 && _kakFound) {
+          // Check 65 (Bottle Merchant): needs pearl to interact — fall through to checkLogic
+          // Fall through to checkLogic — it returns appropriate orange/green
+        // Inverted entrance shuffle: flippers + pearl + any water-area LW entrance →
+        // King Zora (74) and Zora's Ledge (94) accessible by swimming
+        } else if (false) { /* water checks handled upstream */
+        } else {
+          return 'red';
+        }
+      }
     }
     }
     // DW checks (world==='dw') fall through to checkLogic normally
-    // Exception: Bumper Cave (91) in inverted requires LW village portal access
-    if (id === 91) {
-      var pearl  = it.moonpearl >= 1;
-      var titan  = it.gloves >= 2;
-      var glove  = it.gloves >= 1;
-      var hammer = it.hammer >= 1;
-      var aga    = it.agahnim >= 1;
-      var hook   = it.hookshot >= 1;
-      var flip   = it.flippers >= 1;
-      var mirror = it.mirror >= 1;
-      var cape   = it.cape >= 1;
-      var lwVillageAccess = pearl && (aga || titan || (glove && hammer));
-      if (!lwVillageAccess) return 'orange';
-      if (!mirror || !cape) return 'orange';
-      return 'green';
-    }
   }
   var fn = checkLogic(it)[id];
   return fn ? fn() : 'green';
 };
 })();
 </script>
+<script src="entrances_data.js"></script>
+<script src="logic/ref_logic_entrances.js"></script>
+<script src="logic/ent_logic.js"></script>
 <script>
 'use strict';
 
@@ -1193,7 +1869,8 @@ window.checkColor = function(id) {
 var CHECKS = [
   // Light World
   [0,   61.60, 29.60, "King's Tomb",           "lw"],
-  [1,   46.80, 93.40, "Swamp Ruins (2)",        "lw"],
+  [1,   46.80, 93.40, "Dam",                    "lw"],
+  [111, 45.00, 93.40, "Sunken Treasure",        "lw"], // 0x2bb bit 0x40 — Dam underwater chest
   [2,   54.80, 67.90, "Link's House",           "lw"],
   [3,   76.80,  9.30, "Spiral Cave",            "lw"],
   [5,   16.20, 57.80, "Tavern",                 "lw"],
@@ -1376,6 +2053,8 @@ function resetChecks() {
     refreshDungeonImg(key);
   });
   window.refreshMapLogic();
+  // Reset entrance overlay state (labels, notes, connectors, cleared markers)
+  if (typeof window._entResetAll === 'function') window._entResetAll();
 }
 
 // ── trackerItems default (no items) ──────────────────────────────────────────
@@ -1559,8 +2238,7 @@ CHECKS.forEach(function(c) {
   var id = c[0], lft = c[1], top = c[2], name = c[3], world = c[4];
   // In inverted mode: Link's House (id=2) goes on DW map
   if (_inverted && id === 2) world = 'dw';
-  // In inverted: Old Man (75) moves to DW map at same position
-  if (_inverted && id === 75) world = 'dw';
+  // Old Man (75) stays on LW map regardless of inverted mode
   // In inverted: CT checks (109/110) follow Aga1 to DW map, left/right of CT marker (57, 2)
   if (_inverted && id === 109) { world = 'dw'; lft = 51.0; top = 2.0; }
   if (_inverted && id === 110) { world = 'dw'; lft = 63.0; top = 2.0; }
@@ -1579,6 +2257,20 @@ CHECKS.forEach(function(c) {
       saveAnnotations();
       renderAnnotation(d, id);
     }
+    // Auto-mark entrance cleared when its key check is collected (one-way)
+    if (checkState[id] && typeof window.markEntranceClearedByCode === 'function') {
+      var _autoLabelMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike' };
+      var _autoCode = _autoLabelMap[id];
+      if (_autoCode) window.markEntranceClearedByCode(_autoCode);
+    }
+    // Notify checklist of the updated cleared state
+    try {
+      if (typeof _bc !== 'undefined') {
+        var _clCleared = {};
+        CHECKS.forEach(function(c) { if (checkState[c[0]]) _clCleared[c[0]] = true; });
+        _bc.postMessage({ type: 'checkcolors', colors: _lastBroadcastColors || {}, cleared: _clCleared });
+      }
+    } catch(ex) {}
   });
   d.addEventListener('contextmenu', function(e) {
     e.preventDefault();
@@ -1632,12 +2324,1790 @@ if (_inverted) {
   dngEls['ct'] = dngEls['gt'];
   dngEls['gt'] = _tmpEl;
 }
+
+// ── Entrance Shuffle overlay (Phase 1: markers + show/hide toggle) ─────────
+// Self-contained: namespaced under ent*, isolated from dot/dng logic above.
+// Persists its own toggle state; does not touch checkState/annotations.
+(function initEntranceOverlay() {
+  if (typeof ENTRANCES === 'undefined') return; // entrances_data.js not loaded
+
+  // Global calibration offset (percentage points) to align the source
+  // entrance coordinates with our map images. Tune these, then we can
+  // bake the adjustment into entrances_data.js once dialed in.
+  var ENT_OFFSET_X = -2.0; // negative = shift left
+  var ENT_OFFSET_Y = -2.0; // negative = shift up
+
+  // Some entrance markers sit on top of an existing check dot for the same
+  // physical location (the check dot is then redundant). List those check
+  // IDs (from CHECKS) here so they're hidden whenever the entrance overlay
+  // is shown. Add to this list as we identify more overlaps.
+  var ENTRANCE_HIDES_CHECK = [
+    80,  // Cave 45
+    76,  // Potion Shop
+    98,  // Hyrule Castle (3) — covers South/West/East entrances
+    99,  // Sanctuary — covers Sanctuary + Sanctuary Grave
+    18,  // Bonk Rock Cave
+    77,  // Lost Woods Hideout — covers Drop/Stump
+    78,  // Lumberjack Tree
+    14,  // Kakariko Well (5) — covers Drop/Cave
+    6,   // Chicken House
+    5,   // Tavern — covers Tavern (Front)
+    84,  // Library
+    12,  // Sahasrahla's Hut (3)
+    82,  // Checkerboard Cave
+    9,   // Aginah's Cave
+    19,  // Mini Moldorm Cave (5)
+    20,  // Ice Rod Cave
+    17,  // Paradox Cave (7) — covers Top/Middle/Bottom
+    3,   // Spiral Cave — covers Spiral Cave + Spiral Cave (Bottom)
+    22,  // Hookshot Cave (3) — covers Hookshot Fairy + Hookshot Cave
+    4,   // Mimic Cave
+    16,  // Hype Cave (5)
+    102, // Pyramid Fairy (2)
+    64,  // Chest Game
+    8,   // C-Shaped House
+    7,   // Brewery
+    10,  // Mire Shed (2)
+    13,  // Spike Cave
+    15,  // Blind's Hut (5)
+    68,  // Sick Kid
+    101, // Blacksmith
+    100, // Magic Bat
+    104, // Dark Cross
+    97,  // Uncle + Passage (2)
+    66,  // Sahasrahla NPC
+    96,  // Escape Sewers (3)
+    81,  // Graveyard Ledge
+    0,   // King's Tomb
+    79,  // Spectacle Rock Cave
+    21,  // Hookshot Cave Bot. R
+    11,  // Super Bunny Cave (2)
+    83,  // Hammer Pegs
+    105, // Waterfall Fairy (2)
+    1    // Dam — covered by the Dam entrance marker
+  ];
+
+  // All dungeon entrance markers are part of the entrance shuffle, so hide
+  // their map markers (dngEls) too when the overlay is shown.
+  var ENTRANCE_HIDES_DUNGEON = ['ep','dp','toh','ct','pod','sp','sw','tt','ip','mm','tr','gt'];
+
+  var entMarkers = {}; // name -> element
+
+  ENTRANCE_HIDES_CHECK.forEach(function(id) {
+    if (dotById[id]) dotById[id].dataset.entHidden = '1';
+  });
+  ENTRANCE_HIDES_DUNGEON.forEach(function(key) {
+    if (dngEls[key]) dngEls[key].dataset.entHidden = '1';
+  });
+
+  ENTRANCES.forEach(function(e, idx) {
+    var m = document.createElement('div');
+    m.className = 'ent-marker unconnected';
+    m.style.left = (e.left + ENT_OFFSET_X) + '%';
+    m.style.top  = (e.top + ENT_OFFSET_Y) + '%';
+    m.title = e.name;
+    m.dataset.entName = e.name;
+    m.dataset.entIdx = idx;
+
+    m.addEventListener('mouseenter', function(ev) { showTip(e.name, ev); });
+    m.addEventListener('mousemove',  moveTip);
+    m.addEventListener('mouseleave', hideTip);
+    m.addEventListener('click', function(ev) {
+      if (window._entConnectPending) {
+        window._entConnectFinish(e.name, m);
+        return;
+      }
+      m.classList.toggle('cleared');
+      var clearedState = JSON.parse(localStorage.getItem('ent-cleared') || '{}');
+      if (m.classList.contains('cleared')) clearedState[e.name] = 1;
+      else delete clearedState[e.name];
+      localStorage.setItem('ent-cleared', JSON.stringify(clearedState));
+      if (window._entApplyMarkerColor) window._entApplyMarkerColor(e.name);
+      if (window._entRenderLabel) window._entRenderLabel(e.name);
+    });
+    m.addEventListener('contextmenu', function(ev) {
+      ev.preventDefault();
+      window._entOpenPopup(e.name, m, ev.clientX, ev.clientY);
+    });
+
+    // In inverted, Pyramid Exit and Pyramid Hole appear on the LW map
+    var entWorld = e.world;
+    if (_inverted && e.name === 'Pyramid Exit') {
+      entWorld = 'lw';
+      m.style.left = (48.0 + ENT_OFFSET_X) + '%';
+      m.style.top  = (46.0 + ENT_OFFSET_Y) + '%';
+    }
+    if (_inverted && e.name === 'Pyramid Hole') {
+      entWorld = 'lw';
+      m.style.left = (52.4 + ENT_OFFSET_X) + '%';
+      m.style.top  = (43.0 + ENT_OFFSET_Y) + '%';
+    }
+    (entWorld === 'lw' ? lwEl : dwEl).appendChild(m);
+    entMarkers[e.name] = m;
+  });
+
+  // Restore cleared state
+  try {
+    var clearedState = JSON.parse(localStorage.getItem('ent-cleared') || '{}');
+    Object.keys(clearedState).forEach(function(name) {
+      if (entMarkers[name]) entMarkers[name].classList.add('cleared');
+    });
+  } catch(ex) {}
+
+  // Visibility is driven entirely by the entranceShuffle setting passed
+  // from index.html — no in-map toggle. If entrance shuffle is off, the
+  // overlay is hidden and the normal checks are shown instead.
+  var isEntShuffle = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+  document.getElementById('maps').classList.toggle('entrances-hidden', !isEntShuffle);
+
+  // Expose for phase 2 (connection logic)
+  window._entMarkers = entMarkers;
+})();
+
+// ── Entrance connectors & key-location tagging (Phase 2) ───────────────────────
+(function initEntranceConnectors() {
+  if (typeof ENTRANCES === 'undefined') return;
+  if (!window._entMarkers) return;
+
+  var ENT_OFFSET_X = -2.0;
+  var ENT_OFFSET_Y = -2.0;
+  var entMarkers = window._entMarkers;
+  var entByName = {}; // name -> ENTRANCES entry (with offset-adjusted coords)
+  ENTRANCES.forEach(function(e) {
+    entByName[e.name] = {
+      name: e.name, world: e.world,
+      left: e.left + ENT_OFFSET_X,
+      top:  e.top  + ENT_OFFSET_Y
+    };
+  });
+
+  // Key location codes, grouped for the popup grid.
+  // "color" is the group default; entries can override via a 3rd array
+  // element to match the reference color scheme (e.g. Connect = purple).
+  var KEY_LOCATION_GROUPS = [
+    { title: 'Light World Dungeons', color: '#1a5a9a', codes: [
+      ['HCM','HC M', '#2acbe8'], ['HCW','HC W', '#2acbe8'], ['HCE','HC E', '#2acbe8'],
+      ['CT','CT', '#1a8a9a'], ['EP','EP', '#1a8a9a'],
+      ['DPM','DP M', '#8a8a2a'], ['DPW','DP W', '#8a8a2a'], ['DPE','DP E', '#8a8a2a'],
+      ['DPN','DP N', '#8a8a2a'], ['TOH','ToH', '#1a8a9a']
+    ]},
+    { title: 'Dark World Dungeons', color: '#1a8a9a', codes: [
+      ['POD','PoD'], ['SP','SP'], ['SWM','SW M', '#2acbe8'], ['SWW','SW W', '#2acbe8'], ['SWE','SW E', '#2acbe8'],
+      ['SW','SW', '#2acbe8'], ['TT','TT'], ['IP','IP'], ['MM','MM'], ['TRM','TR M', '#cc6a1a'],
+      ['TRW','TR W', '#cc6a1a'], ['TRE','TR E', '#cc6a1a'], ['TRB','TR B', '#cc6a1a'], ['GT','GT'], ['GANON','Ganon']
+    ]},
+    { title: 'General Key Locations', color: '#3a9a3a', codes: [
+      ['RUPEE','Rupee 💰'], ['SHOP','Shop $'], ['DARK','Dark', '#1a4a8a'], ['ITEM','Item'], ['FAIRY','Fairy 🧚']
+    ]},
+    { title: 'Light World Key Locations', color: '#cc6a1a', codes: [
+      ['MAGIC','Magic'], ['SAHAS','Sahas'],
+      ['KID','Kid', '#cc6a1a'], ['MIMIC','Mimic'],
+      ['SMITH','Smith', '#cc6a1a'], ['BAT','Bat'],
+      ['LIBRARY','Library', '#cc6a1a'], ['DAM','Dam']
+    ]},
+    { title: 'Dark World Key Locations', color: '#cc6a1a', codes: [
+      ['BOMB','Bomb'], ['BUMPER','Bumper'], ['SPIKE','Spike'], ['HOOK','Hook']
+    ]},
+    { title: 'Starting Locations', color: '#1a8a9a', codes: [
+      ['LINK','Link'], ['SANC','Sanc'], ['MOUNT','Mount']
+    ]}
+  ];
+
+  // Override how a label code is displayed on the map marker tag
+  // (the popup grid button and stored value still use the original text).
+  var ENT_MAP_LABEL_OVERRIDE = {
+    'Rupee 💰': '💰',
+    'Shop $': '$',
+    'Bumper': 'Bump',
+    'Fairy 🧚': '🧚'
+  };
+
+  // ── Persistence ──
+  var ENT_LABELS_KEY = 'ent-labels';     // { entranceName: code }
+  var ENT_NOTES_KEY  = 'ent-notes';      // { entranceName: noteText }
+  var ENT_CONNS_KEY  = 'ent-connections'; // [[nameA, nameB], ...]
+  var entLabels = {};
+  var entNotes  = {};
+  var entConnections = [];
+  try { entLabels = JSON.parse(localStorage.getItem(ENT_LABELS_KEY) || '{}'); } catch(ex) {}
+  try { entNotes  = JSON.parse(localStorage.getItem(ENT_NOTES_KEY)  || '{}'); } catch(ex) {}
+  try { entConnections = JSON.parse(localStorage.getItem(ENT_CONNS_KEY) || '[]'); } catch(ex) {}
+
+  window._entLabels = entLabels; // exposed for checkLogic (e.g. Sunken Treasure: Dam label)
+
+  function saveLabels()      { localStorage.setItem(ENT_LABELS_KEY, JSON.stringify(entLabels)); }
+  function saveNotes()       { localStorage.setItem(ENT_NOTES_KEY,  JSON.stringify(entNotes)); }
+  function saveConnections() { localStorage.setItem(ENT_CONNS_KEY,  JSON.stringify(entConnections)); }
+  window._entConnections = entConnections; // exposed for EntLogic hasFoundEntrance checks
+
+  // Refresh check dots whose color depends on entrance connections
+  // (e.g. Sunken Treasure needs the Dam; Race Minigame needs Two Brothers House (West)).
+  function refreshConnectionDependentDots() {
+    [111, 88].forEach(function(id) {
+      if (typeof dotById !== 'undefined' && dotById[id]) dotById[id].className = dotClass(id);
+    });
+  }
+  refreshConnectionDependentDots();
+
+  // ── Multi-exit dungeon groups (synthetic connections) ──────────────────────
+  // Some dungeons have several usable exits that all interconnect inside the
+  // dungeon (the player can walk out any of them once one is found). Marking
+  // any one of a group's key-location codes (e.g. "HC W") on the map means
+  // all of that dungeon's exits should be treated as mutually "found" for
+  // hasFoundEntrance checks — without drawing a visible connector line.
+  var ENT_MULTI_EXIT_GROUPS = {
+    'HC M': 'Hyrule Castle Entrance (South)',
+    'HC W': 'Hyrule Castle Entrance (West)',
+    'HC E': 'Hyrule Castle Entrance (East)',
+    'DP M': 'Desert Palace Entrance (South)',
+    'DP W': 'Desert Palace Entrance (West)',
+    'DP E': 'Desert Palace Entrance (East)'
+  };
+  var ENT_MULTI_EXIT_GROUP_PREFIXES = ['HC ', 'DP '];
+
+  // Rebuild window._entSyntheticFoundEntrances from the current entLabels:
+  // for each HC/DP code placed anywhere on the map, its canonical entrance
+  // name counts as "found" for hasFoundEntrance checks (the player has
+  // located that exit, even if EntLogic's own reachability requirements
+  // for it aren't separately satisfied).
+  function refreshSyntheticConnections() {
+    var found = [];
+    var logic = window.logic_entrances || {};
+    // Connector-group label codes: once 2+ of a group's codes are placed
+    // anywhere on real entrance markers, every marker carrying one of those
+    // codes counts as "found" for hasFoundEntrance checks — same as if a
+    // manual connector touched it.
+    var groupFound = {
+      'DP M': dpLabelGroupFound(), 'DP W': dpLabelGroupFound(), 'DP E': dpLabelGroupFound(),
+      'HC M': hcLabelGroupFound(), 'HC W': hcLabelGroupFound(), 'HC E': hcLabelGroupFound(),
+      'TR M': trLabelGroupFound(), 'TR W': trLabelGroupFound(),
+      'TR E': trEBLabelGroupFound(), 'TR B': trEBLabelGroupFound(),
+      'SW E': swLabelGroupFound(), 'SW W': swLabelGroupFound()
+    };
+    Object.keys(entLabels).forEach(function(name) {
+      // Only labels placed on actual entrance markers (present in
+      // logic_entrances) can represent a "found" dungeon exit. A label
+      // placed on a numbered check (e.g. "Checkerboard Cave") with a DP/HC
+      // code is just a note/marker on that check and must NOT be treated as
+      // having located the corresponding dungeon entrance.
+      if (!logic[name]) return;
+      var code = entLabels[name];
+      // NOTE: we intentionally do NOT push the "canonical" vanilla entrance
+      // name (ENT_MULTI_EXIT_GROUPS[code]) here. In entrance shuffle, the
+      // vanilla-named map pin (e.g. the original "Desert Palace Entrance
+      // (West)" pin) is a physically distinct, separate location from
+      // whichever real (shuffled) entrance got labeled "DP W" — they are NOT
+      // the same marker, and the vanilla pin must stay governed only by its
+      // own connectors/labels. Only the labeled marker itself is "found".
+      // The labeled entrance itself is "found" once its connector group has
+      // 2+ members placed anywhere on the map.
+      if (code && groupFound[code] && found.indexOf(name) === -1) found.push(name);
+    });
+    window._entSyntheticFoundEntrances = found;
+    refreshSyntheticRegions();
+  }
+
+  // ── Region grants from physically-found entrance positions ─────────────────
+  // Some entrances sit physically "inside" a region — once the player has
+  // found/entered that entrance, they've effectively reached the region and
+  // can access its other interior connections, regardless of whether the
+  // region's own item-based canReach requirements are independently met.
+  // (e.g. finding "Paradox Cave (Middle)" means you're standing in Lower
+  // East Death Mountain, which also unlocks Spiral Cave (Bottom), Hookshot
+  // Fairy, and Paradox Cave (Bottom) — all gated on that same region.)
+  // Auto-derived from logic_entrances: any entrance whose ENTIRE Open
+  // requirement is a single "canReach|<Region>" check (nothing else) sits
+  // physically inside that region — finding/marking it means the player
+  // has stood in that region.
+  var ENT_ENTRANCE_REGION = {
+    // Manually added: Ganons Tower's Open requirement includes "canOpenGT"
+    // (crystal count) in addition to the region check, so it wasn't
+    // auto-derived — but physically standing at GT still means the player
+    // has reached Upper Dark Death Mountain (the right side of DDM).
+    'Ganons Tower':                        'Upper Dark Death Mountain',
+    // Manually added: "Hookshot Cave Back Entrance" has a logic.Open of
+    // "never" (it's a drop-in, not separately reachable), but physically it
+    // sits on Upper Dark Death Mountain.
+    'Hookshot Cave Back Entrance':         'Upper Dark Death Mountain',
+    'Big Bomb Shop':                       'South Dark World',
+    'C-Shaped House':                      'West Dark World',
+    'Dark Death Mountain Shop':            'Lower East Dark Death Mountain',
+    'Dark Lake Hylia Ledge Hint':          'South East Dark World',
+    // "Dark Lake Hylia Ledge Spike Cave" itself requires South East Dark
+    // World (+ moonpearl/glove) to reach, but finding/connecting it also
+    // means the player is physically at that ledge — granting South East
+    // Dark World lets Dark Lake Hylia Ledge Fairy/Hint become available too.
+    'Dark Lake Hylia Ledge Spike Cave':    'South East Dark World',
+    'Dark Lake Hylia Shop':                'South Dark World',
+    'Dark Potion Shop':                    'North East Dark World',
+    'Dark Sanctuary Hint':                 'West Dark World',
+    'Death Mountain Return Cave (East)':   'Lower West Death Mountain',
+    'East Dark World Hint':                'East Dark World',
+    'Fortune Teller (Dark)':               'West Dark World',
+    'Mire Fairy':                          'South West Dark World',
+    'Mire Hint':                           'South West Dark World',
+    'Mire Shed':                           'South West Dark World',
+    'Old Man Cave (East)':                 'Lower West Death Mountain',
+    'Old Man House (Top)':                 'Lower West Death Mountain',
+    'Paradox Cave (Bottom)':               'Lower East Death Mountain',
+    'Paradox Cave (Middle)':               'Lower East Death Mountain',
+    'Skull Woods First Section Hole (East)': 'West Dark World',
+    'Skull Woods First Section Hole (West)': 'West Dark World',
+    'Spectacle Rock Cave':                 'Lower West Death Mountain',
+    // "Spiral Cave" itself isn't physically inside Lower East Death Mountain
+    // by the normal canReach logic (it's an Upper East DM / mirror-ledge
+    // entrance) — but the cave drops the player down into Lower East Death
+    // Mountain, so finding it also grants that region (Spiral Cave (Bottom),
+    // Hookshot Fairy, Paradox Cave (Bottom)).
+    'Spiral Cave':                         'Lower East Death Mountain',
+    'Spiral Cave (Bottom)':                'Lower East Death Mountain',
+    'Superbunny Cave (Bottom)':            'Lower East Dark Death Mountain',
+    'Superbunny Cave (Top)':               'Upper Dark Death Mountain',
+    'Archery Game':                        'South Dark World',
+    'Chest Game':                          'West Dark World',
+    'Dark Death Mountain Fairy':           'Lower West Dark Death Mountain',
+    'Dark Lake Hylia Fairy':               'East Dark World',
+    'Dark Lumberjack Shop':                'West Dark World',
+    'Hookshot Fairy':                      'Lower East Death Mountain',
+    'Hyrule Castle Entrance (East)':       'Hyrule Castle Balcony',
+    'Hyrule Castle Entrance (West)':       'Hyrule Castle Balcony',
+    'Pyramid Exit':                        'Hyrule Castle Balcony',
+    'Old Man House (Bottom)':              'Lower West Death Mountain',
+    'Palace of Darkness Hint':             'East Dark World',
+    'Pyramid Fairy':                       'East Dark World',
+    'Paradox Cave (Top)':                  'Upper East Death Mountain',
+    'Red Shield Shop':                     'West Dark World',
+    'Skull Woods First Section Door':      'West Dark World',
+    'Skull Woods Second Section Door (East)': 'West Dark World',
+    'Spectacle Rock Cave (Bottom)':        'Lower West Death Mountain',
+    'Spectacle Rock Cave Peak':            'Lower West Death Mountain',
+    'Spike Cave':                          'Lower West Dark Death Mountain',
+    'Swamp Palace':                        'South Dark World',
+    'Tower of Hera':                       'Upper West Death Mountain'
+  };
+
+  // Rebuild window._entSyntheticFoundRegions from every entrance that has
+  // ANY label marked on it, or that's an endpoint of a drawn connector
+  // (either way, the player has located that entrance/position).
+  // In inverted mode the logic_entrances requirements use "Inverted X" region
+  // names instead of "X". This map converts Open region names (used in
+  // ENT_ENTRANCE_REGION, which is the same in both modes since the physical
+  // map locations don't change) to their Inverted equivalents so that
+  // _entSyntheticFoundRegions satisfies canReach|Inverted X checks.
+  var OPEN_TO_INVERTED_REGION = {
+    'West Dark World':                 'Inverted West Dark World',
+    'South Dark World':                'Inverted South Dark World',
+    'East Dark World':                 'Inverted East Dark World',
+    'North East Dark World':           'Inverted North East Dark World',
+    'South West Dark World':           'Inverted South West Dark World',
+    'South East Dark World':           'Inverted South East Dark World',
+    'Upper Dark Death Mountain':       'Inverted Dark Death Mountain',
+    'Lower West Dark Death Mountain':  'Inverted Lower West Death Mountain',
+    'Lower East Dark Death Mountain':  'Inverted Lower East Dark Death Mountain',
+    'Lower West Death Mountain':       'Inverted Lower West Death Mountain',
+    'Upper West Death Mountain':       'Inverted Upper West Death Mountain',
+    'Upper East Death Mountain':       'Inverted Upper East Death Mountain',
+    'Lower East Death Mountain':       'Inverted Lower East Death Mountain',
+    'Hyrule Castle Balcony':           'Inverted Hyrule Castle Balcony',
+  };
+
+  function refreshSyntheticRegions() {
+    var found = [];
+    var isInverted = !!(window.trackerSettings && window.trackerSettings.inverted);
+    function addFor(name) {
+      var region = ENT_ENTRANCE_REGION[name];
+      if (!region) return;
+      if (found.indexOf(region) === -1) found.push(region);
+      // In inverted mode also push the Inverted-prefixed equivalent so that
+      // canReach|Inverted X checks in ent_logic.js resolve correctly.
+      if (isInverted) {
+        var inv = OPEN_TO_INVERTED_REGION[region];
+        if (inv && found.indexOf(inv) === -1) found.push(inv);
+      }
+    }
+    Object.keys(entLabels).forEach(addFor);
+    entConnections.forEach(function(pair) {
+      addFor(pair[0]);
+      addFor(pair[1]);
+    });
+    // Snapshot of regions directly found from labels/connectors (before cascade)
+    var directFound = found.slice();
+    // Secondary "drop down / cross over" grants
+    var ti = window.trackerItems || {};
+    var hasMirror = (ti.mirror || 0) >= 1;
+    if (found.indexOf('Upper Dark Death Mountain') !== -1 && found.indexOf('Lower East Dark Death Mountain') === -1) {
+      found.push('Lower East Dark Death Mountain');
+      if (isInverted && found.indexOf('Inverted Lower East Dark Death Mountain') === -1) found.push('Inverted Lower East Dark Death Mountain');
+    }
+    if (found.indexOf('Upper Dark Death Mountain') !== -1 && found.indexOf('Lower West Dark Death Mountain') === -1) {
+      found.push('Lower West Dark Death Mountain');
+      if (isInverted && found.indexOf('Inverted Lower West Death Mountain') === -1) found.push('Inverted Lower West Death Mountain');
+    }
+    // Mirror + directly-found LW Death Mountain → DW Death Mountain
+    // Uses directFound (pre-cascade snapshot) to avoid a DW DDM label cascading
+    // back to LW DM and then re-granting DW DDM in a feedback loop.
+    if (hasMirror && (directFound.indexOf('Lower West Death Mountain') !== -1 || directFound.indexOf('Lower East Death Mountain') !== -1 || directFound.indexOf('Upper West Death Mountain') !== -1 || directFound.indexOf('Upper East Death Mountain') !== -1)) {
+      if (found.indexOf('Upper Dark Death Mountain') === -1) {
+        found.push('Upper Dark Death Mountain');
+        if (isInverted && found.indexOf('Inverted Dark Death Mountain') === -1) found.push('Inverted Dark Death Mountain');
+      }
+      if (found.indexOf('Lower West Dark Death Mountain') === -1) {
+        found.push('Lower West Dark Death Mountain');
+        if (isInverted && found.indexOf('Inverted Lower West Death Mountain') === -1) found.push('Inverted Lower West Death Mountain');
+      }
+      if (found.indexOf('Lower East Dark Death Mountain') === -1) {
+        found.push('Lower East Dark Death Mountain');
+        if (isInverted && found.indexOf('Inverted Lower East Dark Death Mountain') === -1) found.push('Inverted Lower East Dark Death Mountain');
+      }
+    }
+    if (found.indexOf('West Dark World') !== -1 && found.indexOf('South Dark World') === -1) {
+      found.push('South Dark World');
+      if (isInverted && found.indexOf('Inverted South Dark World') === -1) found.push('Inverted South Dark World');
+    }
+    // East Dark World + glove/flippers/hammer → North East Dark World
+    // (matches canReachInvertedNorthEastDarkWorld / canReachNorthEastDarkWorld logic)
+    var hasGlove    = (ti.gloves || 0) >= 1;
+    var hasHammer   = !!(ti.hammer);
+    var hasFlippers = !!(ti.flippers);
+    if (found.indexOf('East Dark World') !== -1 && (hasGlove || hasFlippers || hasHammer) &&
+        found.indexOf('North East Dark World') === -1) {
+      found.push('North East Dark World');
+      if (isInverted && found.indexOf('Inverted North East Dark World') === -1) found.push('Inverted North East Dark World');
+    }
+    window._entSyntheticFoundRegions = found;
+  }
+  refreshSyntheticConnections();
+
+  // ── Labels (small tag rendered above a marker) ──
+  var entLabelEls = {}; // name -> label element
+
+  // Map a key-location display label (e.g. "Smith") to its group color.
+  var KEY_LOCATION_COLORS = {};
+  KEY_LOCATION_GROUPS.forEach(function(group) {
+    group.codes.forEach(function(pair) {
+      KEY_LOCATION_COLORS[pair[1]] = pair[2] || group.color;
+    });
+  });
+
+  // Apply/clear the marker's label-color, respecting the cleared state.
+  // Map key-location label codes to DUNGEONS entries (for prize icons)
+  var ENT_LABEL_TO_DUNGEON = {
+    'EP': 'ep', 'DP N': 'dp',
+    'ToH': 'toh', 'CT': 'ct', 'PoD': 'pod', 'SP': 'sp',
+    'SW': 'sw',
+    'TT': 'tt', 'IP': 'ip', 'MM': 'mm',
+    'TR B': 'tr', 'GT': 'gt'
+  };
+
+  // Map non-dungeon key-location label codes to a checkLogic id whose
+  // item-logic color should be reused for the marker.
+  var ENT_LABEL_TO_CHECK = {
+    'Kid':   68, // Sick Kid
+    'Spike': 13, // Spike Cave
+    'Hook':  22, // Hookshot Cave
+    'Bat':   100, // Magic Bat
+    'Smith': 101, // Blacksmith
+    'Magic': 76,  // Potion Shop (mushroom check)
+    'Library': 84, // Library (boots)
+    'Sahas': 66 // Sahasrahla NPC (green pendant)
+  };
+
+  function toggleDungeonCleared(dKey) {
+    var def = DUNGEONS[dKey];
+    if (!def) return;
+    def.cleared = !def.cleared;
+    if (typeof refreshDungeonImg === 'function') refreshDungeonImg(dKey);
+    if (window.refreshMapLogic) window.refreshMapLogic();
+  }
+
+  var ENT_NOTE_COLOR = '#cccc33';
+  var ENT_NOTE_COLOR_CONNECTOR = '#c08fe0';
+
+  // ── Entrance reachability adapter (trackerItems -> EntLogic items shape) ────
+  function buildEntLogicItems() {
+    var t = window.trackerItems || {};
+    return {
+      bow: t.bow || 0,
+      boomerang: t.boomerang || 0,
+      hookshot: !!t.hookshot,
+      bomb: !!t.bomb,
+      mushroom: t.mushroom || 0,
+      powder: !!t.powder,
+      firerod: !!t.firerod,
+      icerod: !!t.icerod,
+      bombos: !!t.bombos,
+      ether: !!t.ether,
+      quake: !!t.quake,
+      lantern: !!t.lamp,
+      hammer: !!t.hammer,
+      shovel: !!t.shovel,
+      flute: t.flute || 0,
+      net: !!t.net,
+      book: !!t.book,
+      bottle: t.bottle || 0,
+      somaria: !!t.somaria,
+      byrna: !!t.byrna,
+      cape: !!t.cape,
+      mirror: !!t.mirror,
+      boots: !!t.boots,
+      glove: t.gloves || 0,
+      flippers: !!t.flippers,
+      moonpearl: !!t.moonpearl,
+      sword: t.sword || 0,
+      shield: t.shield || 0,
+      magic: t.magic || 0,
+      agahnim: !!t.agahnim,
+      // Agahnim 2 (Ganon) isn't tracked as a collectible item — it's reflected
+      // by Ganons Tower's boss being marked cleared/fully cleared.
+      agahnim2: !!t.agahnim2 || (!!DUNGEONS.gt && (!!DUNGEONS.gt.cleared || !!DUNGEONS.gt.fullyCleared))
+    };
+  }
+
+  // Returns true if 2 or more of {DP M, DP W, DP E} are CURRENTLY labeled on
+  // real entrance markers (anywhere on the map). These three labels act as a
+  // connector group: once 2+ are placed, each of those specific labeled
+  // markers is mutually "found"/connected to the others.
+  function dpLabelGroupFound() {
+    var logic = window.logic_entrances || {};
+    var count = 0;
+    for (var name in entLabels) {
+      if (!logic[name]) continue; // only labels on real entrance markers count
+      var c = entLabels[name];
+      if (c === 'DP M' || c === 'DP W' || c === 'DP E') count++;
+    }
+    return count >= 2;
+  }
+  window.dpLabelGroupFound = dpLabelGroupFound; // exposed for checkColor (#89)
+
+  // Returns true if 2 or more of {HC M, HC W, HC E} are CURRENTLY labeled on
+  // real entrance markers (anywhere on the map). Like the DP group, these
+  // three labels act as pure connectors: once 2+ are placed, each of those
+  // labeled markers is mutually "found"/connected to the others.
+  function hcLabelGroupFound() {
+    var logic = window.logic_entrances || {};
+    var count = 0;
+    for (var name in entLabels) {
+      if (!logic[name]) continue; // only labels on real entrance markers count
+      var c = entLabels[name];
+      if (c === 'HC M' || c === 'HC W' || c === 'HC E') count++;
+    }
+    return count >= 2;
+  }
+  window.hcLabelGroupFound = hcLabelGroupFound;
+
+  // Returns true if 2 or more of {TR M, TR W} are CURRENTLY labeled on real
+  // entrance markers (anywhere on the map). Like the HC group, these labels
+  // act as pure connectors: once 2+ are placed, each of those labeled
+  // markers is mutually "found"/connected to the others through the dungeon.
+  function trLabelGroupFound() {
+    var logic = window.logic_entrances || {};
+    var count = 0;
+    for (var name in entLabels) {
+      if (!logic[name]) continue; // only labels on real entrance markers count
+      var c = entLabels[name];
+      if (c === 'TR M' || c === 'TR W') count++;
+    }
+    return count >= 2;
+  }
+  window.trLabelGroupFound = trLabelGroupFound;
+
+  // TR E + TR B act as a connector pair: both labeled = traversable through TR.
+  function trEBLabelGroupFound() {
+    var logic = window.logic_entrances || {};
+    var count = 0;
+    for (var name in entLabels) {
+      if (!logic[name]) continue;
+      var c = entLabels[name];
+      if (c === 'TR E' || c === 'TR B') count++;
+    }
+    return count >= 2;
+  }
+  window.trEBLabelGroupFound = trEBLabelGroupFound;
+
+  // Returns true if 2 or more of {SW E, SW W} are CURRENTLY labeled on real
+  // entrance markers (anywhere on the map). Like the TR group, these labels
+  // act as pure connectors: once 2+ are placed, each of those labeled
+  // markers is mutually "found"/connected to the others through the dungeon.
+  function swLabelGroupFound() {
+    var logic = window.logic_entrances || {};
+    var count = 0;
+    for (var name in entLabels) {
+      if (!logic[name]) continue; // only labels on real entrance markers count
+      var c = entLabels[name];
+      if (c === 'SW E' || c === 'SW W') count++;
+    }
+    return count >= 2;
+  }
+  window.swLabelGroupFound = swLabelGroupFound;
+
+  // Returns true if "Desert Palace Entrance (West)" or "Desert Palace
+  // Entrance (North)" is connected to the rest of the map (see
+  // dpEntranceFound for what counts as "connected").
+  // Desert Palace Entrance (South) and (East), and Checkerboard Cave, are
+  // single dead-end entrances and are NOT part of this — South has its own
+  // separate book/mirror-route logic, and East/Checkerboard aren't
+  // physically connected to West/North at all.
+  function dpWestOrNorthFound() {
+    return dpEntranceFound('Desert Palace Entrance (West)') || dpEntranceFound('Desert Palace Entrance (North)') || dpNorthLabelFound();
+  }
+  window.dpWestOrNorthFound = dpWestOrNorthFound; // exposed for checkColor (#89)
+
+  // Returns true if the given entrance (e.g. "Desert Palace Entrance (West)",
+  // "...(North)", or "Agahnims Tower") is connected to the rest of the map
+  // via either:
+  //  (a) a manually-drawn connector line touching this entrance directly, or
+  //  (b) this entrance itself is labeled with a connector code (DP M/W/E or
+  //      HC M/W/E) that is part of a 2+ connector group found anywhere on
+  //      the map. Connector labels can be placed on any marker, anywhere —
+  //      any such group can connect to this entrance this way.
+  function dpEntranceFound(entranceName) {
+    var conns = (window._entConnections && window._entConnections.length)
+      ? window._entConnections
+      : (function() { try { return JSON.parse(localStorage.getItem('ent-connections') || '[]'); } catch(e) { return []; } })();
+    if (conns && conns.length) {
+      for (var i = 0; i < conns.length; i++) {
+        if (conns[i][0] === entranceName || conns[i][1] === entranceName) return true;
+      }
+    }
+    var code = entLabels[entranceName];
+    if (dpLabelGroupFound() && (code === 'DP M' || code === 'DP W' || code === 'DP E')) return true;
+    if (hcLabelGroupFound() && (code === 'HC M' || code === 'HC W' || code === 'HC E')) return true;
+    return false;
+  }
+  window.dpEntranceFound = dpEntranceFound; // exposed for checkColor (#89)
+
+  // Returns true if any connector touches a Kakariko Village area entrance.
+  // Used in inverted entrance shuffle to determine if the player has walked
+  // through Kakariko and can see checks there.
+  var KAKARIKO_ENTRANCES = {
+    'Kakariko Well Drop': 1, 'Kakariko Well Cave': 1, 'Blinds Hideout': 1,
+    'Chicken House': 1, 'Sick Kids House': 1, 'Kakariko Shop': 1,
+    'Tavern North': 1, 'Tavern (Front)': 1, 'Blacksmiths Hut': 1,
+    'Kakariko Gamble Game': 1, 'Links House': 1,
+    'Sahasrahlas Hut': 1, 'Snitch Lady (East)': 1, 'Snitch Lady (West)': 1,
+    'Bush Covered House': 1, 'Hyrule Castle Entrance (South)': 1,
+    'Hyrule Castle Entrance (West)': 1, 'Hyrule Castle Entrance (East)': 1,
+    'Agahnims Tower': 1, 'Sanctuary': 1, 'Sanctuary Grave': 1,
+  };
+  // Authoritative set of south LW village entrances (excludes DM, DW, and dungeon entrances).
+  // Built from entrances_data.json world:"light" entries, minus Death Mountain ones.
+  // Used by kakarikoConnectorFound() — positive list avoids the brittleness of a DW exclusion list.
+  var ALL_LW_ENTRANCES = {
+    '20 Rupee Cave':1,'50 Rupee Cave':1,'Agahnims Tower':1,'Aginahs Cave':1,
+    'Bat Cave Cave':1,'Bat Cave Drop':1,'Blacksmiths Hut':1,'Blinds Hideout':1,
+    'Bonk Fairy (Light)':1,'Bonk Rock Cave':1,'Bush Covered House':1,'Capacity Upgrade':1,
+    'Cave 45':1,'Checkerboard Cave':1,'Chicken House':1,'Dam':1,
+    'Desert Fairy':1,'Desert Palace Entrance (East)':1,'Desert Palace Entrance (North)':1,
+    'Desert Palace Entrance (South)':1,'Desert Palace Entrance (West)':1,'Eastern Palace':1,
+    'Elder House (East)':1,'Elder House (West)':1,
+    'Fortune Teller (Light)':1,'Good Bee Cave':1,'Graveyard Cave':1,
+    'Hyrule Castle Entrance (East)':1,'Hyrule Castle Entrance (South)':1,
+    'Hyrule Castle Entrance (West)':1,'Hyrule Castle Secret Entrance Drop':1,
+    'Hyrule Castle Secret Entrance Stairs':1,'Ice Rod Cave':1,
+    'Kakariko Gamble Game':1,'Kakariko Shop':1,'Kakariko Well Cave':1,'Kakariko Well Drop':1,
+    'Kings Grave':1,'Lake Hylia Fairy':1,'Lake Hylia Fortune Teller':1,'Lake Hylia Shop':1,
+    'Library':1,'Light Hype Fairy':1,'Light World Bomb Hut':1,'Links House':1,
+    'Long Fairy Cave':1,'Lost Woods Gamble':1,'Lost Woods Hideout Drop':1,
+    'Lost Woods Hideout Stump':1,'Lumberjack House':1,'Lumberjack Tree Cave':1,
+    'Lumberjack Tree Tree':1,'Mini Moldorm Cave':1,'North Fairy Cave':1,
+    'North Fairy Cave Drop':1,'Potion Shop':1,'Sahasrahlas Hut':1,
+    'Sanctuary':1,'Sanctuary Grave':1,'Sick Kids House':1,
+    'Snitch Lady (East)':1,'Snitch Lady (West)':1,
+    'Tavern (Front)':1,'Tavern North':1,'Two Brothers House (East)':1,
+    'Two Brothers House (West)':1,'Waterfall of Wishing':1,
+    // Also keep backward-compat alias used in some saves
+    'Sahasrahla\'s Hut':1,
+  };
+  // Expose for ent_logic.js and Pyramid Exit check
+  window.ALL_DW_ENTRANCES = (function() {
+    // Built by inverting ALL_LW_ENTRANCES against the full entrance list from entrances_data.js.
+    // Used only by legacy code that checks !ALL_DW_ENTRANCES[name].
+    var dw = {};
+    if (window.ENTRANCE_DATA) {
+      window.ENTRANCE_DATA.forEach(function(e) {
+        if (!ALL_LW_ENTRANCES[e.name]) dw[e.name] = 1;
+      });
+    }
+    return dw;
+  })();
+
+  function kakarikoConnectorFound() {
+    // Returns true if a connector or label touches a known south LW entrance
+    // (positive check against ALL_LW_ENTRANCES — avoids DW/DM false positives)
+    var conns = (window._entConnections && window._entConnections.length)
+      ? window._entConnections
+      : (function() { try { return JSON.parse(localStorage.getItem('ent-connections') || '[]'); } catch(e) { return []; } })();
+    for (var i = 0; i < conns.length; i++) {
+      if (ALL_LW_ENTRANCES[conns[i][0]] || ALL_LW_ENTRANCES[conns[i][1]]) return true;
+    }
+    var labels = window._entLabels ||
+      (function() { try { return JSON.parse(localStorage.getItem('ent-labels') || '{}'); } catch(e) { return {}; } })();
+    var lnames = Object.keys(labels);
+    for (var j = 0; j < lnames.length; j++) {
+      if (ALL_LW_ENTRANCES[lnames[j]]) return true;
+    }
+    return false;
+  }
+  window.kakarikoConnectorFound = kakarikoConnectorFound;
+
+  // "DP N" label, used for the Desert Palace dungeon ICON's access check
+  // only (not the separate vanilla "Desert Palace Entrance (North/West)" map
+  // pins — those remain governed solely by dpEntranceFound, i.e. a real
+  // connector or the label being placed directly ON that specific pin).
+  // A "DP N" label placed on some OTHER real entrance marker means: the
+  // player has found a shuffled entrance that leads into Desert Palace's
+  // North door. That only counts as actual access once the labeled marker
+  // itself is reachable (not shown red) — a stray "DP N" label sitting on a
+  // marker the player can't currently reach must NOT grant access.
+  function dpNorthLabelFound() {
+    var logic = window.logic_entrances || {};
+    for (var name in entLabels) {
+      if (entLabels[name] !== 'DP N') continue;
+      if (!logic[name]) continue;
+      // Skip the vanilla pins themselves here — they're handled by
+      // dpEntranceFound, and including them would just be redundant.
+      if (name === 'Desert Palace Entrance (North)' || name === 'Desert Palace Entrance (West)') continue;
+      if (!entranceUnavailable(name)) return true;
+    }
+    return false;
+  }
+  window.dpNorthLabelFound = dpNorthLabelFound;
+
+  // Returns true if the entrance's logic requirements are NOT yet met.
+  function entranceUnavailable(name) {
+    // Don't flag anything red until we've received a real item-state snapshot
+    // from the item tracker — avoids an all-red flash on page load/refresh
+    // before the BroadcastChannel sync arrives.
+    if (!window._entItemsReceived) return false;
+    if (!window.EntLogic || !window.logic_entrances || !window.logic_entrances[name]) return false;
+
+    // If the player has drawn a connector directly to this entrance, they've
+    // physically accessed it — it is by definition reachable regardless of
+    // item state or region requirements.
+    var directConns = window._entConnections;
+    if (directConns && directConns.length) {
+      for (var ci = 0; ci < directConns.length; ci++) {
+        if (directConns[ci][0] === name || directConns[ci][1] === name) return false;
+      }
+    }
+
+
+
+    // Desert Palace exit labels (DP M/W/E) act as pure connectors with no
+    // item requirement of their own: once 2+ of them are labeled anywhere
+    // (dpLabelGroupFound), each of those labeled markers is itself available
+    // unconditionally. The Magic Glove requirement applies only to the
+    // actual vanilla "Desert Palace Entrance (West/North)" markers (handled
+    // separately below via dpWestOrNorthFound), not to the labels.
+    var dpCode = entLabels[name];
+    if ((dpCode === 'DP M' || dpCode === 'DP W' || dpCode === 'DP E') && dpLabelGroupFound()) {
+      return false;
+    }
+
+    // Hyrule Castle exit labels (HC M/W/E) act as pure connectors with no
+    // item requirement: once 2+ of them are labeled anywhere
+    // (hcLabelGroupFound), each of those labeled markers is itself available
+    // unconditionally.
+    var hcCode = entLabels[name];
+    if ((hcCode === 'HC M' || hcCode === 'HC W' || hcCode === 'HC E') && hcLabelGroupFound()) {
+      return false;
+    }
+
+    // Turtle Rock exit labels (TR M/W) act as pure connectors with no item
+    // requirement: once 2+ of them are labeled anywhere (trLabelGroupFound),
+    // each of those labeled markers is itself available unconditionally.
+    // TR E/B act the same way as a separate connector pair.
+    var trCode = entLabels[name];
+    if ((trCode === 'TR M' || trCode === 'TR W') && trLabelGroupFound()) {
+      return false;
+    }
+    if ((trCode === 'TR E' || trCode === 'TR B') && trEBLabelGroupFound()) {
+      return false;
+    }
+
+    // Skull Woods exit labels (SW E/W) act as pure connectors with no item
+    // requirement: once 2+ of them are labeled anywhere (swLabelGroupFound),
+    // each of those labeled markers is itself available unconditionally.
+    var swCode = entLabels[name];
+    if ((swCode === 'SW E' || swCode === 'SW W') && swLabelGroupFound()) {
+      return false;
+    }
+
+    // "SW M" label: marks "Skull Woods Second Section Door (West)" as found.
+    // Per the dungeon's interior connections, that single entrance directly
+    // unlocks "Skull Woods Final Section" (firerod [+moonpearl]) and "Skull
+    // Woods Second Section Hole" (no extra requirement) — both defined in
+    // ref_logic_entrances.js as hasFoundEntrance|Skull Woods Second Section
+    // Door (West). If any real marker carries the "SW M" label, treat that
+    // door as found for all three entrances in this cluster.
+    var SW_M_DOOR = 'Skull Woods Second Section Door (West)';
+    var swMFound = false;
+    for (var swMName in entLabels) {
+      if (entLabels[swMName] === 'SW M' && window.logic_entrances && window.logic_entrances[swMName]) { swMFound = true; break; }
+    }
+    if (swMFound) {
+      if (name === SW_M_DOOR) return false;
+      if (name === 'Skull Woods Second Section Hole') return false;
+      if (name === 'Skull Woods Final Section') {
+        var swMItems = window.trackerItems || {};
+        var swMInverted = !!(window.trackerSettings && window.trackerSettings.inverted);
+        if (!swMItems.firerod) return true;
+        if (!swMInverted && !swMItems.moonpearl) return true;
+        return false;
+      }
+    }
+
+    // "Desert Palace Entrance (West)" and "Desert Palace Entrance (North)"
+    // are reachable from each other via the dungeon interior — but North is
+    // physically surrounded by rocks, requiring the Magic Glove to dig
+    // through. So:
+    //   - West has its OWN direct connector: available unconditionally.
+    //   - North has its OWN direct connector: available only with glove
+    //     (digging through from this side).
+    //   - West reachable ONLY via North (North connected, West not):
+    //     still needs glove, since the only path there is through North's
+    //     rocks.
+    //   - North reachable ONLY via West (West connected, North not): needs
+    //     glove too, for the same reason, digging through from the West side.
+    // (Desert Ledge check #89 mirrors this same rule.) South and East are
+    // NOT part of this.
+    if (name === 'Desert Palace Entrance (West)' || name === 'Desert Palace Entrance (North)') {
+      var dpWestDirect = dpEntranceFound('Desert Palace Entrance (West)');
+      var dpNorthDirect = dpEntranceFound('Desert Palace Entrance (North)') || dpNorthLabelFound();
+      if (name === 'Desert Palace Entrance (West)' && dpWestDirect) return false;
+      if ((dpWestDirect || dpNorthDirect)) {
+        var tDp2 = window.trackerItems || {};
+        return !(tDp2.gloves >= 1);
+      }
+    }
+
+    // "Desert Palace Entrance (East)" has no overworld access in vanilla
+    // (logic.Open is "never" — it's an interior-only dungeon exit). In
+    // entrance shuffle it's still a real, separate overworld pin, but it's
+    // ONLY reachable via a direct connector — no item-based overworld route
+    // (mirror/flute/Mire) grants access to it.
+    if (name === 'Desert Palace Entrance (East)') {
+      var dpEastConns = window._entConnections;
+      var dpEastConnFound = false;
+      if (dpEastConns && dpEastConns.length) {
+        for (var dpEastI = 0; dpEastI < dpEastConns.length; dpEastI++) {
+          if (dpEastConns[dpEastI][0] === name || dpEastConns[dpEastI][1] === name) { dpEastConnFound = true; break; }
+        }
+      }
+      return !dpEastConnFound;
+    }
+
+    // "Agahnims Tower", "Hyrule Castle Entrance (West)", and "Hyrule Castle
+    // Entrance (East)" all sit behind the same "Hyrule Castle Balcony"
+    // requirement and are mutually reachable once any one of them is found.
+    // If a connector (manual line, or a DP/HC M/W/E label-group code) is
+    // attached to Agahnims Tower itself, all three become available with no
+    // further item requirement.
+    if (name === 'Agahnims Tower' || name === 'Hyrule Castle Entrance (West)' || name === 'Hyrule Castle Entrance (East)') {
+      if (dpEntranceFound('Agahnims Tower')) {
+        return false;
+      }
+    }
+
+    // "Ganons Tower" entrance: in entrance shuffle, the normal
+    // canReach|Upper Dark Death Mountain requirement doesn't apply — once
+    // the GT crystal requirement is met, the entrance itself is available.
+    if (name === 'Ganons Tower' && window.trackerSettings && window.trackerSettings.entranceShuffle) {
+      var gtItems = window.trackerItems || {};
+      var gtReq = gtItems.gtCrystals || (window.trackerSettings.gtCrystals) || 7;
+      if ((gtItems.crystals || 0) >= gtReq) return false;
+    }
+
+    // "Pyramid Fairy": if the player has both red crystals AND a real
+    // entrance marker is labeled "Bomb" (i.e. the Big Bomb Shop has been
+    // located), Pyramid Fairy is available — no need to separately satisfy
+    // canReach|East Dark World.
+    if (name === 'Pyramid Fairy') {
+      var pfItems = window.trackerItems || {};
+      if ((pfItems.redCrystal || 0) >= 2) {
+        var pfLogic = window.logic_entrances || {};
+        for (var pfName in entLabels) {
+          if (entLabels[pfName] === 'Bomb' && pfLogic[pfName]) return false;
+        }
+      }
+    }
+
+    // Dark Lake Hylia Ledge cluster ("Dark Lake Hylia Ledge Fairy" / "...
+    // Spike Cave" / "...Hint"): all three sit at the same physical ledge.
+    // In entrance shuffle, if a connector has been drawn to ANY ONE of the
+    // three (or it's otherwise been found), the player has physically
+    // reached that ledge — all three become reachable. Each one still
+    // applies only its own additional item requirement on top of that:
+    //   Fairy:      moonpearl + bombs
+    //   Spike Cave: moonpearl + glove
+    //   Hint:       (nothing further)
+    var DLHL_CLUSTER = ['Dark Lake Hylia Ledge Fairy', 'Dark Lake Hylia Ledge Spike Cave', 'Dark Lake Hylia Ledge Hint'];
+    if (DLHL_CLUSTER.indexOf(name) !== -1 && window.trackerSettings && window.trackerSettings.entranceShuffle) {
+      var dlhlFound = false;
+      var dlhlConns = window._entConnections;
+      if (dlhlConns && dlhlConns.length) {
+        for (var dlhlI = 0; dlhlI < dlhlConns.length && !dlhlFound; dlhlI++) {
+          for (var dlhlJ = 0; dlhlJ < DLHL_CLUSTER.length; dlhlJ++) {
+            if (dlhlConns[dlhlI][0] === DLHL_CLUSTER[dlhlJ] || dlhlConns[dlhlI][1] === DLHL_CLUSTER[dlhlJ]) { dlhlFound = true; break; }
+          }
+        }
+      }
+      if (!dlhlFound) {
+        var dlhlSynth = window._entSyntheticFoundEntrances;
+        if (dlhlSynth && dlhlSynth.length) {
+          for (var dlhlK = 0; dlhlK < DLHL_CLUSTER.length; dlhlK++) {
+            if (dlhlSynth.indexOf(DLHL_CLUSTER[dlhlK]) !== -1) { dlhlFound = true; break; }
+          }
+        }
+      }
+      if (dlhlFound) {
+        var dlhlItems = window.trackerItems || {};
+        var dlhlInv = !!(window.trackerSettings && window.trackerSettings.inverted);
+        // In inverted, DW is the home world — moonpearl is not needed here.
+        // In Open, moonpearl is still required to survive in the Dark World.
+        if (name === 'Dark Lake Hylia Ledge Fairy') {
+          return dlhlInv ? !dlhlItems.bomb : !(dlhlItems.moonpearl && dlhlItems.bomb);
+        }
+        if (name === 'Dark Lake Hylia Ledge Spike Cave') {
+          return dlhlInv ? !(dlhlItems.gloves >= 1) : !(dlhlItems.moonpearl && dlhlItems.gloves >= 1);
+        }
+        return false; // Hint: no further requirement
+      }
+    }
+
+    try {
+      var items = buildEntLogicItems();
+      var prizes = [];
+      for (var k = 0; k < 10; k++) {
+        var def = DUNGEONS && Object.keys(DUNGEONS).map(function(dk){return DUNGEONS[dk];})[k];
+        prizes.push(def ? (def.prize >= 0 ? def.prize : 0) : 0);
+        items['boss' + k] = def ? !!def.cleared : false;
+      }
+      var result = window.EntLogic.checkEntranceAvailability(name, items, prizes) === 'unavailable';
+
+      // Special case: Misery Mire's dungeon door additionally requires the
+      // correct medallion plus a sword (or hammer if swordless) — not covered
+      // by the reference tracker's overworld entrance logic.
+      if (!result && (name === 'Misery Mire' || name === 'Turtle Rock')) {
+        var t = window.trackerItems || {};
+        var med = (name === 'Misery Mire' ? t.mmMedallion : t.trMedallion) || 0;
+        var hasMedallion = med > 0 && ((med === 1 && t.bombos) || (med === 2 && t.ether) || (med === 3 && t.quake));
+        // If the required medallion hasn't been identified yet, having all
+        // three medallions covers whichever one it turns out to be.
+        if (!hasMedallion && med === 0 && t.bombos && t.ether && t.quake) hasMedallion = true;
+        var swordless = window.trackerSettings && window.trackerSettings.swordless === 'yes';
+        var hasWeapon = swordless ? !!t.hammer : !!t.sword;
+        if (!hasMedallion || !hasWeapon) result = true;
+      }
+
+      return result;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Hex colors matching the .dng.<class> rules, for dungeon-marked entrance markers.
+  var DUNGEON_COLOR_HEX = {
+    green:  '#4dff88',
+    yellow: '#ffd700',
+    orange: '#ff8c00',
+    red:    '#ff4444'
+  };
+
+  function applyMarkerColor(name) {
+    var marker = entMarkers[name];
+    if (!marker) return;
+    var code = entLabels[name];
+    var color = code ? KEY_LOCATION_COLORS[code] : null;
+    var hasNote = !!(entNotes[name] && entNotes[name].trim());
+
+    // Dungeon-marked entrance: use the same item-logic color as the
+    // non-entrance-shuffle dungeon marker (green/yellow/orange/red),
+    // unless the dungeon is fully cleared or the boss is beaten.
+    var dKeyForColor = code ? ENT_LABEL_TO_DUNGEON[code] : null;
+    var dDefForColor = dKeyForColor ? DUNGEONS[dKeyForColor] : null;
+    if (dDefForColor && !dDefForColor.cleared && !dDefForColor.fullyCleared && window.dungeonColor) {
+      var dColor = window.dungeonColor(dKeyForColor);
+      if (DUNGEON_COLOR_HEX[dColor]) color = DUNGEON_COLOR_HEX[dColor];
+    }
+
+    // Some non-dungeon labels reuse an existing check's item-logic color:
+    // "Kid" -> Sick Kid (68), "Spike" -> Spike Cave (13), "Hook" -> Hookshot Cave (22).
+    var cIdForColor = code ? ENT_LABEL_TO_CHECK[code] : null;
+    if (cIdForColor != null && window.checkColor) {
+      var cColor = window.checkColor(cIdForColor);
+      if (DUNGEON_COLOR_HEX[cColor]) color = DUNGEON_COLOR_HEX[cColor];
+    }
+
+    // "Mimic" — entrance shuffle only: the entrance itself being found means
+    // the overworld access route (pearl/titan/mirror/medallion/etc.) used by
+    // check 4 is irrelevant. Only the hammer is needed for the chest.
+    if (code === 'Mimic') {
+      var isEntShuffleMimic = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+      if (isEntShuffleMimic) {
+        var ti2 = window.trackerItems || {};
+        color = ti2.hammer ? DUNGEON_COLOR_HEX.green : DUNGEON_COLOR_HEX.red;
+      } else if (window.checkColor) {
+        var mimicColor = window.checkColor(4);
+        if (DUNGEON_COLOR_HEX[mimicColor]) color = DUNGEON_COLOR_HEX[mimicColor];
+      }
+    }
+
+    // "Hook" — entrance shuffle only: the entrance itself being found means
+    // the overworld access route (pearl/titan mitt) used by check 22 is
+    // irrelevant. Only the hookshot is needed to cross the gap inside.
+    if (code === 'Hook') {
+      var isEntShuffleHook = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+      if (isEntShuffleHook) {
+        var tiHook = window.trackerItems || {};
+        color = tiHook.hookshot ? DUNGEON_COLOR_HEX.green : DUNGEON_COLOR_HEX.red;
+      }
+    }
+
+    // "Bomb" — once both red crystals are obtained, the Big Bomb Shop
+    // location is fully "done" (nothing further needed), so show green.
+    if (code === 'Bomb') {
+      var biItems = window.trackerItems || {};
+      if ((biItems.redCrystal || 0) >= 2) {
+        color = DUNGEON_COLOR_HEX.green;
+      }
+    }
+
+    if (hasNote && !marker.classList.contains('cleared')) {
+      if (marker.classList.contains('connector')) {
+        color = ENT_NOTE_COLOR_CONNECTOR;
+      } else if (code === 'Item') {
+        // Labeled specifically as "Item" AND has a note: use orange instead
+        // of the plain note-yellow, to distinguish "item here, with a note"
+        // from other label types (e.g. Fairy) or unlabeled note markers.
+        color = DUNGEON_COLOR_HEX.orange;
+      } else {
+        color = ENT_NOTE_COLOR;
+      }
+    }
+    if (color && !marker.classList.contains('cleared')) {
+      marker.style.background = color;
+    } else {
+      marker.style.background = '';
+    }
+    marker.classList.toggle('ent-marked', !!code && code !== 'Dark');
+
+    // Reachability: red if entrance not yet logically available, lowest precedence
+    // (only applies when no key-location color, note color, cleared, connector, or label wins)
+    var showUnavail = !color && !hasNote && !marker.classList.contains('cleared') && !marker.classList.contains('connector') && !marker.classList.contains('ent-marked') && entranceUnavailable(name);
+    marker.classList.toggle('ent-unavailable', showUnavail);
+
+    // Show dungeon prize icon inside the box marker, if applicable
+    var existingIcon = marker.querySelector('.ent-marker-prize');
+    var dKey = code ? ENT_LABEL_TO_DUNGEON[code] : null;
+    var hasPrize = false;
+    if (dKey && marker.classList.contains('ent-marked')) {
+      var def = DUNGEONS[dKey];
+      if (def && def.prize >= 0) {
+        var isGreyed = !!(def.cleared || def.fullyCleared);
+        var prizeDef = PRIZE_CYCLE[def.prize];
+        var src = isGreyed ? prizeDef.imgCleared : prizeDef.img;
+        if (!existingIcon) {
+          existingIcon = document.createElement('img');
+          existingIcon.className = 'ent-marker-prize';
+          existingIcon.title = 'Right-click / ctrl-click to toggle dungeon cleared';
+          existingIcon.addEventListener('click', function(ev) {
+            if (!ev.ctrlKey && !ev.metaKey) return;
+            ev.stopPropagation();
+            toggleDungeonCleared(dKey);
+          });
+          existingIcon.addEventListener('contextmenu', function(ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            toggleDungeonCleared(dKey);
+          });
+          marker.appendChild(existingIcon);
+        }
+        existingIcon.src = src;
+        hasPrize = true;
+        marker.classList.toggle('ent-dungeon-cleared', isGreyed);
+        if (isGreyed && !marker.classList.contains('cleared')) {
+          marker.style.background = '';
+        }
+      } else if (existingIcon) {
+        existingIcon.remove();
+        marker.classList.remove('ent-dungeon-cleared');
+      }
+    } else if (existingIcon) {
+      existingIcon.remove();
+      marker.classList.remove('ent-dungeon-cleared');
+    }
+    if (!hasPrize) marker.classList.remove('ent-dungeon-cleared');
+    marker.classList.toggle('ent-has-prize', hasPrize);
+
+    // Boss status stripe overlay (mirrors the .dng marker logic): red if a
+    // known boss still needs its required item, yellow if the boss is
+    // unknown but the dungeon is reachable, none once cleared/boss-ok.
+    marker.classList.remove('boss-stripe-red', 'boss-stripe-yellow');
+    if (dKey && marker.classList.contains('ent-marked') && DUNGEONS[dKey] && ['ct','gt'].indexOf(dKey) === -1) {
+      var bDef = DUNGEONS[dKey];
+      var bDefeated = !!(bDef.cleared || bDef.fullyCleared);
+      if (!bDefeated) {
+        var ti = window.trackerItems || {};
+        var bossState = bDef.bossState || 0;
+        var bossOk = bDef.bossOk !== false;
+        var avail = window.dungeonColor ? window.dungeonColor(dKey) : 'red';
+        var stripe = '';
+        if (bossState > 0) {
+          if (!bossOk) stripe = 'boss-stripe-red';
+        } else if (avail === 'green' || avail === 'yellow') {
+          var allBossItems = (ti.firerod > 0) && (ti.icerod > 0) && (ti.hookshot > 0) && (ti.hammer > 0);
+          if (!allBossItems) stripe = 'boss-stripe-yellow';
+        } else {
+          stripe = 'boss-stripe-red';
+        }
+        if (stripe) marker.classList.add(stripe);
+      }
+    }
+  }
+  window._entApplyMarkerColor = applyMarkerColor;
+  window._entRefreshPrizeIcons = function() {
+    refreshSyntheticRegions();
+    Object.keys(entMarkers).forEach(applyMarkerColor);
+  };
+
+  // Once the marker for one of these labels is marked "cleared", the label
+  // tag is no longer useful and can be hidden to declutter the map.
+  var ENT_HIDE_LABEL_WHEN_CLEARED = ['Bat', 'Smith', 'Item', 'Mimic', 'Sahas', 'Library', 'Bomb', 'Spike', 'Kid'];
+
+  function renderLabel(name) {
+    var marker = entMarkers[name];
+    if (!marker) return;
+    var existing = entLabelEls[name];
+    var code = entLabels[name];
+    if (!code) {
+      if (existing) { existing.remove(); delete entLabelEls[name]; }
+      applyMarkerColor(name);
+      return;
+    }
+    if (code === 'Dark') {
+      if (existing) { existing.remove(); delete entLabelEls[name]; }
+      applyMarkerColor(name);
+      return;
+    }
+    if (marker.classList.contains('cleared') && ENT_HIDE_LABEL_WHEN_CLEARED.indexOf(code) !== -1) {
+      if (existing) { existing.remove(); delete entLabelEls[name]; }
+      applyMarkerColor(name);
+      return;
+    }
+    if (!existing) {
+      existing = document.createElement('div');
+      existing.className = 'ent-label';
+      marker.parentNode.appendChild(existing);
+      entLabelEls[name] = existing;
+    }
+    var mapText = ENT_MAP_LABEL_OVERRIDE[code];
+    if (code === 'Shop $') {
+      existing.innerHTML = '';
+      var goldSpan = document.createElement('span');
+      goldSpan.className = 'ent-label-gold';
+      goldSpan.textContent = mapText;
+      existing.appendChild(goldSpan);
+    } else {
+      existing.textContent = mapText || code;
+    }
+    existing.classList.toggle('ent-label-emoji', !!mapText && code !== 'Bumper');
+    existing.classList.toggle('ent-label-fairy', code === 'Fairy 🧚');
+    existing.style.left = marker.style.left;
+    existing.style.top  = marker.style.top;
+
+    // If the marker is too close to the top edge, the label (which normally
+    // sits above the marker) would be clipped off-screen — flip it below.
+    var entry = entByName[name];
+    var topPct = entry ? entry.top : parseFloat(marker.style.top);
+    var ENT_LABEL_BELOW_NAMES = ['Lost Woods Gamble', 'Hookshot Cave Back Entrance', 'Sanctuary', 'Bumper Cave (Top)', 'Bumper Cave (Bottom)', 'Old Man Cave (West)', 'Old Man Cave (East)'];
+    if (topPct < 4 || ENT_LABEL_BELOW_NAMES.indexOf(name) !== -1) {
+      existing.classList.add('ent-label-below');
+    } else {
+      existing.classList.remove('ent-label-below');
+    }
+
+    applyMarkerColor(name);
+  }
+  window._entRenderLabel = renderLabel;
+
+  Object.keys(entLabels).forEach(renderLabel);
+  Object.keys(entNotes).forEach(function(name) {
+    if (!entLabels[name]) applyMarkerColor(name);
+  });
+  // refreshKeyLocationMarks is defined later in this IIFE; call it once the
+  // grid has been built (after the forEach below).
+
+  // ── Connector lines ──
+  var entLineEls = []; // { a, b, el }
+
+  function drawConnection(nameA, nameB, oneWayFrom) {
+    var a = entByName[nameA], b = entByName[nameB];
+    var markerA = entMarkers[nameA], markerB = entMarkers[nameB];
+    if (!a || !b || !markerA || !markerB) return;
+    // Lines are drawn within #maps (which contains both #lw and #dw, side by
+    // side via flex). Compute positions relative to #maps using each map's
+    // offset within it.
+    var mapsEl = document.getElementById('maps');
+    var lwEl2 = document.getElementById('lw');
+    var dwEl2 = document.getElementById('dw');
+    var mapsRect = mapsEl.getBoundingClientRect();
+    var lwRect = lwEl2.getBoundingClientRect();
+    var dwRect = dwEl2.getBoundingClientRect();
+
+    function pointFor(entry) {
+      var rect = (entry.world === 'lw') ? lwRect : dwRect;
+      var x = (rect.left - mapsRect.left) + (entry.left / 100) * rect.width;
+      var y = (rect.top  - mapsRect.top)  + (entry.top  / 100) * rect.height;
+      return { x: x, y: y };
+    }
+
+    // For one-way connectors, point the line/arrow from the "from" entrance
+    // toward the other one, regardless of which name was passed as A/B.
+    var fromEntry = a, toEntry = b;
+    if (oneWayFrom === nameB) { fromEntry = b; toEntry = a; }
+
+    var p1 = pointFor(fromEntry), p2 = pointFor(toEntry);
+    var dx = p2.x - p1.x, dy = p2.y - p1.y;
+    var len = Math.sqrt(dx*dx + dy*dy);
+    var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+    var line = document.createElement('div');
+    line.className = 'ent-line';
+    if (oneWayFrom) line.classList.add('ent-line-oneway');
+    line.style.width = len + 'px';
+    line.style.left = p1.x + 'px';
+    line.style.top  = p1.y + 'px';
+    line.style.transform = 'rotate(' + angle + 'deg)';
+    mapsEl.appendChild(line);
+    return line;
+  }
+
+  function updateMarkerStyles() {
+    var connected = {};
+    entConnections.forEach(function(pair) {
+      connected[pair[0]] = true;
+      connected[pair[1]] = true;
+    });
+    Object.keys(entMarkers).forEach(function(name) {
+      var marker = entMarkers[name];
+      if (connected[name]) {
+        marker.classList.remove('unconnected');
+        marker.classList.add('connector');
+      } else {
+        marker.classList.remove('connector');
+        marker.classList.add('unconnected');
+      }
+      applyMarkerColor(name);
+    });
+  }
+
+  function redrawAllConnections() {
+    entLineEls.forEach(function(item) { if (item.el) item.el.remove(); });
+    entLineEls = [];
+    entConnections.forEach(function(pair) {
+      var el = drawConnection(pair[0], pair[1], pair[2]);
+      entLineEls.push({ a: pair[0], b: pair[1], el: el });
+    });
+    updateMarkerStyles();
+  }
+
+  redrawAllConnections();
+  // Lines depend on rendered layout; redraw after layout settles and on resize.
+  window.addEventListener('resize', redrawAllConnections);
+  setTimeout(redrawAllConnections, 200);
+
+  function addConnection(nameA, nameB) {
+    if (nameA === nameB) return;
+    var exists = entConnections.some(function(p) {
+      return (p[0] === nameA && p[1] === nameB) || (p[0] === nameB && p[1] === nameA);
+    });
+    if (exists) return;
+    entConnections.push([nameA, nameB]);
+    window._entConnections = entConnections;
+    saveConnections();
+    redrawAllConnections();
+    refreshConnectionDependentDots();
+    refreshSyntheticConnections();
+    Object.keys(entMarkers).forEach(applyMarkerColor);
+  }
+
+  function removeConnectionsFor(name) {
+    entConnections = entConnections.filter(function(p) {
+      return p[0] !== name && p[1] !== name;
+    });
+    window._entConnections = entConnections;
+    saveConnections();
+    redrawAllConnections();
+    refreshConnectionDependentDots();
+    refreshSyntheticConnections();
+    Object.keys(entMarkers).forEach(applyMarkerColor);
+  }
+
+  // Exposed so the check dot handler (outside this closure) can mark the
+  // entrance with a given label code as cleared (same as clicking the marker).
+  window.markEntranceClearedByCode = function(code) {
+    var clearedState = JSON.parse(localStorage.getItem('ent-cleared') || '{}');
+    var names = Object.keys(entLabels);
+    for (var i = 0; i < names.length; i++) {
+      if (entLabels[names[i]] === code) {
+        var ename = names[i];
+        clearedState[ename] = 1;
+        var m = entMarkers[ename];
+        if (m) {
+          m.classList.add('cleared');
+          applyMarkerColor(ename);
+          renderLabel(ename);
+        }
+      }
+    }
+    localStorage.setItem('ent-cleared', JSON.stringify(clearedState));
+  };
+
+  // Cycle a connection's direction: two-way -> one-way (from -> to) ->
+  // two-way. The 3rd array element stores the "from" entrance name when
+  // one-way, or is absent/falsy for a normal two-way connector.
+  function toggleConnectionDirection(fromName, toName) {
+    for (var i = 0; i < entConnections.length; i++) {
+      var p = entConnections[i];
+      if ((p[0] === fromName && p[1] === toName) || (p[0] === toName && p[1] === fromName)) {
+        if (p[2] === fromName) {
+          p.length = 2; // currently one-way from this entrance -> make two-way
+        } else {
+          p[2] = fromName; // make one-way, pointing from this entrance
+        }
+        break;
+      }
+    }
+    window._entConnections = entConnections;
+    saveConnections();
+    redrawAllConnections();
+    refreshConnectionDependentDots();
+    refreshSyntheticConnections();
+    Object.keys(entMarkers).forEach(applyMarkerColor);
+  }
+
+  function removeConnection(nameA, nameB) {
+    entConnections = entConnections.filter(function(p) {
+      return !((p[0] === nameA && p[1] === nameB) || (p[0] === nameB && p[1] === nameA));
+    });
+    window._entConnections = entConnections;
+    saveConnections();
+    redrawAllConnections();
+    refreshConnectionDependentDots();
+    refreshSyntheticConnections();
+    Object.keys(entMarkers).forEach(applyMarkerColor);
+  }
+
+  function connectionsFor(name) {
+    return entConnections.filter(function(p) { return p[0] === name || p[1] === name; })
+      .map(function(p) { return p[0] === name ? p[1] : p[0]; });
+  }
+
+  // ── Connector "pending" mode ──
+  window._entConnectPending = null; // name of first-selected entrance, or null
+  window._entConnectFinish = function(name, markerEl) {
+    var pendingName = window._entConnectPending;
+    var pendingMarker = entMarkers[pendingName];
+    if (pendingMarker) pendingMarker.classList.remove('connect-pending');
+    window._entConnectPending = null;
+    if (name !== pendingName) {
+      addConnection(pendingName, name);
+    }
+  };
+
+  function startConnect(name) {
+    // Cancel any existing pending state
+    if (window._entConnectPending) {
+      var prevMarker = entMarkers[window._entConnectPending];
+      if (prevMarker) prevMarker.classList.remove('connect-pending');
+    }
+    window._entConnectPending = name;
+    var marker = entMarkers[name];
+    if (marker) marker.classList.add('connect-pending');
+  }
+
+  // ── Right-click popup ──
+  var popup       = document.getElementById('ent-popup');
+  var popupTitle  = document.getElementById('ent-popup-title');
+  var popupClear  = document.getElementById('ent-popup-clear');
+  var popupConnect = document.getElementById('ent-popup-connect');
+  var popupNote   = document.getElementById('ent-popup-note');
+  var popupConns  = document.getElementById('ent-popup-connections');
+  var popupCols   = document.getElementById('ent-popup-cols');
+  var activeName  = null;
+
+  // Build the key-location code grid once.
+  KEY_LOCATION_GROUPS.forEach(function(group) {
+    var col = document.createElement('div');
+    var label = document.createElement('div');
+    label.className = 'ent-popup-section-label';
+    label.textContent = group.title;
+    col.appendChild(label);
+    var grid = document.createElement('div');
+    grid.className = 'ent-popup-grid';
+    group.codes.forEach(function(pair) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ent-popup-btn';
+      btn.textContent = pair[1];
+      btn.dataset.code = pair[0];
+      btn.dataset.markColor = pair[2] || group.color;
+      btn.style.background = btn.dataset.markColor;
+      btn.style.color = (pair[1] === 'Dark') ? '#fff' : '#111';
+      btn.addEventListener('click', function() {
+        if (!activeName) return;
+        entLabels[activeName] = pair[1];
+        saveLabels();
+        renderLabel(activeName);
+        refreshSyntheticConnections();
+        refreshConnectionDependentDots();
+        Object.keys(entMarkers).forEach(applyMarkerColor);
+        closePopup();
+      });
+      grid.appendChild(btn);
+    });
+    col.appendChild(grid);
+    popupCols.appendChild(col);
+  });
+
+  // Highlight grid buttons whose code is currently assigned to any entrance.
+  function refreshKeyLocationMarks() {
+    var usedCodes = {};
+    Object.keys(entLabels).forEach(function(name) {
+      usedCodes[entLabels[name]] = true;
+    });
+    popupCols.querySelectorAll('.ent-popup-btn').forEach(function(btn) {
+      btn.classList.toggle('marked', !!usedCodes[btn.textContent]);
+    });
+  }
+  refreshKeyLocationMarks();
+
+  function openPopup(name, markerEl, x, y) {
+    activeName = name;
+    popupTitle.textContent = name;
+    popupNote.value = entNotes[name] || '';
+    refreshKeyLocationMarks();
+    popupConnect.classList.toggle('active', window._entConnectPending === name);
+    popupConnect.textContent = (window._entConnectPending === name) ? 'Cancel Connector' : 'Add Connector';
+
+    popupConns.innerHTML = '';
+    var conns = connectionsFor(name);
+    if (conns.length) {
+      var label = document.createElement('div');
+      label.className = 'ent-popup-section-label';
+      label.textContent = 'Connected To';
+      popupConns.appendChild(label);
+      conns.forEach(function(otherName) {
+        var pair = entConnections.filter(function(p) {
+          return (p[0] === name && p[1] === otherName) || (p[0] === otherName && p[1] === name);
+        })[0];
+        var oneWayFrom = pair && pair[2];
+
+        var row = document.createElement('div');
+        row.className = 'ent-popup-conn-row';
+        var swatch = document.createElement('span');
+        swatch.className = 'swatch';
+        swatch.style.background = '#ED18E2';
+        var span = document.createElement('span');
+        span.style.flex = '1';
+        span.style.color = '#ccc';
+        span.textContent = oneWayFrom
+          ? (oneWayFrom === name ? otherName + ' ← (one-way from here)' : otherName + ' → (one-way into here)')
+          : otherName;
+
+        var dirBtn = document.createElement('button');
+        dirBtn.type = 'button';
+        dirBtn.className = 'ent-popup-btn';
+        dirBtn.textContent = oneWayFrom ? 'Make Two-Way' : 'One Way →';
+        dirBtn.title = oneWayFrom ? 'Restore as a two-way connector' : 'Mark this connector as one-way, leading from ' + name;
+        dirBtn.addEventListener('click', function() {
+          toggleConnectionDirection(name, otherName);
+          openPopup(name, markerEl, x, y);
+        });
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ent-popup-btn danger';
+        btn.textContent = 'Remove Connector';
+        btn.addEventListener('click', function() {
+          removeConnection(name, otherName);
+          openPopup(name, markerEl, x, y);
+        });
+        row.appendChild(swatch);
+        row.appendChild(span);
+        row.appendChild(dirBtn);
+        row.appendChild(btn);
+        popupConns.appendChild(row);
+      });
+    }
+
+    popup.classList.add('open');
+    var pw = popup.offsetWidth, ph = popup.offsetHeight;
+    var px = Math.min(x, window.innerWidth  - pw - 8);
+    var py = Math.min(y, window.innerHeight - ph - 8);
+    popup.style.left = Math.max(8, px) + 'px';
+    popup.style.top  = Math.max(8, py) + 'px';
+  }
+  function closePopup() {
+    popup.classList.remove('open');
+    activeName = null;
+  }
+
+  popupClear.addEventListener('click', function() {
+    if (!activeName) return;
+    delete entLabels[activeName];
+    saveLabels();
+    renderLabel(activeName);
+    removeConnectionsFor(activeName);
+    refreshSyntheticConnections();
+    refreshConnectionDependentDots();
+    Object.keys(entMarkers).forEach(applyMarkerColor);
+    closePopup();
+  });
+
+  popupConnect.addEventListener('click', function() {
+    if (!activeName) return;
+    if (window._entConnectPending === activeName) {
+      var marker = entMarkers[activeName];
+      if (marker) marker.classList.remove('connect-pending');
+      window._entConnectPending = null;
+    } else {
+      startConnect(activeName);
+    }
+    closePopup();
+  });
+
+  popupNote.addEventListener('change', function() {
+    if (!activeName) return;
+    var val = popupNote.value.trim();
+    if (val) entNotes[activeName] = val;
+    else delete entNotes[activeName];
+    saveNotes();
+    applyMarkerColor(activeName);
+  });
+
+  popupNote.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!activeName) return;
+    var val = popupNote.value.trim();
+    if (val) entNotes[activeName] = val;
+    else delete entNotes[activeName];
+    saveNotes();
+    applyMarkerColor(activeName);
+    closePopup();
+  });
+
+  var popupNoteClear = document.getElementById('ent-popup-note-clear');
+  popupNoteClear.addEventListener('click', function() {
+    if (!activeName) return;
+    popupNote.value = '';
+    delete entNotes[activeName];
+    saveNotes();
+    applyMarkerColor(activeName);
+  });
+
+  document.addEventListener('mousedown', function(e) {
+    if (!popup.classList.contains('open')) return;
+    if (popup.contains(e.target)) return;
+    closePopup();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closePopup();
+      if (window._entConnectPending) {
+        var marker = entMarkers[window._entConnectPending];
+        if (marker) marker.classList.remove('connect-pending');
+        window._entConnectPending = null;
+      }
+    }
+  });
+
+  window._entOpenPopup = openPopup;
+
+  // ── Connector visibility toggle (independent of overlay show/hide) ──
+  var connToggle = document.getElementById('ent-conn-toggle');
+  if (connToggle) {
+    var connHidden = (localStorage.getItem('ent-conn-visible') === '0');
+    document.getElementById('maps').classList.toggle('ent-conn-hidden', connHidden);
+    connToggle.checked = !connHidden;
+    connToggle.addEventListener('change', function() {
+      document.getElementById('maps').classList.toggle('ent-conn-hidden', !connToggle.checked);
+      localStorage.setItem('ent-conn-visible', connToggle.checked ? '1' : '0');
+    });
+  }
+
+  // ── Visibility of connector/notes controls ──
+  // Only relevant for entrance-shuffle games.
+  var entConnWrap     = document.getElementById('ent-conn-toggle-wrap');
+  var entInfoBtn      = document.getElementById('ent-info-btn');
+  var entSep1         = document.getElementById('ent-sep-1');
+  var entSep2         = document.getElementById('ent-sep-2');
+  var checklistBtn    = document.getElementById('checklist-btn');
+  var isEntranceShuffle = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+
+  function updateEntControlsVisibility() {
+    var show = isEntranceShuffle;
+    var entSaveBtn = document.getElementById('ent-save-btn');
+    var entLoadBtn = document.getElementById('ent-load-btn');
+    [entSep1, entConnWrap, entSep2, entInfoBtn, checklistBtn].forEach(function(el) {
+      if (el) el.style.display = show ? '' : 'none';
+    });
+    [entSaveBtn, entLoadBtn].forEach(function(el) {
+      if (el) el.style.display = show ? '' : 'none';
+    });
+    var legendEl = document.getElementById('legend');
+    if (legendEl) legendEl.style.display = isEntranceShuffle ? 'none' : '';
+  }
+
+  updateEntControlsVisibility();
+
+  // ── "Notes & Connectors" summary popup ──
+  function isCleared(name) {
+    try {
+      var clearedState = JSON.parse(localStorage.getItem('ent-cleared') || '{}');
+      return !!clearedState[name];
+    } catch(ex) { return false; }
+  }
+
+  function renderInfoLists() {
+    var notesList = document.getElementById('ent-info-notes-list');
+    var connsList = document.getElementById('ent-info-conns-list');
+    var includeNotesCleared = document.getElementById('ent-info-notes-cleared').checked;
+    var includeConnsCleared = document.getElementById('ent-info-conns-cleared').checked;
+
+    notesList.innerHTML = '';
+    var noteNames = Object.keys(entNotes).filter(function(name) {
+      return includeNotesCleared || !isCleared(name);
+    });
+    if (!noteNames.length) {
+      notesList.innerHTML = '<div class="ent-info-empty">No notes yet.</div>';
+    } else {
+      noteNames.forEach(function(name) {
+        var row = document.createElement('div');
+        if (isCleared(name)) row.className = 'ent-info-cleared';
+        row.textContent = name + ': ' + entNotes[name];
+        notesList.appendChild(row);
+      });
+    }
+
+    connsList.innerHTML = '';
+    var conns = entConnections.filter(function(pair) {
+      return includeConnsCleared || (!isCleared(pair[0]) && !isCleared(pair[1]));
+    });
+    if (!conns.length) {
+      connsList.innerHTML = '<div class="ent-info-empty">No connectors yet.</div>';
+    } else {
+      conns.forEach(function(pair) {
+        var row = document.createElement('div');
+        if (isCleared(pair[0]) || isCleared(pair[1])) row.className = 'ent-info-cleared';
+        row.textContent = pair[0] + ' <--> ' + pair[1];
+        connsList.appendChild(row);
+      });
+    }
+
+    var labelsList = document.getElementById('ent-info-labels-list');
+    var includeLabelsCleared = document.getElementById('ent-info-labels-cleared').checked;
+    labelsList.innerHTML = '';
+    var labelNames = Object.keys(entLabels).filter(function(name) {
+      return includeLabelsCleared || !isCleared(name);
+    });
+    if (!labelNames.length) {
+      labelsList.innerHTML = '<div class="ent-info-empty">No labels yet.</div>';
+    } else {
+      labelNames.forEach(function(name) {
+        var row = document.createElement('div');
+        if (isCleared(name)) row.className = 'ent-info-cleared';
+        row.textContent = name + ': ' + entLabels[name];
+        labelsList.appendChild(row);
+      });
+    }
+  }
+
+  var infoPopup = document.getElementById('ent-info-popup');
+  var infoBtn   = document.getElementById('ent-info-btn');
+  var infoClose = document.getElementById('ent-info-close');
+  if (infoBtn) {
+    infoBtn.addEventListener('click', function() {
+      renderInfoLists();
+      infoPopup.classList.add('open');
+    });
+  }
+  if (infoClose) {
+    infoClose.addEventListener('click', function() { infoPopup.classList.remove('open'); });
+  }
+  ['ent-info-notes-cleared', 'ent-info-conns-cleared', 'ent-info-labels-cleared'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', renderInfoLists);
+  });
+
+  // ── Show/hide Labels column ──
+  var showLabelsCheckbox = document.getElementById('ent-info-show-labels');
+  var labelsCol = document.getElementById('ent-info-labels-col');
+  function applyShowLabels() {
+    var show = showLabelsCheckbox.checked;
+    if (labelsCol) labelsCol.style.display = show ? '' : 'none';
+  }
+  if (showLabelsCheckbox) {
+    try {
+      var savedShowLabels = localStorage.getItem('ent-show-labels-col');
+      if (savedShowLabels !== null) showLabelsCheckbox.checked = (savedShowLabels === 'true');
+    } catch(ex) {}
+    applyShowLabels();
+    showLabelsCheckbox.addEventListener('change', function() {
+      applyShowLabels();
+      try { localStorage.setItem('ent-show-labels-col', showLabelsCheckbox.checked); } catch(ex) {}
+    });
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && infoPopup.classList.contains('open')) {
+      infoPopup.classList.remove('open');
+    }
+  });
+
+  // ── Full reset (called from New Game) ──
+  window._entResetAll = function() {
+    // Clear labels
+    Object.keys(entLabels).forEach(function(name) { delete entLabels[name]; });
+    saveLabels();
+    Object.keys(entLabelEls).forEach(function(name) {
+      entLabelEls[name].remove();
+      delete entLabelEls[name];
+    });
+    refreshKeyLocationMarks();
+    refreshSyntheticConnections();
+    // Clear notes
+    Object.keys(entNotes).forEach(function(name) { delete entNotes[name]; });
+    saveNotes();
+    // Clear connections
+    entConnections = [];
+    window._entConnections = entConnections;
+    saveConnections();
+    redrawAllConnections();
+    refreshConnectionDependentDots();
+    // Clear cleared/connect-pending marker state
+    window._entConnectPending = null;
+    try { localStorage.removeItem('ent-cleared'); } catch(ex) {}
+    Object.keys(entMarkers).forEach(function(name) {
+      entMarkers[name].classList.remove('cleared', 'connect-pending', 'ent-marked', 'ent-has-prize');
+      entMarkers[name].style.background = '';
+      var pIcon = entMarkers[name].querySelector('.ent-marker-prize');
+      if (pIcon) pIcon.remove();
+    });
+    // Close popups if open
+    closePopup();
+    if (infoPopup) infoPopup.classList.remove('open');
+  };
+})();
+
 function cyclePrize(key) {
   var def = DUNGEONS[key];
   def.prize = (def.prize + 1) % PRIZE_CYCLE.length;
   def.img        = PRIZE_CYCLE[def.prize].img;
   def.imgCleared = PRIZE_CYCLE[def.prize].imgCleared;
   refreshDungeonImg(key);
+  if (window._entRefreshPrizeIcons) window._entRefreshPrizeIcons();
 }
 
 // Prize image: bright (1.png = img) until obtained, then dim (0.png = imgCleared)
@@ -1681,6 +4151,7 @@ function refreshDungeonImg(key) {
     }
   }
   img.src = def.cleared ? def.imgCleared : def.img;
+  if (window._entRefreshPrizeIcons) window._entRefreshPrizeIcons();
 }
 
 // ── Logic refresh ─────────────────────────────────────────────────────────────
@@ -1751,9 +4222,12 @@ window.refreshMapLogic = function() {
   Object.keys(dotById).forEach(function(id) {
     dotById[id].className = dotClass(parseInt(id));
   });
-  // Always hide CT-Room03 (109) and CT-Dark Maze (110) unless KS/MCK mode
+  // Always hide CT-Room03 (109) and CT-Dark Maze (110) unless KS/MCK mode.
+  // Also hide in entrance shuffle (KS/MCK or not) — these checks aren't
+  // logically knowable without finding CT's entrance first.
   var _diMode = window.trackerSettings.dungeonItems;
-  if (!['keysanity','mapcompasskeys'].includes(_diMode)) {
+  var _isEntShuffleCT = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+  if (!['keysanity','mapcompasskeys'].includes(_diMode) || _isEntShuffleCT) {
     if (dotById[109]) dotById[109].className = 'dot hidden';
     if (dotById[110]) dotById[110].className = 'dot hidden';
   } else if (window.trackerSettings && window.trackerSettings.inverted) {
@@ -1795,7 +4269,9 @@ window.refreshMapLogic = function() {
     var lwOk = lwVillageOk;  // general LW access
     // Bottle Merchant (65) is LW — needs portal access or SuperBunny (aga+no pearl)
     var superBunnyOk = aga2 && !pearl2;
-    if (dotById[65] && !checkState[65]) dotById[65].className = (lwOk || superBunnyOk) ? 'dot available' : 'dot unavail';
+    var _isEntShuffle65 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+    var _kakOk65 = _isEntShuffle65 && typeof window.kakarikoConnectorFound === 'function' && window.kakarikoConnectorFound();
+    if (dotById[65] && !checkState[65]) dotById[65].className = (lwOk || superBunnyOk || _kakOk65) ? 'dot available' : 'dot unavail';
     _free.forEach(function(id) {
       if (dotById[id] && !checkState[id]) dotById[id].className = 'dot available';
     });
@@ -1822,7 +4298,6 @@ window.refreshMapLogic = function() {
     (function() {
       var el = dngEls['gt'];
       if (!el || DUNGEONS['gt'].cleared || DUNGEONS['gt'].fullyCleared) return;
-      var dwDMAccess = glove2 || (window.trackerItems && window.trackerItems.flute >= 1 && lwVillageOk);
       var lamp2   = window.trackerItems && window.trackerItems.lamp;
       var sword2  = window.trackerItems && window.trackerItems.sword >= 1;
       var cape2   = window.trackerItems && window.trackerItems.cape;
@@ -1830,6 +4305,15 @@ window.refreshMapLogic = function() {
       var diMode  = window.trackerSettings && window.trackerSettings.dungeonItems;
       var ctKeys  = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
       var keysOk  = ['keysanity','mapcompasskeys'].includes(diMode) ? ctKeys >= 2 : true;
+      // Entrance shuffle: HC balcony connector grants access to Aga1 directly
+      var _isEntShuffleCT = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+      var _ctHCNames2 = {'Agahnims Tower':1,'Hyrule Castle Entrance (West)':1,'Hyrule Castle Entrance (East)':1,'Hyrule Castle Entrance (South)':1};
+      var _ctConns2 = (window._entConnections && window._entConnections.length)
+        ? window._entConnections
+        : (function() { try { return JSON.parse(localStorage.getItem('ent-connections') || '[]'); } catch(e) { return []; } })();
+      var _ctHCFound = _isEntShuffleCT &&
+        _ctConns2.some(function(c) { return _ctHCNames2[c[0]] || _ctHCNames2[c[1]]; });
+      var dwDMAccess = _ctHCFound || glove2 || (window.trackerItems && window.trackerItems.flute >= 1 && lwVillageOk);
       el.className = (dwDMAccess && lamp2 && weapon2 && keysOk) ? 'dng available' : 'dng unavail';
     })();
     // TOH is on Death Mountain — DM portal + hammer + DMlight required
@@ -1843,6 +4327,20 @@ window.refreshMapLogic = function() {
       el.className = firesource ? 'dng available' : 'dng possible';
     })();
   }
+  if (window._entRefreshPrizeIcons) window._entRefreshPrizeIcons();
+  // Broadcast check colors to checklist window
+  try {
+    if (typeof _bc !== 'undefined' && window.checkColor) {
+      var _clColors = {}, _clCleared = {};
+      CHECKS.forEach(function(c) {
+        var id = c[0];
+        _clColors[id] = window.checkColor(id);
+        if (checkState[id]) _clCleared[id] = true;
+      });
+      _lastBroadcastColors = _clColors;
+      _bc.postMessage({ type: 'checkcolors', colors: _clColors, cleared: _clCleared });
+    }
+  } catch(ex) {}
 };
 
 function dngStatusText(key) {
@@ -1924,6 +4422,29 @@ var _lastBcRooms = 0;
 
 try {
   var _bc = new BroadcastChannel('alttp-tracker');
+  var _lastBroadcastColors = {};
+  // On load/refresh, window.trackerItems resets to all-default (no items),
+  // and stays that way until the item tracker broadcasts a change. Request
+  // a fresh snapshot immediately so markers/dots reflect the player's actual
+  // current items right away instead of an all-red/default state until the
+  // next click (manual tracking, no SRAM).
+  try { _bc.postMessage({ type: 'requestSnap' }); } catch(ex) {}
+
+  // Fallback: if no item tracker is open (e.g. testing on another computer),
+  // the BroadcastChannel never fires and _entItemsReceived stays false —
+  // leaving all entrance markers permanently green. After 2 seconds, if we
+  // still haven't received anything, enable logic with default (empty) items
+  // so entrances correctly show red/unavailable from the start.
+  setTimeout(function() {
+    if (!window._entItemsReceived) {
+      window._entItemsReceived = true;
+      if (window.refreshMapLogic) window.refreshMapLogic();
+      Object.keys(entMarkers || {}).forEach(function(name) {
+        if (window._entApplyMarkerColor) window._entApplyMarkerColor(name);
+      });
+    }
+  }, 2000);
+
   _bc.onmessage = function(e) {
     if (!e.data) return;
     switch (e.data.type) {
@@ -1985,6 +4506,7 @@ try {
           if (snap[k+'BossState'] !== undefined) DUNGEONS[k].bossState = snap[k+'BossState'];
           if (snap[k+'BossOk']    !== undefined) DUNGEONS[k].bossOk    = snap[k+'BossOk'];
         });
+        window._entItemsReceived = true;
         window.refreshMapLogic();
         break;
       case 'rooms':
@@ -2084,9 +4606,114 @@ try {
       case 'newgame':
         if (!_resettingGame) resetChecks();
         break;
+      case 'request-checkcolors':
+        if (window.checkColor) {
+          var _rqColors = {}, _rqCleared = {};
+          CHECKS.forEach(function(c) {
+            var id = c[0];
+            _rqColors[id] = window.checkColor(id);
+            if (checkState[id]) _rqCleared[id] = true;
+          });
+          _bc.postMessage({ type: 'checkcolors', colors: _rqColors, cleared: _rqCleared });
+        }
+        break;
+      case 'toggle-check':
+        var _tcId = e.data.id;
+        if (_tcId !== undefined) {
+          checkState[_tcId] = !checkState[_tcId];
+          saveCheckState();
+          if (dotById[_tcId]) dotById[_tcId].className = dotClass(_tcId);
+          // Auto-mark entrance cleared when its key check is collected (one-way)
+          if (checkState[_tcId] && typeof window.markEntranceClearedByCode === 'function') {
+            var _tcAutoMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike' };
+            var _tcAutoCode = _tcAutoMap[_tcId];
+            if (_tcAutoCode) window.markEntranceClearedByCode(_tcAutoCode);
+          }
+          window.refreshMapLogic();
+        }
+        break;
     }
   };
 } catch(ex) {}
+
+// ── Entrance state save / load ────────────────────────────────────────────────
+function saveEntState() {
+  var state = {
+    labels:      localStorage.getItem('ent-labels')      || '{}',
+    connections: localStorage.getItem('ent-connections') || '[]',
+    cleared:     localStorage.getItem('ent-cleared')     || '{}',
+    notes:       localStorage.getItem('ent-notes')       || '{}',
+    checks:      localStorage.getItem('alttp-checks')    || '{}',
+  };
+  var json = JSON.stringify(state, null, 2);
+  if (window.electronAPI && window.electronAPI.saveEntState) {
+    window.electronAPI.saveEntState(json);
+  } else {
+    // Browser fallback: download as file
+    var blob = new Blob([json], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'alttp-entrance-state.json';
+    a.click();
+  }
+}
+
+function loadEntState() {
+  if (window.electronAPI && window.electronAPI.loadEntState) {
+    window.electronAPI.loadEntState(function(json) {
+      _applyEntState(json);
+    });
+  } else {
+    // Browser fallback: file picker
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = function() {
+      var file = input.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) { _applyEntState(e.target.result); };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+}
+
+function _applyEntState(json) {
+  try {
+    var state = JSON.parse(json);
+    if (state.labels)      localStorage.setItem('ent-labels',      state.labels);
+    if (state.connections) localStorage.setItem('ent-connections', state.connections);
+    if (state.cleared)     localStorage.setItem('ent-cleared',     state.cleared);
+    if (state.notes)       localStorage.setItem('ent-notes',       state.notes);
+    if (state.checks)      localStorage.setItem('alttp-checks',    state.checks);
+    // Reload the page to apply all restored state cleanly
+    location.reload();
+  } catch(e) {
+    alert('Failed to load state file: ' + e.message);
+  }
+}
+
+// ── Checklist storage bridge ──────────────────────────────────────────────────
+// BroadcastChannel doesn't cross Electron window boundaries reliably, so the
+// checklist also writes to localStorage. Map.html listens here for check toggles.
+window.addEventListener('storage', function(ev) {
+  if (ev.key !== 'alttp-check-toggle') return;
+  try {
+    var d = JSON.parse(ev.newValue);
+    if (!d || d.id === undefined) return;
+    var id = d.id;
+    checkState[id] = !!d.cleared;
+    saveCheckState();
+    if (dotById[id]) dotById[id].className = dotClass(id);
+    if (d.cleared && typeof window.markEntranceClearedByCode === 'function') {
+      var _stAutoMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike' };
+      var _stCode = _stAutoMap[id];
+      if (_stCode) window.markEntranceClearedByCode(_stCode);
+    }
+    window.refreshMapLogic();
+  } catch(ex) {}
+});
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 function showTip(text, e) { var t = document.getElementById('tip'); t.textContent = text; t.style.display = 'block'; moveTip(e); }
@@ -2342,6 +4969,14 @@ function mapConnect() {
 function _scheduleReconnect() {
   clearTimeout(_mapReconnectTimer);
   _mapReconnectTimer = setTimeout(mapConnect, 3000);
+}
+
+function openCheckList() {
+  if (window.electronAPI && window.electronAPI.openCheckList) {
+    window.electronAPI.openCheckList();
+  } else {
+    window.open('checklist.html', 'alttp-checklist', 'width=340,height=600,resizable=yes');
+  }
 }
 
 function mapReconnect() {
