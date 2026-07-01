@@ -48,7 +48,7 @@
 | **TT** | Moon Pearl + DW NW | Hammer |
 | **IP** | Moon Pearl + Flippers + Titans Mitt + Bombos/Firerod | Hammer+Hookshot; 2 keys OR 1 key+Somaria (KS/MCK) |
 | **MM** | Flute + Titans Mitt + assigned Medallion + Boots/Hookshot | Somaria + Lamp |
-| **TR** | Moon Pearl + Hammer + Titans Mitt + Somaria + assigned Medallion + Sword | Firerod + Lamp |
+| **TR** | Moon Pearl + Hammer + Titans Mitt + Somaria + assigned Medallion + Sword + Access to Right Mountain (Mirror or Hookshot)  | Firerod + Lamp |
 | **GT** | N crystals (configurable 1–7) | N crystals |
 
 ---
