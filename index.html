@@ -23,7 +23,7 @@ input, select {
   border-radius: 4px; padding: 5px 8px; font-size: 12px; flex: 1;
 }
 input:focus, select:focus { outline: none; border-color: #4dff88; }
-.info { color: #444; font-size: 10px; margin-top: 2px; padding-left: 90px; }
+.info { color: #444; font-size: 10px; margin-top: 2px; margin-bottom: 10px; padding-left: 90px; }
 .btn-row { display: flex; gap: 10px; margin-top: 8px; }
 .launch-btn {
   flex: 1; padding: 12px;
@@ -39,6 +39,110 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 #btn-timer { background: #2a0a3a; color: #c084fc; border: 1px solid #6a2a9a; }
 #btn-timer:hover { background: #4a1a6a; }
 .divider { border: none; border-top: 1px solid #222; margin: 4px 0 12px; }
+.user-guide-btn {
+  flex: 1; padding: 8px;
+  font-size: 12px; font-weight: bold; cursor: pointer;
+  border: 1px solid #333; border-radius: 6px; transition: background 0.2s;
+  background: #1a1a1a; color: #888;
+}
+.user-guide-btn:hover { background: #2a2a2a; color: #ccc; }
+
+/* ── Yes/No toggle slider (compact, thumb flush left/right, no inline text) ── */
+.toggle-row { display: flex; align-items: center; gap: 8px; }
+.row label.toggle-switch {
+  position: relative; display: inline-block;
+  width: 32px; height: 18px; min-width: 32px; flex: 0 0 auto;
+}
+.toggle-switch input {
+  opacity: 0; width: 0; height: 0; position: absolute;
+  padding: 0; margin: 0; border: none; background: none; flex: none;
+}
+.toggle-slider {
+  position: absolute; cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #444; border: 1px solid #555;
+  border-radius: 18px; transition: background 0.15s, border-color 0.15s;
+  box-sizing: border-box;
+}
+.toggle-slider::before {
+  content: ""; position: absolute;
+  height: 14px; width: 14px; left: 1px; top: 1px;
+  background: #ccc; border-radius: 50%;
+  transition: transform 0.15s, background 0.15s;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: #2255dd; border-color: #2255dd;
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(14px);
+  background: #fff;
+}
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid #4dff88; outline-offset: 2px;
+}
+.toggle-label-text { font-size: 11px; font-weight: bold; color: #888; min-width: 20px; }
+.toggle-switch input:checked ~ .toggle-label-text,
+.toggle-label-text.active { color: #ccc; }
+
+/* ── Toggles + Presets side-by-side layout ── */
+.toggles-presets-wrap { display: flex; align-items: flex-start; gap: 16px; }
+.toggles-col { display: flex; flex-direction: column; flex: 0 0 auto; }
+.presets-col {
+  flex: 1; display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px; margin-top: 2px;
+  background: #151515; border: 1px solid #262626; border-radius: 5px;
+}
+.presets-label {
+  font-size: 11px; color: #666; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 2px;
+}
+#preset-select { width: 100%; }
+.preset-btn {
+  width: 100%; padding: 6px 8px; font-size: 12px; font-weight: bold;
+  cursor: pointer; background: #2a2a14; color: #ffd700;
+  border: 1px solid #5a5a1a; border-radius: 4px;
+  transition: background 0.15s;
+}
+.preset-btn:hover { background: #4a4a20; }
+.preset-btn-save {
+  background: #16241a; color: #7ab8f5;
+  border: 1px solid #2a4e7a; font-size: 11px;
+}
+.preset-btn-save:hover { background: #1f3550; }
+.preset-btn-delete {
+  background: #2e1a1a; color: #f57a7a;
+  border: 1px solid #7a2a2a; font-size: 11px;
+}
+.preset-btn-delete:hover { background: #3f1f1f; }
+
+/* ── Preset name modal ── */
+#preset-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); z-index: 999;
+  align-items: center; justify-content: center;
+}
+#preset-modal-overlay.open { display: flex; }
+#preset-modal {
+  background: #1a1a1a; border: 1px solid #444; border-radius: 6px;
+  padding: 16px; width: 240px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+#preset-modal label { font-size: 12px; color: #999; }
+#preset-modal-input {
+  background: #111; color: #ccc; border: 1px solid #444;
+  border-radius: 4px; padding: 6px 8px; font-size: 13px; width: 100%;
+  box-sizing: border-box;
+}
+#preset-modal-input:focus { outline: none; border-color: #4dff88; }
+.preset-modal-btns { display: flex; gap: 8px; }
+.preset-modal-btns button {
+  flex: 1; padding: 6px; font-size: 12px; border-radius: 4px;
+  cursor: pointer; border: 1px solid #555;
+}
+#preset-modal-ok  { background: #16241a; color: #4dff88; border-color: #2a7a4e; }
+#preset-modal-ok:hover  { background: #1f3a28; }
+#preset-modal-cancel { background: #1a1a1a; color: #888; }
+#preset-modal-cancel:hover { background: #2a2a2a; }
 
 /* ── Settings gear button ── */
 #app-settings-btn {
@@ -81,6 +185,24 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 #update-panel-status {
   font-size: 10px; color: #666; margin-top: 2px;
 }
+.app-settings-divider {
+  border: none; border-top: 1px solid #2a2a2a; margin: 10px 0;
+}
+.app-settings-section-label {
+  font-size: 11px; color: #555; text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 8px;
+}
+.app-settings-row label {
+  color: #666; font-size: 12px; min-width: 40px;
+}
+.app-settings-row input {
+  background: #111; color: #ccc; border: 1px solid #333;
+  border-radius: 4px; padding: 5px 8px; font-size: 12px; flex: 1;
+}
+.app-settings-row input:focus { outline: none; border-color: #4dff88; }
+.app-settings-info {
+  color: #444; font-size: 10px; margin: -2px 0 8px;
+}
 
 /* ── Update notification bar ── */
 #update-bar {
@@ -114,6 +236,18 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
     <button id="check-update-btn" onclick="manualCheckUpdate()">Check for Updates</button>
   </div>
   <div id="update-panel-status"></div>
+
+  <hr class="app-settings-divider">
+  <div class="app-settings-section-label">Connection</div>
+  <div class="app-settings-row">
+    <label>Host</label>
+    <input id="ws-host" type="text" value="localhost" placeholder="localhost">
+  </div>
+  <div class="app-settings-row">
+    <label>Port</label>
+    <input id="ws-port" type="text" value="23074" placeholder="23074">
+  </div>
+  <div class="app-settings-info">QUSB2SNES / SNI — default port 23074</div>
 </div>
 
 <!-- Update notification bar (shown when update available/ready) -->
@@ -125,19 +259,6 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   <p style="text-align: center;">
   <small>Version 1.1.14 </small>
 </p>
-<div class="section">
-  <h2>Connection</h2>
-  <div class="row">
-    <label>Host</label>
-    <input id="ws-host" type="text" value="localhost" placeholder="localhost">
-  </div>
-  <div class="row">
-    <label>Port</label>
-    <input id="ws-port" type="text" value="23074" placeholder="23074">
-  </div>
-  <div class="info">QUSB2SNES / SNI — default port 23074</div>
-</div>
-
 <div class="section">
   <h2>Display</h2>
   <div class="row">
@@ -221,37 +342,67 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
       <option value="inverted">Inverted</option>
     </select>
   </div>
-  <div class="row">
+  <div class="toggles-presets-wrap">
+  <div class="toggles-col">
+  <div class="row toggle-row">
+    <label>Entrance Shuffle</label>
+    <label class="toggle-switch">
+      <input type="checkbox" id="entranceshuffle-toggle">
+      <span class="toggle-slider"></span>
+    </label>
+    <span class="toggle-label-text" id="entranceshuffle-toggle-label">No</span>
+  </div>
+  <div class="row toggle-row">
     <label>Boss Shuffle</label>
-    <div style="display:flex;gap:16px;align-items:center;">
-      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
-        <input type="radio" name="bossshuffle" id="bossshuffle-yes" value="yes" checked> Yes
-      </label>
-      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
-        <input type="radio" name="bossshuffle" id="bossshuffle-no" value="no"> No
-      </label>
-    </div>
+    <label class="toggle-switch">
+      <input type="checkbox" id="bossshuffle-toggle" checked>
+      <span class="toggle-slider"></span>
+    </label>
+    <span class="toggle-label-text" id="bossshuffle-toggle-label">Yes</span>
   </div>
-  <div class="row">
+  <div class="row toggle-row">
     <label>Enemizer</label>
-    <div style="display:flex;gap:16px;align-items:center;">
-      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
-        <input type="radio" name="enemizer" id="enemizer-yes" value="yes" checked> Yes
-      </label>
-      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
-        <input type="radio" name="enemizer" id="enemizer-no" value="no"> No
-      </label>
-    </div>
+    <label class="toggle-switch">
+      <input type="checkbox" id="enemizer-toggle" checked>
+      <span class="toggle-slider"></span>
+    </label>
+    <span class="toggle-label-text" id="enemizer-toggle-label">Yes</span>
   </div>
-  <div class="row">
+  <div class="row toggle-row">
     <label>Swordless</label>
-    <div style="display:flex;gap:16px;align-items:center;">
-      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
-        <input type="radio" name="swordless" id="swordless-no" value="no" checked> No
-      </label>
-      <label style="display:flex;align-items:center;gap:5px;font-weight:normal;">
-        <input type="radio" name="swordless" id="swordless-yes" value="yes"> Yes
-      </label>
+    <label class="toggle-switch">
+      <input type="checkbox" id="swordless-toggle">
+      <span class="toggle-slider"></span>
+    </label>
+    <span class="toggle-label-text" id="swordless-toggle-label">No</span>
+  </div>
+  </div>
+
+  <div class="presets-col">
+    <label class="presets-label">Preset</label>
+    <select id="preset-select">
+      <option value="lordseed" selected>Lord Seed</option>
+      <option value="standard">Standard</option>
+      <option value="openstandard">Open Standard</option>
+      <option value="standardkeysanity">Standard KeySanity</option>
+      <option value="openkeysanity">Open KeySanity</option>
+      <option value="crosskeys">CrossKeys</option>
+    </select>
+    <button type="button" class="preset-btn" id="preset-apply-btn" onclick="applyPreset()">Preset</button>
+    <button type="button" class="preset-btn preset-btn-save" id="preset-save-btn" onclick="saveCustomPreset()">Save Preset</button>
+    <button type="button" class="preset-btn preset-btn-delete" id="preset-delete-btn" onclick="deleteCustomPreset()" style="display:none">Delete Preset</button>
+  </div>
+  </div>
+</div>
+
+<!-- Preset name modal -->
+<div id="preset-modal-overlay">
+  <div id="preset-modal">
+    <label for="preset-modal-input">Name this preset:</label>
+    <input id="preset-modal-input" type="text" maxlength="40" autocomplete="off">
+    <div class="preset-modal-btns">
+      <button id="preset-modal-ok" onclick="presetModalConfirm()">Save</button>
+      <button id="preset-modal-cancel" onclick="presetModalClose()">Cancel</button>
     </div>
   </div>
 </div>
@@ -299,24 +450,43 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   <div class="info" style="padding-left:15px;margin-top:6px;color:#8353d5;font-style:italic;;">⚠ Pause will only work while the game is in a menu. (See User Guide)</div>
 </div>
 
+<div class="btn-row" style="margin-top:8px;">
+  <button class="user-guide-btn" id="btn-user-guide" onclick="openUserGuide()">📖 User Guide</button>
+</div>
+
 
 <script>
 var IS_ELECTRON = !!(window.electronAPI && window.electronAPI.isElectron);
 
+// Wire a checkbox-toggle to its adjacent Yes/No text label.
+function wireToggleLabel(toggleId, labelId) {
+  var toggle = document.getElementById(toggleId);
+  var label  = document.getElementById(labelId);
+  if (!toggle || !label) return;
+  function sync() { label.textContent = toggle.checked ? 'Yes' : 'No'; }
+  toggle.addEventListener('change', sync);
+  sync();
+}
+['entranceshuffle','bossshuffle','enemizer','swordless'].forEach(function(name) {
+  wireToggleLabel(name + '-toggle', name + '-toggle-label');
+});
+
 function getSettings() {
+  var esToggle = document.getElementById('entranceshuffle-toggle');
   return {
     wsHost:     document.getElementById('ws-host').value     || 'localhost',
     wsPort:     document.getElementById('ws-port').value     || '23074',
     scale:      document.getElementById('item-scale').value  || '1.0',
     zoom:       document.getElementById('map-zoom').value    || '100',
     layout:     localStorage.getItem('alttp-map-layout')     || 'horizontal',
-    enemizer:   document.querySelector('input[name="enemizer"]:checked').value || 'yes',
-    bossshuffle: document.querySelector('input[name="bossshuffle"]:checked') ? document.querySelector('input[name="bossshuffle"]:checked').value : 'yes',
+    enemizer:   document.getElementById('enemizer-toggle') && document.getElementById('enemizer-toggle').checked ? 'yes' : 'no',
+    bossshuffle: document.getElementById('bossshuffle-toggle') && document.getElementById('bossshuffle-toggle').checked ? 'yes' : 'no',
     gtCrystals: document.getElementById('gt-crystals').value || '7',
     gamemode:      document.getElementById('gamemode-select') ? document.getElementById('gamemode-select').value : 'standard',
     dungeonItems:  document.getElementById('dungeonitems-select') ? document.getElementById('dungeonitems-select').value : 'standard',
     trackerBg:  document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black',
-    swordless:  document.querySelector('input[name="swordless"]:checked') ? document.querySelector('input[name="swordless"]:checked').value : 'no',
+    swordless:  document.getElementById('swordless-toggle') && document.getElementById('swordless-toggle').checked ? 'yes' : 'no',
+    entranceShuffle: esToggle && esToggle.checked ? 'on' : 'none',
   };
 }
 
@@ -336,11 +506,14 @@ function save() {
   localStorage.setItem('alttp-timer-bg', document.getElementById('timer-bg') ? document.getElementById('timer-bg').value : 'black');
   if (document.getElementById('timer-color-custom')) localStorage.setItem('alttp-timer-color-custom', document.getElementById('timer-color-custom').value);
   if (document.getElementById('timer-bg-custom'))    localStorage.setItem('alttp-timer-bg-custom',    document.getElementById('timer-bg-custom').value);
-  var sw = document.querySelector('input[name="swordless"]:checked'); if (sw) localStorage.setItem('alttp-swordless', sw.value);
+  localStorage.setItem('alttp-swordless', s.swordless);
+  localStorage.setItem('alttp-entrance-shuffle', s.entranceShuffle === 'none' ? 'no' : 'yes');
+  localStorage.setItem('alttp-entrance-shuffle-mode', s.entranceShuffle);
 }
 
 function mapUrl(s) {
-  return 'map.html?zoom=' + s.zoom + '&enemizer=' + s.enemizer + '&gtcrystals=' + s.gtCrystals + '&gamemode=' + s.gamemode + '&dungeonitems=' + s.dungeonItems + '&swordless=' + s.swordless + '&bossshuffle=' + s.bossshuffle;
+  var entFlag = (s.entranceShuffle === 'none') ? 'no' : 'yes';
+  return 'map.html?zoom=' + s.zoom + '&enemizer=' + s.enemizer + '&gtcrystals=' + s.gtCrystals + '&gamemode=' + s.gamemode + '&dungeonitems=' + s.dungeonItems + '&swordless=' + s.swordless + '&bossshuffle=' + s.bossshuffle + '&entranceshuffle=' + entFlag + '&entrancemode=' + s.entranceShuffle;
 }
 
 function launchItems() {
@@ -399,6 +572,7 @@ function launchBoth() {
 
 // ── Restore saved values — in Electron pull from electron-store, fallback to localStorage
 window.addEventListener('DOMContentLoaded', async function() {
+  populatePresetDropdown();
   var saved = {};
   if (IS_ELECTRON) {
     saved = await window.electronAPI.loadSettings();
@@ -420,11 +594,11 @@ window.addEventListener('DOMContentLoaded', async function() {
     if (el && fields[id]) el.value = fields[id];
   }
   var enemizer = saved.enemizer || localStorage.getItem('alttp-enemizer') || 'yes';
-  var el = document.querySelector('input[name="enemizer"][value="' + enemizer + '"]');
-  if (el) el.checked = true;
+  var enemizerToggle = document.getElementById('enemizer-toggle');
+  if (enemizerToggle) enemizerToggle.checked = (enemizer === 'yes');
   var bsv = saved.bossshuffle || localStorage.getItem('alttp-bossshuffle') || 'yes';
-  var bsel = document.querySelector('input[name="bossshuffle"][value="' + bsv + '"]');
-  if (bsel) bsel.checked = true;
+  var bossshuffleToggle = document.getElementById('bossshuffle-toggle');
+  if (bossshuffleToggle) bossshuffleToggle.checked = (bsv === 'yes');
   var gm = saved.gamemode || localStorage.getItem('alttp-gamemode') || 'standard';
   var gmsel = document.getElementById('gamemode-select');
   if (gmsel) gmsel.value = gm;
@@ -432,8 +606,19 @@ window.addEventListener('DOMContentLoaded', async function() {
   var disel = document.getElementById('dungeonitems-select');
   if (disel) disel.value = di;
   var slVal = saved.swordless || localStorage.getItem('alttp-swordless') || 'no';
-  var slEl = document.querySelector('input[name="swordless"][value="' + slVal + '"]');
-  if (slEl) slEl.checked = true;
+  var swordlessToggle = document.getElementById('swordless-toggle');
+  if (swordlessToggle) swordlessToggle.checked = (slVal === 'yes');
+
+  var esVal = saved.entranceShuffle || localStorage.getItem('alttp-entrance-shuffle-mode') || 'none';
+  var esToggleEl = document.getElementById('entranceshuffle-toggle');
+  if (esToggleEl) esToggleEl.checked = (esVal !== 'none');
+
+  // Re-sync the Yes/No text labels now that toggle states were restored.
+  ['entranceshuffle','bossshuffle','enemizer','swordless'].forEach(function(name) {
+    var t = document.getElementById(name + '-toggle');
+    var l = document.getElementById(name + '-toggle-label');
+    if (t && l) l.textContent = t.checked ? 'Yes' : 'No';
+  });
 
   // Restore the two custom color pickers used by the timer's Custom options
   var tcCust = localStorage.getItem('alttp-timer-color-custom');
@@ -511,6 +696,241 @@ document.addEventListener('click', function(e) {
     }
   });
 })();
+
+// ── Presets ──────────────────────────────────────────────────────────────────
+var PRESET_STORAGE_KEY = 'alttp-custom-presets'; // { name: settingsObj }
+
+var BUILTIN_PRESETS = {
+  lordseed: {
+    label: 'Lord Seed',
+    dungeonItems: 'standard',
+    gtCrystals: '7',
+    gamemode: 'standard',
+    entranceShuffle: false,
+    bossShuffle: true,
+    enemizer: true,
+    swordless: false,
+  },
+  standard: {
+    label: 'Standard',
+    dungeonItems: 'standard',
+    gtCrystals: '7',
+    gamemode: 'standard',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+  },
+  openstandard: {
+    label: 'Open Standard',
+    dungeonItems: 'standard',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+  },
+  standardkeysanity: {
+    label: 'Standard KeySanity',
+    dungeonItems: 'keysanity',
+    gtCrystals: '7',
+    gamemode: 'standard',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+  },
+  openkeysanity: {
+    label: 'Open KeySanity',
+    dungeonItems: 'keysanity',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+  },
+  crosskeys: {
+    label: 'CrossKeys',
+    dungeonItems: 'keysanity',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: true,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+  }
+};
+
+// Apply a settings object to the actual form controls on the page.
+function applyPresetSettings(cfg) {
+  if (!cfg) return;
+  var disel = document.getElementById('dungeonitems-select');
+  if (disel && cfg.dungeonItems !== undefined) disel.value = cfg.dungeonItems;
+  var gtsel = document.getElementById('gt-crystals');
+  if (gtsel && cfg.gtCrystals !== undefined) gtsel.value = cfg.gtCrystals;
+  var gmsel = document.getElementById('gamemode-select');
+  if (gmsel && cfg.gamemode !== undefined) gmsel.value = cfg.gamemode;
+
+  var esToggle = document.getElementById('entranceshuffle-toggle');
+  if (esToggle && cfg.entranceShuffle !== undefined) esToggle.checked = !!cfg.entranceShuffle;
+  var bsToggle = document.getElementById('bossshuffle-toggle');
+  if (bsToggle && cfg.bossShuffle !== undefined) bsToggle.checked = !!cfg.bossShuffle;
+  var enToggle = document.getElementById('enemizer-toggle');
+  if (enToggle && cfg.enemizer !== undefined) enToggle.checked = !!cfg.enemizer;
+  var swToggle = document.getElementById('swordless-toggle');
+  if (swToggle && cfg.swordless !== undefined) swToggle.checked = !!cfg.swordless;
+
+  // Re-sync the Yes/No text labels and persist the now-applied settings.
+  ['entranceshuffle','bossshuffle','enemizer','swordless'].forEach(function(name) {
+    var t = document.getElementById(name + '-toggle');
+    var l = document.getElementById(name + '-toggle-label');
+    if (t && l) l.textContent = t.checked ? 'Yes' : 'No';
+  });
+  save();
+}
+
+function loadCustomPresets() {
+  try { return JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY) || '{}'); }
+  catch (ex) { return {}; }
+}
+
+function saveCustomPresets(presets) {
+  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
+}
+
+// Capture the current state of all preset-relevant controls into a plain object.
+function captureCurrentSettings() {
+  return {
+    dungeonItems: document.getElementById('dungeonitems-select') ? document.getElementById('dungeonitems-select').value : 'standard',
+    gtCrystals:   document.getElementById('gt-crystals') ? document.getElementById('gt-crystals').value : '7',
+    gamemode:     document.getElementById('gamemode-select') ? document.getElementById('gamemode-select').value : 'standard',
+    entranceShuffle: !!(document.getElementById('entranceshuffle-toggle') && document.getElementById('entranceshuffle-toggle').checked),
+    bossShuffle:     !!(document.getElementById('bossshuffle-toggle') && document.getElementById('bossshuffle-toggle').checked),
+    enemizer:        !!(document.getElementById('enemizer-toggle') && document.getElementById('enemizer-toggle').checked),
+    swordless:       !!(document.getElementById('swordless-toggle') && document.getElementById('swordless-toggle').checked),
+  };
+}
+
+// Populate the preset dropdown with any custom presets saved in localStorage,
+// in addition to the built-in ones already in the markup.
+function populatePresetDropdown() {
+  var sel = document.getElementById('preset-select');
+  if (!sel) return;
+  var customPresets = loadCustomPresets();
+  Object.keys(customPresets).forEach(function(name) {
+    // Avoid duplicate <option> entries if this runs more than once.
+    if (sel.querySelector('option[value="custom:' + CSS.escape(name) + '"]')) return;
+    var opt = document.createElement('option');
+    opt.value = 'custom:' + name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+function applyPreset() {
+  var sel = document.getElementById('preset-select');
+  var val = sel ? sel.value : '';
+  if (!val) return;
+  if (BUILTIN_PRESETS[val]) {
+    applyPresetSettings(BUILTIN_PRESETS[val]);
+    return;
+  }
+  if (val.indexOf('custom:') === 0) {
+    var name = val.slice('custom:'.length);
+    var customPresets = loadCustomPresets();
+    if (customPresets[name]) applyPresetSettings(customPresets[name]);
+  }
+}
+
+function saveCustomPreset() {
+  var input = document.getElementById('preset-modal-input');
+  if (input) input.value = '';
+  var overlay = document.getElementById('preset-modal-overlay');
+  if (overlay) {
+    overlay.classList.add('open');
+    if (input) setTimeout(function() { input.focus(); }, 50);
+  }
+}
+
+function presetModalClose() {
+  var overlay = document.getElementById('preset-modal-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
+
+function presetModalConfirm() {
+  var input = document.getElementById('preset-modal-input');
+  var name = input ? input.value.trim() : '';
+  if (!name) return;
+  presetModalClose();
+
+  var customPresets = loadCustomPresets();
+  customPresets[name] = captureCurrentSettings();
+  saveCustomPresets(customPresets);
+
+  var sel = document.getElementById('preset-select');
+  if (sel) {
+    var value = 'custom:' + name;
+    var existing = sel.querySelector('option[value="' + value.replace(/"/g, '\\"') + '"]');
+    if (!existing) {
+      var opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    }
+    sel.value = value;
+  }
+  updateDeleteBtn();
+}
+
+function deleteCustomPreset() {
+  var sel = document.getElementById('preset-select');
+  if (!sel) return;
+  var val = sel.value;
+  if (!val || val.indexOf('custom:') !== 0) return;
+  var name = val.slice('custom:'.length);
+  if (!confirm('Delete preset "' + name + '"?')) return;
+  var customPresets = loadCustomPresets();
+  delete customPresets[name];
+  saveCustomPresets(customPresets);
+  var opt = sel.querySelector('option[value="' + val.replace(/"/g, '\\"') + '"]');
+  if (opt) opt.remove();
+  sel.selectedIndex = 0;
+  updateDeleteBtn();
+}
+
+function updateDeleteBtn() {
+  var sel = document.getElementById('preset-select');
+  var btn = document.getElementById('preset-delete-btn');
+  if (!sel || !btn) return;
+  btn.style.display = (sel.value && sel.value.indexOf('custom:') === 0) ? '' : 'none';
+}
+
+// Close modal on overlay click
+document.addEventListener('DOMContentLoaded', function() {
+  var overlay = document.getElementById('preset-modal-overlay');
+  if (overlay) overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) presetModalClose();
+  });
+  var input = document.getElementById('preset-modal-input');
+  if (input) input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') presetModalConfirm();
+    if (e.key === 'Escape') presetModalClose();
+  });
+  var sel = document.getElementById('preset-select');
+  if (sel) sel.addEventListener('change', updateDeleteBtn);
+});
+
+// ── User Guide ───────────────────────────────────────────────────────────────
+var USER_GUIDE_URL = 'https://github.com/hutchch/ALTTPR-Tracker/wiki';
+function openUserGuide() {
+  if (IS_ELECTRON && window.electronAPI.openExternal) {
+    window.electronAPI.openExternal(USER_GUIDE_URL);
+  } else {
+    window.open(USER_GUIDE_URL, '_blank');
+  }
+}
 
 function manualCheckUpdate() {
   if (!window.electronAPI || !window.electronAPI.checkForUpdates) return;

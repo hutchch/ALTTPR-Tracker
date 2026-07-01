@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: blob:; connect-src *;">
+<title>Broadcast Item Sounds</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: #0d0d0d;
+  color: #ddd;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  height: 100%;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+h1 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+}
+.subtitle {
+  font-size: 11px;
+  color: #888;
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid #222;
+  flex-shrink: 0;
+}
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 6px;
+}
+.scroll-area::-webkit-scrollbar { width: 6px; }
+.scroll-area::-webkit-scrollbar-track { background: #111; }
+.scroll-area::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  transition: background 0.1s;
+}
+.item-row:hover { background: #1a1a1a; }
+
+.item-icon {
+  width: 28px; height: 28px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
+}
+.item-name {
+  flex: 1;
+  color: #ccc;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sound-status {
+  font-size: 10px;
+  color: #666;
+  white-space: nowrap;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+.sound-status.has-sound { color: #5a5; }
+
+.btn-row {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+button {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  color: #ccc;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+button:hover { background: #3a3a3a; }
+button.btn-clear { border-color: #633; color: #c66; }
+button.btn-clear:hover { background: #2a1a1a; }
+button.btn-test { border-color: #446; color: #88c; }
+button.btn-test:hover { background: #1a1a2a; }
+
+.footer {
+  padding: 10px 14px;
+  border-top: 1px solid #222;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.footer button {
+  flex: 1;
+  padding: 6px;
+  font-size: 12px;
+}
+.footer .btn-clear-all { border-color: #633; color: #c66; }
+.footer .btn-clear-all:hover { background: #2a1a1a; }
+
+input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+<h1>♪ Item Sounds</h1>
+<div class="subtitle">Assign a custom sound to play when each item is collected.</div>
+
+<div class="scroll-area" id="item-list"></div>
+
+<div class="footer">
+  <button class="btn-clear-all" onclick="clearAllSounds()">Clear All Sounds</button>
+</div>
+
+<input type="file" id="file-picker" accept="audio/*">
+
+<script>
+var ITEMS = [
+  { key: 'bow',       name: 'Bow',              icon: 'items/bow-1.png' },
+  { key: 'boomerang', name: 'Boomerang',         icon: 'items/boomerang-blue.png' },
+  { key: 'hookshot',  name: 'Hookshot',          icon: 'items/hookshot.png' },
+  { key: 'mushroom',  name: 'Mushroom',          icon: 'items/mushroom.png' },
+  { key: 'powder',    name: 'Magic Powder',      icon: 'items/powder.png' },
+  { key: 'firerod',   name: 'Fire Rod',          icon: 'items/firerod.png' },
+  { key: 'icerod',    name: 'Ice Rod',           icon: 'items/icerod.png' },
+  { key: 'moonpearl', name: 'Moon Pearl',        icon: 'items/moonpearl.png' },
+  { key: 'sword',     name: 'Sword',             icon: 'items/sword-1.png' },
+  { key: 'agahnim',   name: 'Agahnim Defeated',  icon: 'items/agahnim.png' },
+  { key: 'bombos',    name: 'Bombos',            icon: 'items/bombos.png' },
+  { key: 'ether',     name: 'Ether',             icon: 'items/ether.png' },
+  { key: 'quake',     name: 'Quake',             icon: 'items/quake.png' },
+  { key: 'lamp',      name: 'Lamp',              icon: 'items/lamp.png' },
+  { key: 'hammer',    name: 'Hammer',            icon: 'items/hammer.png' },
+  { key: 'shovel',    name: 'Shovel',            icon: 'items/shovel.png' },
+  { key: 'flute',     name: 'Flute',             icon: 'items/flute.png' },
+  { key: 'net',       name: 'Bug-Catching Net',  icon: 'items/net.png' },
+  { key: 'gloves',    name: 'Power Gloves',      icon: 'items/gloves-1.png' },
+  { key: 'shield',    name: 'Shield',            icon: 'items/shield-1.png' },
+  { key: 'book',      name: 'Book of Mudora',    icon: 'items/book.png' },
+  { key: 'bottle1',   name: 'Bottle',            icon: 'items/bottle.png' },
+  { key: 'somaria',   name: 'Cane of Somaria',   icon: 'items/somaria.png' },
+  { key: 'byrna',     name: 'Cane of Byrna',     icon: 'items/byrna.png' },
+  { key: 'cape',      name: 'Magic Cape',        icon: 'items/cape.png' },
+  { key: 'mirror',    name: 'Magic Mirror',      icon: 'items/mirror.png' },
+  { key: 'halfmagic', name: 'Half Magic',        icon: 'items/halfmagic.png' },
+  { key: 'boots',     name: 'Pegasus Boots',     icon: 'items/boots.png' },
+  { key: 'flippers',  name: 'Flippers',          icon: 'items/flippers.png' },
+  { key: 'tunic',     name: 'Tunic',             icon: 'items/tunic-1.png' },
+];
+
+var _pendingKey = null;
+
+function lsKey(key) { return 'alttp-item-sound-' + key; }
+
+function getSoundName(key) {
+  return localStorage.getItem(lsKey(key) + '-name') || (localStorage.getItem(lsKey(key)) ? 'Custom sound' : null);
+}
+
+function hasSound(key) { return !!localStorage.getItem(lsKey(key)); }
+
+function buildList() {
+  var list = document.getElementById('item-list');
+  list.innerHTML = '';
+  ITEMS.forEach(function(item) {
+    var row = document.createElement('div');
+    row.className = 'item-row';
+    row.id = 'row-' + item.key;
+
+    var icon = document.createElement('img');
+    icon.className = 'item-icon';
+    icon.src = item.icon;
+    icon.onerror = function() { this.style.visibility = 'hidden'; };
+
+    var name = document.createElement('div');
+    name.className = 'item-name';
+    name.textContent = item.name;
+
+    var status = document.createElement('div');
+    status.className = 'sound-status' + (hasSound(item.key) ? ' has-sound' : '');
+    status.id = 'status-' + item.key;
+    var sn = getSoundName(item.key);
+    status.textContent = sn ? sn : 'No sound';
+
+    var btns = document.createElement('div');
+    btns.className = 'btn-row';
+
+    var btnBrowse = document.createElement('button');
+    btnBrowse.textContent = 'Browse';
+    btnBrowse.onclick = (function(k) { return function() { browseSound(k); }; })(item.key);
+
+    var btnTest = document.createElement('button');
+    btnTest.className = 'btn-test';
+    btnTest.textContent = '▶';
+    btnTest.title = 'Test sound';
+    btnTest.onclick = (function(k) { return function() { testSound(k); }; })(item.key);
+
+    var btnClear = document.createElement('button');
+    btnClear.className = 'btn-clear';
+    btnClear.textContent = '✕';
+    btnClear.title = 'Clear sound';
+    btnClear.onclick = (function(k) { return function() { clearSound(k); }; })(item.key);
+
+    btns.appendChild(btnBrowse);
+    btns.appendChild(btnTest);
+    btns.appendChild(btnClear);
+
+    row.appendChild(icon);
+    row.appendChild(name);
+    row.appendChild(status);
+    row.appendChild(btns);
+    list.appendChild(row);
+  });
+}
+
+function updateRowStatus(key) {
+  var status = document.getElementById('status-' + key);
+  if (!status) return;
+  var sn = getSoundName(key);
+  if (sn) {
+    status.textContent = sn;
+    status.className = 'sound-status has-sound';
+  } else {
+    status.textContent = 'No sound';
+    status.className = 'sound-status';
+  }
+}
+
+function browseSound(key) {
+  _pendingKey = key;
+  var fp = document.getElementById('file-picker');
+  fp.value = '';
+  fp.click();
+}
+
+document.getElementById('file-picker').addEventListener('change', function() {
+  var file = this.files[0];
+  if (!file || !_pendingKey) return;
+  var key = _pendingKey;
+  _pendingKey = null;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var dataUrl = e.target.result;
+    localStorage.setItem(lsKey(key), dataUrl);
+    localStorage.setItem(lsKey(key) + '-name', file.name);
+    updateRowStatus(key);
+  };
+  reader.readAsDataURL(file);
+});
+
+function testSound(key) {
+  var dataUrl = localStorage.getItem(lsKey(key));
+  if (!dataUrl) return;
+  try {
+    var a = new Audio(dataUrl);
+    a.play().catch(function() {});
+  } catch(e) {}
+}
+
+function clearSound(key) {
+  localStorage.removeItem(lsKey(key));
+  localStorage.removeItem(lsKey(key) + '-name');
+  updateRowStatus(key);
+}
+
+function clearAllSounds() {
+  if (!confirm('Clear all item sounds?')) return;
+  ITEMS.forEach(function(item) {
+    localStorage.removeItem(lsKey(item.key));
+    localStorage.removeItem(lsKey(item.key) + '-name');
+    updateRowStatus(item.key);
+  });
+}
+
+try {
+  buildList();
+} catch(e) {
+  document.getElementById('item-list').innerHTML =
+    '<div style="padding:16px;color:#c66;font-size:12px;">Error loading list: ' + e.message + '</div>';
+}
+</script>
+</body>
+</html>

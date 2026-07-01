@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog } = require('electron');
 const https = require('https');
 const path = require('path');
 const url  = require('url');
@@ -11,7 +11,9 @@ let launcherWin   = null;
 let itemWin       = null;
 let mapWin        = null;
 let timerWin      = null;
-let broadcastWin  = null;
+let broadcastWin      = null;
+let checklistWin      = null;
+let bcastSettingsWin  = null;
 let broadcastBg   = 'black';
 let timerBg       = 'black';
 let itemTrackerBg = 'black';
@@ -46,7 +48,7 @@ function toFileUrl(rel) {
 // ── Launcher ──────────────────────────────────────────────────────────────────
 function createLauncher() {
   launcherWin = new BrowserWindow({
-    width: 580, height: 990,
+    width: 580, height: 920,
     minWidth: 580, minHeight: 700,
     resizable: false,
     useContentSize: true,
@@ -113,7 +115,7 @@ function openItemTracker(scale, wsHost, wsPort, bg, dungeonItems, bossShuffle) {
 }
 
 // ── Map ───────────────────────────────────────────────────────────────────────
-function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, dungeonItems, swordless, bossShuffle) {
+function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, dungeonItems, swordless, bossShuffle, entranceShuffle, entranceMode) {
   if (mapWin && !mapWin.isDestroyed()) { mapWin.focus(); return; }
   const pct = parseInt(zoom) || 100;
   const size = Math.round(512 * pct / 100);
@@ -137,7 +139,7 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
     }
   });
   mapWin.setMenuBarVisibility(false);
-  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}&bossshuffle=${bossShuffle||'yes'}`;
+  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}&bossshuffle=${bossShuffle||'yes'}&entranceshuffle=${entranceShuffle||'no'}&entrancemode=${entranceMode||'none'}`;
   mapWin.loadURL(toFileUrl('map.html') + q);
   mapWin.on('closed', () => { mapWin = null; });
 }
@@ -227,7 +229,14 @@ function createBroadcastWindow(bg, bounds) {
   }
   broadcastWin = new BrowserWindow(opts);
   broadcastWin.setMenuBarVisibility(false);
-  broadcastWin.loadFile(path.join(root, 'broadcast.html'), { query: { bg } });
+  // Premium broadcast: check userData path first (survives upgrades), then app folder, then default
+  const premiumUserData = path.join(app.getPath('userData'), 'premium', 'broadcast.html');
+  const premiumApp      = path.join(root, 'premium', 'broadcast.html');
+  const broadcastFile   = fs.existsSync(premiumUserData) ? premiumUserData
+                        : fs.existsSync(premiumApp)      ? premiumApp
+                        : path.join(root, 'broadcast.html');
+  const appRootUrl = url.pathToFileURL(root).href;
+  broadcastWin.loadFile(broadcastFile, { query: { bg, approot: appRootUrl } });
   broadcastWin.on('closed', () => { broadcastWin = null; });
   broadcastBg = bg;
 }
@@ -237,14 +246,41 @@ function openBroadcast(bg) {
   createBroadcastWindow(bg);
 }
 
+// ── Check List window ─────────────────────────────────────────────────────────
+function openCheckList() {
+  if (checklistWin && !checklistWin.isDestroyed()) { checklistWin.focus(); return; }
+  checklistWin = new BrowserWindow({
+    width: 350,
+    height: 900,
+    resizable: true,
+    useContentSize: true,
+    title: 'Check List',
+    backgroundColor: '#111111',
+    alwaysOnTop: true,
+    webPreferences: {
+      preload: path.join(getRoot(), 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false,
+      backgroundThrottling: false,
+    }
+  });
+  checklistWin.setMenuBarVisibility(false);
+  checklistWin.loadURL(toFileUrl('checklist.html'));
+  checklistWin.on('closed', () => { checklistWin = null; });
+}
+
 // ── IPC ───────────────────────────────────────────────────────────────────────
 ipcMain.on('launch', (event, opts) => {
   store.set('settings', opts);
   if (opts.which === 'items' || opts.which === 'both') openItemTracker(opts.scale, opts.wsHost, opts.wsPort, opts.trackerBg, opts.dungeonItems, opts.bossshuffle);
-  if (opts.which === 'map'   || opts.which === 'both') openMap(opts.zoom, opts.layout, opts.enemizer, opts.gtCrystals, opts.wsHost, opts.wsPort, opts.gamemode, opts.dungeonItems, opts.swordless, opts.bossshuffle);
+  if (opts.which === 'map'   || opts.which === 'both') openMap(opts.zoom, opts.layout, opts.enemizer, opts.gtCrystals, opts.wsHost, opts.wsPort, opts.gamemode, opts.dungeonItems, opts.swordless, opts.bossshuffle, (opts.entranceShuffle && opts.entranceShuffle !== 'none') ? 'yes' : 'no', opts.entranceShuffle || 'none');
   if (opts.which === 'timer') openTimer(opts.wsHost, opts.wsPort, opts.timerColor, opts.timerBg);
   if (opts.which === 'broadcast') openBroadcast(opts.trackerBg || 'black');
+  if (opts.which === 'checklist') openCheckList();
 });
+
+ipcMain.on('open-checklist', () => openCheckList());
 
 ipcMain.handle('load-settings', () => store.get('settings', {}));
 
@@ -408,10 +444,35 @@ function checkForUpdates() {
   });
 }
 
+function openBcastSettingsWindow() {
+  if (bcastSettingsWin && !bcastSettingsWin.isDestroyed()) { bcastSettingsWin.focus(); return; }
+  const root = getRoot();
+  bcastSettingsWin = new BrowserWindow({
+    width: 480, height: 620, resizable: true, useContentSize: true,
+    title: 'Broadcast Item Sounds', backgroundColor: '#0d0d0d',
+    webPreferences: {
+      preload: path.join(root, 'preload.js'),
+      contextIsolation: true, nodeIntegration: false, webSecurity: false,
+    },
+  });
+  bcastSettingsWin.setMenuBarVisibility(false);
+  bcastSettingsWin.loadFile(path.join(root, 'bcast-settings.html'));
+  bcastSettingsWin.on('closed', () => { bcastSettingsWin = null; });
+}
+ipcMain.handle('open-bcast-settings', () => openBcastSettingsWindow());
+
 ipcMain.handle('check-for-updates', () => checkForUpdates());
 ipcMain.handle('install-update', () => {
   const { shell } = require('electron');
   shell.openExternal(RELEASES_URL);
+});
+
+ipcMain.handle('open-external', (event, url) => {
+  const { shell } = require('electron');
+  // Only allow http/https URLs to be opened this way.
+  if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+    shell.openExternal(url);
+  }
 });
 
 // ── New Game global hotkey ────────────────────────────────────────────────────
@@ -446,6 +507,29 @@ ipcMain.handle('unregister-newgame-hotkey', () => {
     newgameHotkey = null;
   }
   return { ok: true };
+});
+
+// ── Entrance state save / load ────────────────────────────────────────────────
+ipcMain.handle('save-ent-state', async (event, json) => {
+  const { filePath, canceled } = await dialog.showSaveDialog({
+    title: 'Save Entrance State',
+    defaultPath: 'alttp-entrance-state.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (canceled || !filePath) return { ok: false };
+  fs.writeFileSync(filePath, json, 'utf8');
+  return { ok: true };
+});
+
+ipcMain.handle('load-ent-state', async () => {
+  const { filePaths, canceled } = await dialog.showOpenDialog({
+    title: 'Load Entrance State',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (canceled || !filePaths.length) return { ok: false };
+  const json = fs.readFileSync(filePaths[0], 'utf8');
+  return { ok: true, json };
 });
 
 // Clean up on quit
