@@ -98,6 +98,7 @@ body {
 .ent-marker.cleared { background: rgba(70,70,70,0.85); border-color: #666; opacity: 0.75; z-index: 0; }
 .ent-marker.ent-unavailable:not(.cleared) { background: #d32f2f !important; border-color: #7a0000; }
 .ent-marker.ent-dungeon-cleared:not(.cleared) { background: rgba(70,70,70,0.85); border-color: #666; opacity: 0.75; z-index: 0; }
+.ent-marker.ent-boss-cleared:not(.cleared):not(.ent-dungeon-cleared) { background: #9bd0f5; border-color: #4a90c4; opacity: 0.85; }
 
 /* Boss status diagonal stripe overlay for dungeon-marked entrance markers
    (mirrors .dng.boss-stripe-red/yellow, rotated to match the box shape). */
@@ -1338,6 +1339,9 @@ function checkLogic(it) {
          },
     4:   function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           var _entSh4 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           // Entrance shuffle: cave physically found — only hammer needed for the chest
+           if (_entSh4) return hammer ? 'green' : 'red';
            if (_inv) {
              // Right side LW DM access gated by outer block (pearl+glove+titans OR hookshot)
              // Hammer required for chest
@@ -1371,10 +1375,10 @@ function checkLogic(it) {
     13:  function() {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
            var _isEntShuffle13 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
-           // Entrance shuffle: moonpearl isn't required — the entrance
-           // itself being marked/accessible already accounts for DW access.
-           var _needPearl = !_inv && !_isEntShuffle13;
-           if (_needPearl&&!pearl) return 'red'; if (!glove||!hammer) return 'red';
+           // Entrance shuffle: cave physically found — hammer to break pegs + byrna or cape for spikes
+           if (_isEntShuffle13) { if (!hammer) return 'red'; return (byrna||cape) ? 'green' : 'red'; }
+           if (_inv) { if (!glove||!hammer) return 'red'; if (!byrna&&!cape) return 'yellow'; return DMlight ? 'green' : 'yellow'; }
+           if (!pearl||!glove||!hammer) return 'red';
            if (!byrna&&!cape) return 'yellow'; return DMlight ? 'green' : 'yellow';
          },
     14:  function() { return bomb ? 'green' : 'red'; },
@@ -1710,6 +1714,9 @@ function checkLogic(it) {
     99:  function() { return 'green'; },
     100: function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           var _entShuffleBat = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           // Entrance shuffle: cave physically found — only powder needed
+           if (_entShuffleBat) return powder ? 'green' : 'red';
            if (_inv) return (powder && hammer) ? 'green' : 'red';
            if (!powder) return 'red';
            // Standard: powder + (hammer OR mirror-back-from-DW). The mirror
@@ -1720,6 +1727,9 @@ function checkLogic(it) {
          },
     101: function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           var _entSh101 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           // Entrance shuffle: smiths physically found — only titans mitts needed to rescue
+           if (_entSh101) return titan ? 'green' : 'red';
            if (_inv) return ((titan || mirror) && lwAccess) || (superBunny && mirror) ? 'green' : 'red';
            return (pearl&&titan) ? 'green' : 'red';
          },
@@ -3404,7 +3414,9 @@ if (_inverted) {
     if (dKey && marker.classList.contains('ent-marked')) {
       var def = DUNGEONS[dKey];
       if (def && def.prize >= 0) {
-        var isGreyed = !!(def.cleared || def.fullyCleared);
+        var isBossOnly = !!(def.cleared && !def.fullyCleared);
+        var isFullyCleared = !!def.fullyCleared;
+        var isGreyed = isBossOnly || isFullyCleared;
         var prizeDef = PRIZE_CYCLE[def.prize];
         var src = isGreyed ? prizeDef.imgCleared : prizeDef.img;
         if (!existingIcon) {
@@ -3425,19 +3437,24 @@ if (_inverted) {
         }
         existingIcon.src = src;
         hasPrize = true;
-        marker.classList.toggle('ent-dungeon-cleared', isGreyed);
+        // Boss beaten but items remain → light blue tint (like dng.boss-cleared)
+        // Fully cleared → grey dim (like dng.cleared)
+        marker.classList.toggle('ent-boss-cleared',    isBossOnly);
+        marker.classList.toggle('ent-dungeon-cleared', isFullyCleared);
         if (isGreyed && !marker.classList.contains('cleared')) {
           marker.style.background = '';
         }
       } else if (existingIcon) {
         existingIcon.remove();
         marker.classList.remove('ent-dungeon-cleared');
+        marker.classList.remove('ent-boss-cleared');
       }
     } else if (existingIcon) {
       existingIcon.remove();
       marker.classList.remove('ent-dungeon-cleared');
+      marker.classList.remove('ent-boss-cleared');
     }
-    if (!hasPrize) marker.classList.remove('ent-dungeon-cleared');
+    if (!hasPrize) { marker.classList.remove('ent-dungeon-cleared'); marker.classList.remove('ent-boss-cleared'); }
     marker.classList.toggle('ent-has-prize', hasPrize);
 
     // Boss status stripe overlay (mirrors the .dng marker logic): red if a
@@ -4620,11 +4637,13 @@ try {
       case 'toggle-check':
         var _tcId = e.data.id;
         if (_tcId !== undefined) {
-          checkState[_tcId] = !checkState[_tcId];
+          // Use explicit cleared state from checklist if provided, else toggle
+          var _tcCleared = (e.data.cleared !== undefined) ? !!e.data.cleared : !checkState[_tcId];
+          checkState[_tcId] = _tcCleared;
           saveCheckState();
           if (dotById[_tcId]) dotById[_tcId].className = dotClass(_tcId);
           // Auto-mark entrance cleared when its key check is collected (one-way)
-          if (checkState[_tcId] && typeof window.markEntranceClearedByCode === 'function') {
+          if (_tcCleared && typeof window.markEntranceClearedByCode === 'function') {
             var _tcAutoMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike' };
             var _tcAutoCode = _tcAutoMap[_tcId];
             if (_tcAutoCode) window.markEntranceClearedByCode(_tcAutoCode);
