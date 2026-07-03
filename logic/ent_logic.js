@@ -81,7 +81,6 @@
     'Tavern (Front)':1,'Tavern North':1,'Two Brothers House (East)':1,
     'Two Brothers House (West)':1,'Waterfall of Wishing':1,
   };
-  // Legacy alias so any code using DW_ENTRANCES still works via !DW_ENTRANCES[name]
   // In inverted, checks if any connector endpoint or labeled entrance is a
   // known south LW entrance. Uses positive LW_ENTRANCES list — avoids false
   // positives from DW/DM entrances missing from a negative exclusion list.
@@ -97,6 +96,39 @@
       var names = Object.keys(labels);
       for (var j = 0; j < names.length; j++) {
         if (LW_ENTRANCES[names[j]]) return true;
+      }
+    }
+    return false;
+  }
+
+  // Physically-enclosed LW entrances: a connector here does NOT grant free
+  // LW overworld access because the player is trapped without extra items.
+  // DP North is surrounded by rocks (needs gloves to escape).
+  // DP East has no overworld access at all (interior-only exit in vanilla).
+  // Bush Covered House is behind bushes (bunny can't cut them).
+  // Kings Grave is under heavy rocks (bunny can't lift them).
+  var LW_ENCLOSED_ENTRANCES = {
+    'Desert Palace Entrance (North)': true,
+    'Desert Palace Entrance (East)':  true,
+    'Bush Covered House':             true,
+    'Kings Grave':                    true,
+  };
+
+  // Like hasFoundLightWorldEntrance() but only counts entrances the player
+  // can freely walk away from as a bunny — excludes enclosed entrances.
+  function hasFoundOpenLightWorldEntrance() {
+    var conns = window._entConnections;
+    if (conns && conns.length) {
+      for (var i = 0; i < conns.length; i++) {
+        if ((LW_ENTRANCES[conns[i][0]] && !LW_ENCLOSED_ENTRANCES[conns[i][0]]) ||
+            (LW_ENTRANCES[conns[i][1]] && !LW_ENCLOSED_ENTRANCES[conns[i][1]])) return true;
+      }
+    }
+    var labels = window._entLabels;
+    if (labels) {
+      var names = Object.keys(labels);
+      for (var j = 0; j < names.length; j++) {
+        if (LW_ENTRANCES[names[j]] && !LW_ENCLOSED_ENTRANCES[names[j]]) return true;
       }
     }
     return false;
@@ -195,15 +227,33 @@
     if (!items.moonpearl) return false;
     if (items.glove >= 2 || (items.glove && items.hammer)) return true;
     if (items.agahnim) return true;
-    // A connector to any LW entrance means the player physically reached LW
-    if (hasFoundLightWorldEntrance()) return true;
+    // Open LW connector (freely walkable, not rock-enclosed) + moonpearl = LW access
+    if (hasFoundOpenLightWorldEntrance()) return true;
+    // Bush Covered House: moonpearl (checked above) lets you become human and cut the bushes
+    var _bchConns = window._entConnections;
+    if (_bchConns && _bchConns.length) {
+      for (var _bchI = 0; _bchI < _bchConns.length; _bchI++) {
+        if (_bchConns[_bchI][0] === 'Bush Covered House' ||
+            _bchConns[_bchI][1] === 'Bush Covered House') return true;
+      }
+    }
+    // DP North is rock-enclosed — needs moonpearl (checked above) + at least Power Glove
+    if (items.glove >= 1) {
+      var _dpnConns = window._entConnections;
+      if (_dpnConns && _dpnConns.length) {
+        for (var _dpnI = 0; _dpnI < _dpnConns.length; _dpnI++) {
+          if (_dpnConns[_dpnI][0] === 'Desert Palace Entrance (North)' ||
+              _dpnConns[_dpnI][1] === 'Desert Palace Entrance (North)') return true;
+        }
+      }
+    }
     return false;
   }
 
   function canReachInvertedLightWorldBunny() {
     if (canReachInvertedLightWorld()) return true;
     if (items.agahnim) return true;
-    if (hasFoundLightWorldEntrance()) return true;
+    if (hasFoundOpenLightWorldEntrance()) return true;
     return false;
   }
 
