@@ -586,6 +586,19 @@ html[data-bg="transparent"] .bbg-bar * {
             <label><input type="radio" name="anim-bg" value="none"> None</label>
             <label><input type="radio" name="anim-bg" value="stars"> Falling Stars</label>
             <label><input type="radio" name="anim-bg" value="starburst"> Starburst</label>
+            <label><input type="radio" name="anim-bg" value="image"> Image</label>
+          </div>
+          <div class="settings-sub disabled" id="anim-image-sub">
+            <div class="settings-row">
+              <label class="bsettings-btn" style="cursor:pointer;margin:0;">
+                Browse...
+                <input type="file" accept="image/*" id="opt-anim-bg-image-file" style="display:none;">
+              </label>
+              <span id="anim-bg-image-status" style="font-size:10px;color:#888;">triforce.jpg (default)</span>
+            </div>
+            <div class="settings-row">
+              <button type="button" class="bsettings-btn" id="opt-anim-bg-image-clear" style="margin:0;">Clear</button>
+            </div>
           </div>
           <div class="settings-sub" id="anim-colors-sub">
             <div class="sub-label">Color Theme</div>
@@ -696,7 +709,8 @@ var SETTINGS = {
   animShowLabel:   true,         // Show item name at bottom during animation
   gomodeSoundEnabled: false,     // Play a sound when Go Mode (level 1) is activated
   gomodeSoundData:    '',        // data: URL of the audio file
-  animBg:           'none',      // 'none' | 'stars' | 'starburst'
+  animBg:           'none',      // 'none' | 'stars' | 'starburst' | 'image'
+  animBgImage:      '',          // data URL for anim background image (empty = use triforce.jpg)
   animColorPreset:  'blue',      // 'blue' | 'green' | 'purple' | 'custom'
   animColorA:       '#3498db',   // color A (primary)
   animColorB:       '#88ccff'    // color B (lighter complement)
@@ -741,6 +755,7 @@ function loadSettings() {
     SETTINGS.gomodeSoundEnabled = localStorage.getItem('alttp-broadcast-gomode-sound') === 'true';
     SETTINGS.gomodeSoundData    = localStorage.getItem('alttp-broadcast-gomode-sound-data') || '';
     SETTINGS.animBg          = localStorage.getItem('alttp-broadcast-anim-bg')            || SETTINGS.animBg;
+    SETTINGS.animBgImage     = localStorage.getItem('alttp-broadcast-anim-bg-image')      || '';
     SETTINGS.animColorPreset = localStorage.getItem('alttp-broadcast-anim-color-preset') || SETTINGS.animColorPreset;
     SETTINGS.animColorA      = localStorage.getItem('alttp-broadcast-anim-color-a')      || SETTINGS.animColorA;
     SETTINGS.animColorB      = localStorage.getItem('alttp-broadcast-anim-color-b')      || SETTINGS.animColorB;
@@ -793,6 +808,23 @@ function saveBgImage(dataUrl) {
     SETTINGS.bgImage = '';
     return false;
   }
+}
+
+function saveAnimBgImage(dataUrl) {
+  SETTINGS.animBgImage = dataUrl || '';
+  try {
+    if (dataUrl) localStorage.setItem('alttp-broadcast-anim-bg-image', dataUrl);
+    else         localStorage.removeItem('alttp-broadcast-anim-bg-image');
+    return true;
+  } catch(e) {
+    alert('Could not store animation background image — it may be too large. Try a smaller file.');
+    SETTINGS.animBgImage = '';
+    return false;
+  }
+}
+function updateAnimBgImageStatus() {
+  var el = document.getElementById('anim-bg-image-status');
+  if (el) el.textContent = SETTINGS.animBgImage ? 'Custom image loaded' : 'items/triforce.jpg (default)';
 }
 
 function applyFillVariable() {
@@ -946,6 +978,7 @@ function openSettings() {
   syncGomodeSoundSub();
   syncFillSubEnabled();
   updateBgImageStatus();
+  updateAnimBgImageStatus();
   document.getElementById('settings-overlay').classList.remove('hidden');
 }
 function closeSettings() {
@@ -998,7 +1031,7 @@ function syncAnimSubEnabled() {
   else                           sub.classList.add('disabled');
 
   var colorsSub = document.getElementById('anim-colors-sub');
-  var showColors = SETTINGS.itemAnimEnabled && SETTINGS.animBg !== 'none';
+  var showColors = SETTINGS.itemAnimEnabled && SETTINGS.animBg !== 'none' && SETTINGS.animBg !== 'image';
   if (showColors) colorsSub.classList.remove('disabled');
   else             colorsSub.classList.add('disabled');
 
@@ -1006,6 +1039,13 @@ function syncAnimSubEnabled() {
   var showCustom = showColors && SETTINGS.animColorPreset === 'custom';
   if (showCustom) customSub.classList.remove('disabled');
   else             customSub.classList.add('disabled');
+
+  var imageSub = document.getElementById('anim-image-sub');
+  if (imageSub) {
+    var showImage = SETTINGS.itemAnimEnabled && SETTINGS.animBg === 'image';
+    if (showImage) imageSub.classList.remove('disabled');
+    else            imageSub.classList.add('disabled');
+  }
 }
 
 function wireSettingsHandlers() {
@@ -1158,6 +1198,34 @@ function wireSettingsHandlers() {
     document.getElementById('anim-color-b-hex').textContent = e.target.value;
     saveSettings();
   });
+  // Anim background image picker
+  var animBgFile = document.getElementById('opt-anim-bg-image-file');
+  if (animBgFile) {
+    animBgFile.addEventListener('change', function(e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function() {
+        var ok = saveAnimBgImage(reader.result);
+        if (!ok) return;
+        updateAnimBgImageStatus();
+        SETTINGS.animBg = 'image';
+        saveSettings();
+        document.querySelectorAll('input[name="anim-bg"]').forEach(function(r){ r.checked = (r.value === 'image'); });
+        syncAnimSubEnabled();
+      };
+      reader.onerror = function() { alert('Could not read that file.'); };
+      reader.readAsDataURL(file);
+      animBgFile.value = '';
+    });
+  }
+  var animBgClear = document.getElementById('opt-anim-bg-image-clear');
+  if (animBgClear) {
+    animBgClear.addEventListener('click', function() {
+      saveAnimBgImage('');
+      updateAnimBgImageStatus();
+    });
+  }
   // View Style — swap Modern / Classic layout
   document.querySelectorAll('input[name="view-style"]').forEach(function(r) {
     r.addEventListener('change', function() {
@@ -2018,6 +2086,18 @@ function _startAnimBg(canvas) {
       rafId = requestAnimationFrame(drawBurst);
     }
     rafId = requestAnimationFrame(drawBurst);
+  } else if (SETTINGS.animBg === 'image') {
+    var imgSrc = SETTINGS.animBgImage || 'items/triforce.jpg';
+    var bgImg = new Image();
+    bgImg.onload = function() {
+      if (stopped) return;
+      var iw = bgImg.naturalWidth, ih = bgImg.naturalHeight;
+      var scale = Math.max(W / iw, H / ih);
+      var dw = iw * scale, dh = ih * scale;
+      ctx.drawImage(bgImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    };
+    bgImg.onerror = function() { ctx.clearRect(0, 0, W, H); };
+    bgImg.src = imgSrc;
   } else {
     ctx.clearRect(0, 0, W, H);
   }

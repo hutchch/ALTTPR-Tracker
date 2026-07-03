@@ -961,7 +961,7 @@ function dungeonColor(key) {
         if (settings.dungeonItems === 'keysanity') {
           if (!it.spBigKey) return 'yellow';
         }
-        return it.hookshot ? 'green' : 'yellow';
+        return (it.hookshot && it.hammer) ? 'green' : 'yellow';
       }
       // Inverted: DW is home world — no moonpearl needed
       // Still needs mirror + flippers + DW south access
@@ -1383,7 +1383,14 @@ function checkLogic(it) {
          },
     14:  function() { return bomb ? 'green' : 'red'; },
     15:  function() { return bomb ? 'green' : 'red'; },
-    16:  function() { return dwSouth ? 'green' : 'red'; },
+    16:  function() {
+           var _entSh16 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_entSh16) {
+             var _reg16 = window._entSyntheticFoundRegions || [];
+             return (dwSouth || (_reg16.indexOf('South Dark World') !== -1 && pearl)) ? 'green' : 'red';
+           }
+           return dwSouth ? 'green' : 'red';
+         },
     17:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) return DMlight ? 'green' : 'yellow';
@@ -1429,7 +1436,15 @@ function checkLogic(it) {
            return (p2&&(t2||(g2&&h2)||(a2&&hk2&&(h2||g2||fl2)))) || sb2 ? 'green' : 'red';
          },
     66:  function() { return (it.greenPendant >= 1) ? 'green' : 'red'; },
-    67:  function() { return dwSouth ? 'green' : 'red'; },
+    67:  function() {
+           var _entSh67 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_entSh67) {
+             var _reg67 = window._entSyntheticFoundRegions || [];
+             var _dwSouth67 = dwSouth || (_reg67.indexOf('South Dark World') !== -1 && pearl);
+             return _dwSouth67 ? 'green' : 'red';
+           }
+           return dwSouth ? 'green' : 'red';
+         },
     68:  function() { return bottle1 ? 'green' : 'red'; },
     69:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
@@ -1609,7 +1624,10 @@ function checkLogic(it) {
              if (dpNorthDirect89) {
                var t89dp = window.trackerItems || {};
                if (t89dp.gloves >= 1) return 'green';
+               return 'yellow';
              }
+             // South entrance does not connect to the ledge — no access
+             return 'red';
            }
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
@@ -1700,9 +1718,21 @@ function checkLogic(it) {
            if (inv3) return dwEast ? 'green' : 'red';
            return (aga||dwEast) ? 'green' : 'red';
          },
-    93:  function() { return dwSouth ? 'green' : 'red'; },
+    93:  function() {
+           var _entSh93 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_entSh93) {
+             var _reg93 = window._entSyntheticFoundRegions || [];
+             return (dwSouth || (_reg93.indexOf('South Dark World') !== -1 && pearl)) ? 'green' : 'red';
+           }
+           return dwSouth ? 'green' : 'red';
+         },
     94:  function() { if (flippers) return 'green'; return glove ? 'orange' : 'red'; },
-    95:  function() { return shovel ? 'green' : 'red'; },
+    95:  function() {
+           // Inverted: need moonpearl to act in LW (can reach as bunny via connector, but can't dig)
+           var _inv95 = !!(window.trackerSettings && window.trackerSettings.inverted);
+           if (_inv95 && !pearl) return 'red';
+           return shovel ? 'green' : 'red';
+         },
     96:  function() {
            var settings = window.trackerSettings || {};
            if (settings.gamemode === 'open') return (lamp || (glove && bomb)) ? 'green' : 'red';
@@ -1846,9 +1876,19 @@ window.checkColor = function(id) {
         // the overworld as a bunny and access Kakariko-area checks.
         var _lwVisibleChecks = [65, 66, 68, 76, 84, 85, 87, 88, 89, 90, 5, 6, 14, 15, 69, 95, 96, 97, 98, 99];
         var _kakFound = typeof window.kakarikoConnectorFound === 'function' && window.kakarikoConnectorFound();
+        // Inverted entrance shuffle: Upper East DM physically reached via connector
+        // (e.g. Paradox Cave Top) allows checks in that region [3,4,17,87] without
+        // pearl — in inverted, DW is home, so these 'lw'-tagged checks are DW items.
+        var _rightDMIds87 = [3, 4, 17, 87];
+        var _synthRegs87 = window._entSyntheticFoundRegions || [];
+        var _eastDMFound = _isEntShuffle && _rightDMIds87.indexOf(id) !== -1 &&
+                           (_synthRegs87.indexOf('Upper East Death Mountain') !== -1 ||
+                            _synthRegs87.indexOf('Inverted Upper East Death Mountain') !== -1);
         if (_isEntShuffle && _lwVisibleChecks.indexOf(id) !== -1 && _kakFound) {
           // Check 65 (Bottle Merchant): needs pearl to interact — fall through to checkLogic
           // Fall through to checkLogic — it returns appropriate orange/green
+        } else if (_eastDMFound) {
+          // Upper East DM reached via connector; check function handles the rest
         // Inverted entrance shuffle: flippers + pearl + any water-area LW entrance →
         // King Zora (74) and Zora's Ledge (94) accessible by swimming
         } else if (false) { /* water checks handled upstream */
@@ -3187,6 +3227,9 @@ if (_inverted) {
       if (name === 'Desert Palace Entrance (West)' && dpWestDirect) return false;
       if ((dpWestDirect || dpNorthDirect)) {
         var tDp2 = window.trackerItems || {};
+        // In inverted, DP North is in the LW — moonpearl is needed to lift rocks
+        var _dpNorthInv = !!(window.trackerSettings && window.trackerSettings.inverted);
+        if (_dpNorthInv && !tDp2.moonpearl) return true;
         return !(tDp2.gloves >= 1);
       }
     }
@@ -3226,6 +3269,15 @@ if (_inverted) {
       var gtItems = window.trackerItems || {};
       var gtReq = gtItems.gtCrystals || (window.trackerSettings.gtCrystals) || 7;
       if ((gtItems.crystals || 0) >= gtReq) return false;
+    }
+
+    // "Pyramid Hole" (inverted): defeating Aga2 opens the hole. If GT is
+    // cleared/boss beaten, the player physically proved they reached the
+    // area — mark it available without requiring aga1+mirror or HC connector.
+    if (name === 'Pyramid Hole' && window.trackerSettings && window.trackerSettings.inverted) {
+      var _phAga2 = !!(window.trackerItems && window.trackerItems.agahnim2) ||
+                    !!(DUNGEONS.gt && (DUNGEONS.gt.cleared || DUNGEONS.gt.fullyCleared));
+      if (_phAga2) return false;
     }
 
     // "Pyramid Fairy": if the player has both red crystals AND a real
@@ -3381,6 +3433,29 @@ if (_inverted) {
       if ((biItems.redCrystal || 0) >= 2) {
         color = DUNGEON_COLOR_HEX.green;
       }
+    }
+
+    // "GT" label on a found entrance — entrance shuffle only. No crystal gate
+    // (that applies to the real Ganons Tower entrance only).
+    // Base items: hookshot + firerod + hammer + somaria.
+    // Non-enemizer: bow also required.
+    // Keysanity: GT big key also required.
+    if (code === 'GT' && window.trackerSettings && window.trackerSettings.entranceShuffle) {
+      var gtItES = window.trackerItems || {};
+      var gtSetsES = window.trackerSettings || {};
+      var gtIsEnemizer = gtSetsES.enemizer !== 'no';
+      var gtIsKeysanity = (gtSetsES.dungeonItems === 'keysanity' || gtSetsES.dungeonItems === 'mapcompasskeys');
+      var gtBigKeyHeld = !!(gtItES.gtBigKey || (window.dungeons && window.dungeons.gt && window.dungeons.gt.bigkeyState));
+      var gtItemsOK = !!(gtItES.hookshot && gtItES.firerod && gtItES.hammer && gtItES.somaria &&
+                         (gtIsEnemizer || gtItES.bow >= 1) &&
+                         (!gtIsKeysanity || gtBigKeyHeld));
+      color = gtItemsOK ? DUNGEON_COLOR_HEX.green : DUNGEON_COLOR_HEX.yellow;
+    }
+
+    // "Bumper" — magic cape required to traverse Bumper Cave.
+    if (code === 'Bumper' && window.trackerSettings && window.trackerSettings.entranceShuffle) {
+      var bumpIt = window.trackerItems || {};
+      color = bumpIt.cape ? DUNGEON_COLOR_HEX.green : DUNGEON_COLOR_HEX.red;
     }
 
     if (hasNote && !marker.classList.contains('cleared')) {
@@ -4508,6 +4583,7 @@ try {
         window.trackerItems.trBigKey     = snap.trBigKey     !== undefined ? snap.trBigKey     : (window.trackerItems.trBigKey || 0);
         window.trackerItems.spBigKey     = snap.spBigKey     !== undefined ? snap.spBigKey     : (window.trackerItems.spBigKey || 0);
         window.trackerItems.swBigKey     = snap.swBigKey     !== undefined ? snap.swBigKey     : (window.trackerItems.swBigKey || 0);
+        window.trackerItems.gtBigKey     = snap.gtBigKey     !== undefined ? snap.gtBigKey     : (window.trackerItems.gtBigKey || 0);
         // Agahnim defeated → mark CT fully cleared (standard mode only)
         // In inverted, Aga1 is at CT position on DW — cleared via SRAM boss flag, not agahnim item
         if (snap.agahnim && !DUNGEONS.ct.cleared && !(window.trackerSettings && window.trackerSettings.inverted)) {
