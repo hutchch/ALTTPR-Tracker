@@ -1885,7 +1885,6 @@ window.checkColor = function(id) {
                            (_synthRegs87.indexOf('Upper East Death Mountain') !== -1 ||
                             _synthRegs87.indexOf('Inverted Upper East Death Mountain') !== -1);
         if (_isEntShuffle && _lwVisibleChecks.indexOf(id) !== -1 && _kakFound) {
-          // Check 65 (Bottle Merchant): needs pearl to interact — fall through to checkLogic
           // Fall through to checkLogic — it returns appropriate orange/green
         } else if (_eastDMFound) {
           // Upper East DM reached via connector; check function handles the rest
@@ -3082,19 +3081,36 @@ if (_inverted) {
   })();
 
   function kakarikoConnectorFound() {
-    // Returns true if a connector or label touches a known south LW entrance
-    // (positive check against ALL_LW_ENTRANCES — avoids DW/DM false positives)
+    // Returns true if a connector or label touches a known south LW entrance.
+    // In inverted mode, enclosed entrances (behind bushes/rocks) only count when
+    // the player has the items needed to physically enter them.
+    var _inv = !!(window.trackerSettings && window.trackerSettings.inverted);
+    var _pearl = !!(window.trackerItems && window.trackerItems.moonpearl);
+    var _mitts = !!(window.trackerItems && window.trackerItems.gloves >= 2);
+    var _glove = !!(window.trackerItems && window.trackerItems.gloves >= 1);
+    // Enclosed LW entrances that a bunny can't freely access — require items in inverted
+    var _kakEnclosed = {
+      'Bush Covered House':             function() { return _pearl; },
+      'Kings Grave':                    function() { return _pearl && _mitts; },
+      'Desert Palace Entrance (North)': function() { return _pearl && _glove; },
+      'Desert Palace Entrance (East)':  function() { return false; },
+    };
+    function _lwOk(name) {
+      if (!ALL_LW_ENTRANCES[name]) return false;
+      if (_inv && _kakEnclosed[name]) return _kakEnclosed[name]();
+      return true;
+    }
     var conns = (window._entConnections && window._entConnections.length)
       ? window._entConnections
       : (function() { try { return JSON.parse(localStorage.getItem('ent-connections') || '[]'); } catch(e) { return []; } })();
     for (var i = 0; i < conns.length; i++) {
-      if (ALL_LW_ENTRANCES[conns[i][0]] || ALL_LW_ENTRANCES[conns[i][1]]) return true;
+      if (_lwOk(conns[i][0]) || _lwOk(conns[i][1])) return true;
     }
     var labels = window._entLabels ||
       (function() { try { return JSON.parse(localStorage.getItem('ent-labels') || '{}'); } catch(e) { return {}; } })();
     var lnames = Object.keys(labels);
     for (var j = 0; j < lnames.length; j++) {
-      if (ALL_LW_ENTRANCES[lnames[j]]) return true;
+      if (_lwOk(lnames[j])) return true;
     }
     return false;
   }
@@ -3130,6 +3146,17 @@ if (_inverted) {
     // before the BroadcastChannel sync arrives.
     if (!window._entItemsReceived) return false;
     if (!window.EntLogic || !window.logic_entrances || !window.logic_entrances[name]) return false;
+
+    // Some entrances are physically blocked by items even when a connector is
+    // present — the connector tells you WHERE the entrance is, but you still
+    // need the items to actually use it.
+    if (window.trackerSettings && window.trackerSettings.inverted) {
+      var _tBlk = window.trackerItems || {};
+      // Bush Covered House: bushes block the door — need moonpearl to clear them in inverted
+      if (name === 'Bush Covered House' && !_tBlk.moonpearl) return true;
+      // Kings Grave: heavy rocks cover the entrance — need moonpearl + Titan Mitts
+      if (name === 'Kings Grave' && (!_tBlk.moonpearl || !(_tBlk.gloves >= 2))) return true;
+    }
 
     // If the player has drawn a connector directly to this entrance, they've
     // physically accessed it — it is by definition reachable regardless of
