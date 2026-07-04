@@ -7,7 +7,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
 ***
 [!["Join the Discord"](https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/62fddf0fde45a8baedcc7ee5_847541504914fd33810e70a0ea73177e%20(2)-1.png)](https://discord.gg/7WCjMehmyZ)   For questions or announcements join the [Discord](https://discord.gg/7WCjMehmyZ)
 ***
-:warning: NOTE:  All documention was moved to a wiki.  See: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/wiki)
+:warning: NOTE:  All documention is located here: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/wiki)
 
 ***
 
