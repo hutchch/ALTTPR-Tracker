@@ -1879,8 +1879,10 @@ function processInventoryData(data) {
         snap.trBigKey     = (window.trackerItems && window.trackerItems.trBigKey)     || 0;
         snap.spBigKey     = (window.trackerItems && window.trackerItems.spBigKey)     || 0;
         snap.swBigKey     = (window.trackerItems && window.trackerItems.swBigKey)     || 0;
-    snap.spBigKey     = (window.trackerItems && window.trackerItems.spBigKey)     || 0;
-    snap.swBigKey     = (window.trackerItems && window.trackerItems.swBigKey)     || 0;
+        // GT big key: read directly from dungeons object (bigkeyState tracked via SRAM/click).
+        // This inline snap omitted gtBigKey, causing the map to reset it to 0 on every SRAM
+        // poll tick — producing the green/yellow flash in entrance shuffle keysanity mode.
+        snap.gtBigKey     = (dungeons.gt && dungeons.gt.bigkeyState) || 0;
 
 
         // Count obtained prizes from dungeon slots for check logic
