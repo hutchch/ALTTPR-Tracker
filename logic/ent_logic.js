@@ -116,6 +116,19 @@
 
   // Like hasFoundLightWorldEntrance() but only counts entrances the player
   // can freely walk away from as a bunny — excludes enclosed entrances.
+  // Also recognises label text that identifies a LW pass-through building:
+  //   "Sanc" = Sanctuary, "Link" = Link's House, "Mount" = Mountain cave
+  // A DW entrance labelled with one of these lets the player walk out to the LW.
+  var _LW_PASSTHROUGH_LABELS = ['sanc', 'link', 'mount'];
+  function _isLwPassthroughLabel(text) {
+    if (!text) return false;
+    var lv = text.toLowerCase().trim();
+    for (var _li = 0; _li < _LW_PASSTHROUGH_LABELS.length; _li++) {
+      if (lv.indexOf(_LW_PASSTHROUGH_LABELS[_li]) === 0) return true;
+    }
+    return false;
+  }
+
   function hasFoundOpenLightWorldEntrance() {
     var conns = window._entConnections;
     if (conns && conns.length) {
@@ -129,6 +142,8 @@
       var names = Object.keys(labels);
       for (var j = 0; j < names.length; j++) {
         if (LW_ENTRANCES[names[j]] && !LW_ENCLOSED_ENTRANCES[names[j]]) return true;
+        // Label text identifies a LW pass-through building on any entrance
+        if (_isLwPassthroughLabel(labels[names[j]])) return true;
       }
     }
     return false;
