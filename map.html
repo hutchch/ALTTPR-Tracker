@@ -1151,8 +1151,8 @@ function dungeonColor(key) {
       if (!inverted && !it.moonpearl) return 'red';
       // Must be able to reach LW Death Mountain (gloves to lift rocks, or flute warp)
       if (!inverted && it.gloves < 1 && it.flute < 1) return 'red';
-      // Must traverse east DW Death Mountain: hammer + titans mitts, then mirror over
-      if (!inverted && (!it.hammer || it.gloves < 2 || !it.mirror)) return 'red';
+      // Must traverse east DW Death Mountain: hammer + titans mitts
+      if (!inverted && (!it.hammer || it.gloves < 2)) return 'red';
       if (!inverted) {
         if (!it.somaria) return 'red';
         var hasAllMedsTRn = it.bombos && it.ether && it.quake;
@@ -1219,9 +1219,15 @@ function dungeonColor(key) {
       }
       // Entrance shuffle: no crystal requirement to enter GT. Completing it
       // requires Hookshot, Hammer, Cane of Somaria, and Bow — yellow until
-      // all four are obtained, then green.
+      // all obtained, then green. Must match the GT-specific block in applyMarkerColor
+      // exactly — mismatches cause a flash (one path briefly shows green before the
+      // other overrides with yellow).
       if (isEntShuffleGT) {
-        var hasGTItems = it.hookshot && it.hammer && it.somaria && it.bow >= 1 && it.boots;
+        var _gtIsEnemizer = (settings.enemizer !== 'no');
+        var _gtIsKS = (['keysanity','mapcompasskeys'].indexOf(settings.dungeonItems) !== -1);
+        var _gtBKOk = _gtIsKS ? !!(it.gtBigKey) : true;
+        var hasGTItems = it.hookshot && it.firerod && it.hammer && it.somaria && it.boots &&
+                         (_gtIsEnemizer || it.bow >= 1) && _gtBKOk;
         return hasGTItems ? 'green' : 'yellow';
       }
       var req = (window.trackerSettings && window.trackerSettings.gtCrystals) || 7;
@@ -1456,6 +1462,19 @@ function checkLogic(it) {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            var sl = window.trackerSettings && window.trackerSettings.swordless === 'yes';
            var weapon = sl ? hammer : sword2;
+           var _isEntShuffle71 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           // Entrance shuffle: Upper West DM via connector grants outdoor tablet access.
+           // No lamp needed (tablet is outside). Still needs book + weapon + mirror (or hookshot+hammer).
+           if (_isEntShuffle71) {
+             var _synth71 = window._entSyntheticFoundRegions || [];
+             var _upperWestDM71 = _synth71.indexOf('Upper West Death Mountain') !== -1 ||
+                                  _synth71.indexOf('Inverted Upper West Death Mountain') !== -1;
+             if (_upperWestDM71) {
+               if (!book) return 'red';
+               if (!(mirror || (hookshot && hammer))) return 'orange';
+               return weapon ? 'green' : 'orange';
+             }
+           }
            if (_inv) {
              // Inverted: top-left LW DM access gated by outer block (pearl+glove+hookshot OR pearl+titans+hammer)
              // Additionally needs book + master sword (or hammer swordless)
@@ -1489,6 +1508,12 @@ function checkLogic(it) {
            // Inverted non-shuffle (and inverted ent-shuffle without East DW connector):
            // glove is always required; additionally need East DW access.
            if (_inv) return (glove && (flippers || (mirror && lwAccess) || (superBunny && mirror) || (hammer || (flute && lwAccess)))) ? 'green' : 'red';
+           // Non-inverted entrance shuffle: connector to East DW (synthetic region) grants access.
+           // Catfish always requires glove.
+           if (_isEntShuffle73) {
+             var _synth73 = window._entSyntheticFoundRegions || [];
+             if (_synth73.indexOf('East Dark World') !== -1) return glove ? 'green' : 'red';
+           }
            return (dwEast&&glove) ? 'green' : 'red';
          },
     74:  function() { return (flippers||glove) ? 'green' : 'red'; },
@@ -1558,6 +1583,15 @@ function checkLogic(it) {
          },
     86:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
+           var _isEntShuffle86 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           // Entrance shuffle: if Upper West DM reached via connector, mirror warps to
+           // Spectacle Rock outdoor check — no lamp needed (fully outdoors).
+           if (_isEntShuffle86) {
+             var _synth86 = window._entSyntheticFoundRegions || [];
+             var _upperWestDM86 = _synth86.indexOf('Upper West Death Mountain') !== -1 ||
+                                  _synth86.indexOf('Inverted Upper West Death Mountain') !== -1;
+             if (_upperWestDM86) return mirror ? 'green' : 'orange';
+           }
            if (_inv) {
              if (!glove) return 'red';
              // Top-left LW DM access: pearl + hammer + (glove+hookshot OR titans+hammer)
@@ -1626,8 +1660,9 @@ function checkLogic(it) {
                if (t89dp.gloves >= 1) return 'green';
                return 'yellow';
              }
-             // South entrance does not connect to the ledge — no access
-             return 'red';
+             // No DP connector — the desert overworld is still walkable in non-inverted,
+             // so the ledge is reachable. Book gates green vs orange.
+             return book ? 'green' : 'orange';
            }
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
@@ -2592,7 +2627,11 @@ if (_inverted) {
   // Refresh check dots whose color depends on entrance connections
   // (e.g. Sunken Treasure needs the Dam; Race Minigame needs Two Brothers House (West)).
   function refreshConnectionDependentDots() {
-    [111, 88].forEach(function(id) {
+    // 111, 88: connector-sensitive checks (Dam/Sunken Treasure, Race Minigame)
+    // _lwVisibleChecks: inverted entrance shuffle — Sanc/Link/Mount labels change
+    // kakarikoConnectorFound() which gates visibility of these checks.
+    var _rcdIds = [111, 88, 71, 73, 86, 65, 66, 68, 76, 84, 85, 87, 89, 90, 5, 6, 14, 15, 69, 95, 96, 97, 98, 99];
+    _rcdIds.forEach(function(id) {
       if (typeof dotById !== 'undefined' && dotById[id]) dotById[id].className = dotClass(id);
     });
   }
@@ -2763,9 +2802,27 @@ if (_inverted) {
   function refreshSyntheticRegions() {
     var found = [];
     var isInverted = !!(window.trackerSettings && window.trackerSettings.inverted);
+    // In INVERTED mode, Sanc/Link/Mount labels indicate where a LW entrance leads,
+    // not that the player has physically explored the LW region from that side.
+    // Skip region grants in inverted so e.g. "Sanc" on Pyramid Exit doesn't grant
+    // "Inverted HC Balcony" → HC W/E and Agahnim's Tower incorrectly available.
+    // In OPEN (non-inverted) mode, these labels mean the player has super-bunny DW
+    // access at that entrance location — the surrounding DW area IS reachable.
+    var _passThroughLabels = { 'Link': true, 'Sanc': true, 'Mount': true };
     function addFor(name) {
+      if (isInverted && _passThroughLabels[entLabels && entLabels[name]]) return;
       var region = ENT_ENTRANCE_REGION[name];
       if (!region) return;
+      // Passthrough label (Sanc/Link/Mount) on an entrance whose physical region is
+      // "Hyrule Castle Balcony": granting HC Balcony would make HC W/E and Agahnim's
+      // Tower show as available via canReach|Hyrule Castle Balcony checks. Instead,
+      // grant East Dark World directly (the actual overworld region the player is in;
+      // PoD and other East DW entrances become accessible without unlocking HC cluster).
+      // Connectors to the same entrance still grant HC Balcony normally (correct,
+      // since physically drawing a connector means you have been there).
+      if (!isInverted && _passThroughLabels[entLabels && entLabels[name]] && region === 'Hyrule Castle Balcony') {
+        region = 'East Dark World';
+      }
       if (found.indexOf(region) === -1) found.push(region);
       // In inverted mode also push the Inverted-prefixed equivalent so that
       // canReach|Inverted X checks in ent_logic.js resolve correctly.
@@ -2792,6 +2849,13 @@ if (_inverted) {
       found.push('Lower West Dark Death Mountain');
       if (isInverted && found.indexOf('Inverted Lower West Death Mountain') === -1) found.push('Inverted Lower West Death Mountain');
     }
+    // Lower West Death Mountain → Upper West Death Mountain (walk-up path)
+    // Finding any Lower West DM entrance means the player can walk the mountain
+    // path to Upper West DM (Spectacle Rock / Tower of Hera area) — no items needed.
+    if (found.indexOf('Lower West Death Mountain') !== -1 && found.indexOf('Upper West Death Mountain') === -1) {
+      found.push('Upper West Death Mountain');
+      if (isInverted && found.indexOf('Inverted Upper West Death Mountain') === -1) found.push('Inverted Upper West Death Mountain');
+    }
     // Mirror + directly-found LW Death Mountain → DW Death Mountain
     // Uses directFound (pre-cascade snapshot) to avoid a DW DDM label cascading
     // back to LW DM and then re-granting DW DDM in a feedback loop.
@@ -2812,6 +2876,12 @@ if (_inverted) {
     if (found.indexOf('West Dark World') !== -1 && found.indexOf('South Dark World') === -1) {
       found.push('South Dark World');
       if (isInverted && found.indexOf('Inverted South Dark World') === -1) found.push('Inverted South Dark World');
+    }
+    // Hyrule Castle Balcony (Pyramid/HC area) is physically inside East Dark World —
+    // finding/reaching HC Balcony also grants East Dark World access (open mode only;
+    // in inverted the region meanings are flipped and handled separately by item logic).
+    if (!isInverted && found.indexOf('Hyrule Castle Balcony') !== -1 && found.indexOf('East Dark World') === -1) {
+      found.push('East Dark World');
     }
     // East Dark World + glove/flippers/hammer → North East Dark World
     // (matches canReachInvertedNorthEastDarkWorld / canReachNorthEastDarkWorld logic)
@@ -3111,6 +3181,9 @@ if (_inverted) {
     var lnames = Object.keys(labels);
     for (var j = 0; j < lnames.length; j++) {
       if (_lwOk(lnames[j])) return true;
+      // Label text identifies a LW pass-through building (Sanc/Link/Mount) on any entrance
+      var _lv = (labels[lnames[j]] || '').toLowerCase().trim();
+      if (_lv.indexOf('sanc') === 0 || _lv.indexOf('link') === 0 || _lv.indexOf('mount') === 0) return true;
     }
     return false;
   }
@@ -3464,16 +3537,18 @@ if (_inverted) {
 
     // "GT" label on a found entrance — entrance shuffle only. No crystal gate
     // (that applies to the real Ganons Tower entrance only).
-    // Base items: hookshot + firerod + hammer + somaria.
+    // Items: hookshot + firerod + hammer + somaria + boots.
     // Non-enemizer: bow also required.
     // Keysanity: GT big key also required.
+    // Must match dungeonColor('gt') entrance shuffle branch exactly — any difference
+    // causes a flash between the two color-setting passes.
     if (code === 'GT' && window.trackerSettings && window.trackerSettings.entranceShuffle) {
       var gtItES = window.trackerItems || {};
       var gtSetsES = window.trackerSettings || {};
       var gtIsEnemizer = gtSetsES.enemizer !== 'no';
       var gtIsKeysanity = (gtSetsES.dungeonItems === 'keysanity' || gtSetsES.dungeonItems === 'mapcompasskeys');
       var gtBigKeyHeld = !!(gtItES.gtBigKey || (window.dungeons && window.dungeons.gt && window.dungeons.gt.bigkeyState));
-      var gtItemsOK = !!(gtItES.hookshot && gtItES.firerod && gtItES.hammer && gtItES.somaria &&
+      var gtItemsOK = !!(gtItES.hookshot && gtItES.firerod && gtItES.hammer && gtItES.somaria && gtItES.boots &&
                          (gtIsEnemizer || gtItES.bow >= 1) &&
                          (!gtIsKeysanity || gtBigKeyHeld));
       color = gtItemsOK ? DUNGEON_COLOR_HEX.green : DUNGEON_COLOR_HEX.yellow;
@@ -3497,7 +3572,10 @@ if (_inverted) {
         color = ENT_NOTE_COLOR;
       }
     }
-    if (color && !marker.classList.contains('cleared')) {
+    // GT in entrance shuffle: always show item-logic color (yellow/green) — never
+    // let the cleared or unconnected CSS state grey it out or show green through.
+    var _gtEntShuffle = (code === 'GT' && window.trackerSettings && window.trackerSettings.entranceShuffle);
+    if (color && (!marker.classList.contains('cleared') || _gtEntShuffle)) {
       marker.style.background = color;
     } else {
       marker.style.background = '';
@@ -3543,6 +3621,9 @@ if (_inverted) {
         // Fully cleared → grey dim (like dng.cleared)
         marker.classList.toggle('ent-boss-cleared',    isBossOnly);
         marker.classList.toggle('ent-dungeon-cleared', isFullyCleared);
+        // Clear the inline style so the CSS ent-boss-cleared / ent-dungeon-cleared
+        // background rules take effect. (GT is excluded — prize=-2 so this block
+        // never runs for GT; GT's color is always kept via the _gtEntShuffle guard above.)
         if (isGreyed && !marker.classList.contains('cleared')) {
           marker.style.background = '';
         }
@@ -3589,6 +3670,50 @@ if (_inverted) {
     refreshSyntheticRegions();
     Object.keys(entMarkers).forEach(applyMarkerColor);
   };
+
+  // ── GT flash debug instrumentation ──────────────────────────────────────────
+  // Opens a MutationObserver on the GT entrance marker and logs every inline
+  // style.background change with full item state + call stack.
+  // Usage:
+  //   1. Assign 'GT' to an entrance in-game, then run in DevTools console:
+  //      window._gtInstallFlashDebug()
+  //   2. Play normally; every color change logs to console (filter: "[GT-flash]")
+  //   3. To stop: window._gtFlashObserver && window._gtFlashObserver.disconnect()
+  window._gtInstallFlashDebug = function() {
+    var labels  = window._entLabels  || {};
+    var markers = window._entMarkers || {};
+    var gtName  = null;
+    Object.keys(labels).forEach(function(n) { if (labels[n] === 'GT') gtName = n; });
+    if (!gtName) { console.warn('[GT-flash] GT label not yet assigned to any entrance'); return; }
+    var gtMarker = markers[gtName];
+    if (!gtMarker) { console.warn('[GT-flash] marker element missing for', gtName); return; }
+    if (window._gtFlashObserver) window._gtFlashObserver.disconnect();
+
+    var obs = new MutationObserver(function(muts) {
+      muts.forEach(function(mut) {
+        if (mut.attributeName !== 'style') return;
+        var it = window.trackerItems || {};
+        var st = window.trackerSettings || {};
+        var ks = st.dungeonItems === 'keysanity' || st.dungeonItems === 'mapcompasskeys';
+        var bkState = window.dungeons && window.dungeons.gt ? window.dungeons.gt.bigkeyState : 0;
+        var bkHeld  = !!(it.gtBigKey || bkState);
+        console.log(
+          '[GT-flash] style.background = "' + gtMarker.style.background + '"' +
+          ' | classes: ' + gtMarker.className +
+          '\n  items: hook=' + (it.hookshot||0) + ' fire=' + (it.firerod||0) +
+          ' ham=' + (it.hammer||0) + ' som=' + (it.somaria||0) +
+          ' boots=' + (it.boots||0) + ' bow=' + (it.bow||0) +
+          ' gtBigKey=' + (it.gtBigKey||0) + ' bkState=' + bkState +
+          ' | ks=' + ks + ' bkHeld=' + bkHeld,
+          '\n' + new Error('stack').stack
+        );
+      });
+    });
+    obs.observe(gtMarker, { attributes: true, attributeFilter: ['style', 'class'] });
+    window._gtFlashObserver = obs;
+    console.log('[GT-flash] Observer installed on entrance "' + gtName + '":', gtMarker);
+  };
+  // ── end GT flash debug ───────────────────────────────────────────────────────
 
   // Once the marker for one of these labels is marked "cleared", the label
   // tag is no longer useful and can be hidden to declutter the map.
