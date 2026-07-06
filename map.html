@@ -1612,6 +1612,20 @@ function checkLogic(it) {
              return _eastDMInv ? 'green' : 'red';
            }
            if (_inv) return DMlight ? 'green' : 'yellow';
+           // Open mode entrance shuffle: the ONLY path to the Floating Island is
+           // a connector to Hookshot Cave Back Entrance (the isolated east DDM ledge)
+           // combined with mirror — which warps the player to the LW floating island.
+           // Vanilla item paths (hookshot, mirror+hammer) don't apply in entrance shuffle.
+           if (_ent87) {
+             var _conns87 = window._entConnections || [];
+             var _lbls87  = window._entLabels || {};
+             var _hcbeFound = !!_lbls87['Hookshot Cave Back Entrance'] ||
+                              _conns87.some(function(p) {
+                                return p[0] === 'Hookshot Cave Back Entrance' || p[1] === 'Hookshot Cave Back Entrance';
+                              });
+             if (_hcbeFound && mirror) return DMlight ? 'green' : 'yellow';
+             return 'red';
+           }
            if (!eastDM) return 'red';
            return (mirror&&pearl&&titan) ? (DMlight?'green':'yellow') : 'orange';
          },
@@ -1987,7 +2001,7 @@ var CHECKS = [
   [84,  15.40, 65.90, "Library",                "lw"],
   [85,  12.40,  8.60, "Mushroom",               "lw"],
   [86,  50.80,  8.50, "Spectacle Rock",         "lw"],
-  [87,  80.40,  3.40, "Floating Island",        "lw"],
+  [87,  81.50,  1.80, "Floating Island",        "lw"],
   [88,   3.60, 67.00, "Race Minigame",          "lw"],
   [89,   3.60, 91.00, "Desert West Ledge",      "lw"],
   [90,  72.20, 82.90, "Lake Hylia Island",      "lw"],
@@ -2750,7 +2764,13 @@ if (_inverted) {
     'Spiral Cave':                         'Lower East Death Mountain',
     'Spiral Cave (Bottom)':                'Lower East Death Mountain',
     'Superbunny Cave (Bottom)':            'Lower East Dark Death Mountain',
-    'Superbunny Cave (Top)':               'Upper Dark Death Mountain',
+    // NOTE: "Superbunny Cave (Top)" intentionally OMITTED here.
+    // It sits on the isolated east DDM ledge, which is physically separated from
+    // the main Upper Dark Death Mountain area (Hookshot Cave / Ganons Tower) by a
+    // hookshot gap. Finding/connecting Superbunny Cave Top does NOT automatically
+    // grant Upper Dark DM access — the player must have hookshot to cross.
+    // canReachUpperDarkDeathMountain() in ent_logic.js handles this via the
+    // hookshot + hasFoundRegion path.
     'Archery Game':                        'South Dark World',
     'Chest Game':                          'West Dark World',
     'Dark Death Mountain Fairy':           'Lower West Dark Death Mountain',
@@ -2798,6 +2818,7 @@ if (_inverted) {
     'Lower East Death Mountain':       'Inverted Lower East Death Mountain',
     'Hyrule Castle Balcony':           'Inverted Hyrule Castle Balcony',
   };
+  window._entEntranceRegion = ENT_ENTRANCE_REGION; // exposed for _debugUpperDDM
 
   function refreshSyntheticRegions() {
     var found = [];
@@ -2849,17 +2870,22 @@ if (_inverted) {
       found.push('Lower West Dark Death Mountain');
       if (isInverted && found.indexOf('Inverted Lower West Death Mountain') === -1) found.push('Inverted Lower West Death Mountain');
     }
-    // Lower West Death Mountain → Upper West Death Mountain (walk-up path)
-    // Finding any Lower West DM entrance means the player can walk the mountain
-    // path to Upper West DM (Spectacle Rock / Tower of Hera area) — no items needed.
-    if (found.indexOf('Lower West Death Mountain') !== -1 && found.indexOf('Upper West Death Mountain') === -1) {
-      found.push('Upper West Death Mountain');
-      if (isInverted && found.indexOf('Inverted Upper West Death Mountain') === -1) found.push('Inverted Upper West Death Mountain');
-    }
+    // NOTE: The old "Lower West DM → Upper West DM walk-up cascade" was removed.
+    // It granted Upper West DM whenever any Lower West DM entrance was in a connector,
+    // including connectors found via the Dark World side (e.g. DW entrance ↔ Spectacle
+    // Rock Cave). That made Tower of Hera turn green without mirror, which is wrong.
+    // canReachUpperWestDeathMountain() in ent_logic.js now handles Upper West DM access
+    // directly via items (flute, mirror + found DM entrance, etc.).
     // Mirror + directly-found LW Death Mountain → DW Death Mountain
     // Uses directFound (pre-cascade snapshot) to avoid a DW DDM label cascading
     // back to LW DM and then re-granting DW DDM in a feedback loop.
-    if (hasMirror && (directFound.indexOf('Lower West Death Mountain') !== -1 || directFound.indexOf('Lower East Death Mountain') !== -1 || directFound.indexOf('Upper West Death Mountain') !== -1 || directFound.indexOf('Upper East Death Mountain') !== -1)) {
+    //
+    // Mirror + LW Death Mountain → DW Death Mountain
+    //
+    // UPPER West DM only (Tower of Hera peak area): mirroring from the TOP of LW DM
+    // puts you directly in the main Upper Dark DM area (GT / Hookshot Cave level).
+    // From there you can also walk down to the lower DW DM regions.
+    if (hasMirror && directFound.indexOf('Upper West Death Mountain') !== -1) {
       if (found.indexOf('Upper Dark Death Mountain') === -1) {
         found.push('Upper Dark Death Mountain');
         if (isInverted && found.indexOf('Inverted Dark Death Mountain') === -1) found.push('Inverted Dark Death Mountain');
@@ -2871,6 +2897,20 @@ if (_inverted) {
       if (found.indexOf('Lower East Dark Death Mountain') === -1) {
         found.push('Lower East Dark Death Mountain');
         if (isInverted && found.indexOf('Inverted Lower East Dark Death Mountain') === -1) found.push('Inverted Lower East Dark Death Mountain');
+      }
+    }
+    // LOWER West DM (Old Man Cave / Spectacle Rock Cave area): mirroring from here
+    // puts you in the LOWER DW DM area — below GT, not at the Hookshot Cave level.
+    // Only grants Lower West Dark DM. Reaching Upper Dark DM from here requires
+    // Titan's Mitt traversal (handled by canReachUpperDarkDeathMountain() item logic).
+    //
+    // EAST side LW DM (Hookshot Fairy / Paradox Cave Top) puts you on or near the
+    // isolated east DDM ledge, which has no ENT_ENTRANCE_REGION entry (intentionally).
+    // The isolated ledge grants nothing — it is a dead end (mirror out only).
+    if (hasMirror && directFound.indexOf('Lower West Death Mountain') !== -1) {
+      if (found.indexOf('Lower West Dark Death Mountain') === -1) {
+        found.push('Lower West Dark Death Mountain');
+        if (isInverted && found.indexOf('Inverted Lower West Death Mountain') === -1) found.push('Inverted Lower West Death Mountain');
       }
     }
     if (found.indexOf('West Dark World') !== -1 && found.indexOf('South Dark World') === -1) {
@@ -3323,7 +3363,11 @@ if (_inverted) {
     // NOT part of this.
     if (name === 'Desert Palace Entrance (West)' || name === 'Desert Palace Entrance (North)') {
       var dpWestDirect = dpEntranceFound('Desert Palace Entrance (West)');
-      var dpNorthDirect = dpEntranceFound('Desert Palace Entrance (North)') || dpNorthLabelFound();
+      // dpNorthLabelFound() is intentionally NOT used here — it applies to the dungeon
+      // ICON check only. A "DP N" label on some OTHER entrance means you found the
+      // shuffled dungeon door; it does NOT give overworld access to the DP North/West
+      // overworld pins (those require a direct connector to those specific pins).
+      var dpNorthDirect = dpEntranceFound('Desert Palace Entrance (North)');
       if (name === 'Desert Palace Entrance (West)' && dpWestDirect) return false;
       if ((dpWestDirect || dpNorthDirect)) {
         var tDp2 = window.trackerItems || {};
@@ -3714,6 +3758,40 @@ if (_inverted) {
     console.log('[GT-flash] Observer installed on entrance "' + gtName + '":', gtMarker);
   };
   // ── end GT flash debug ───────────────────────────────────────────────────────
+
+  // ── Upper Dark Death Mountain diagnostic ────────────────────────────────────
+  // Run window._debugUpperDDM() in DevTools console to see exactly what is
+  // granting (or blocking) Upper Dark Death Mountain access.
+  window._debugUpperDDM = function() {
+    var it   = window.trackerItems || {};
+    var conn = window._entConnections || [];
+    var synR = window._entSyntheticFoundRegions || [];
+    var synE = window._entSyntheticFoundEntrances || [];
+    var ddmInSynth = synR.indexOf('Upper Dark Death Mountain') !== -1;
+    var ents = ['Ganons Tower','Hookshot Cave Back Entrance','Superbunny Cave (Top)',
+                'Turtle Rock Isolated Ledge Entrance',
+                'Dark Death Mountain Ledge (West)','Dark Death Mountain Ledge (East)'];
+    console.group('[_debugUpperDDM]');
+    console.log('_entConnections (pairs):',  JSON.stringify(conn));
+    console.log('_entSyntheticFoundRegions:', JSON.stringify(synR));
+    console.log('_entSyntheticFoundEntrances:', JSON.stringify(synE));
+    console.log('"Upper Dark Death Mountain" in synth regions?', ddmInSynth);
+    console.log('Items — hammer:', it.hammer, 'gloves:', it.gloves, 'hookshot:', it.hookshot, 'mirror:', it.mirror, 'flute:', it.flute, 'moonpearl:', it.moonpearl);
+    ents.forEach(function(n) {
+      var inConn = conn.some(function(p) { return p[0] === n || p[1] === n; });
+      var inEnt  = synE.indexOf(n) !== -1;
+      if (inConn || inEnt) console.log('  FOUND entrance "' + n + '" — inConnector:', inConn, 'inSynth:', inEnt);
+    });
+    var ENT_ENTRANCE_REGION = window._entEntranceRegion;
+    if (ENT_ENTRANCE_REGION) {
+      console.log('ENT_ENTRANCE_REGION["Superbunny Cave (Top)"]:', ENT_ENTRANCE_REGION['Superbunny Cave (Top)']);
+      console.log('ENT_ENTRANCE_REGION["Turtle Rock Isolated Ledge Entrance"]:', ENT_ENTRANCE_REGION['Turtle Rock Isolated Ledge Entrance']);
+    } else {
+      console.warn('window._entEntranceRegion not exposed — cannot inspect ENT_ENTRANCE_REGION');
+    }
+    console.groupEnd();
+  };
+  // ── end Upper DDM diagnostic ─────────────────────────────────────────────────
 
   // Once the marker for one of these labels is marked "cleared", the label
   // tag is no longer useful and can be hidden to declutter the map.
