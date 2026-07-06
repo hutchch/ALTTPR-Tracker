@@ -53,7 +53,16 @@
     if (foundNames && foundNames.length && foundNames.indexOf(name) !== -1) return true;
     return false;
   }
-  function hasFoundRegion() { return false; }
+  // hasFoundRegion(entranceNames): returns true if the player has found (via connector or
+  // label) any entrance whose name appears in the provided list.  Used by
+  // canReachUpperWestDeathMountain / canReachLowerWestDeathMountain to infer region access.
+  function hasFoundRegion(names) {
+    if (!names || !names.length) return false;
+    for (var i = 0; i < names.length; i++) {
+      if (hasFoundEntranceName(names[i])) return true;
+    }
+    return false;
+  }
 
   // Authoritative set of south LW entrances (from entrances_data.json world:"light",
   // excluding Death Mountain entrances). Positive list — anything NOT here is DW/DM/dungeon.
@@ -153,15 +162,50 @@
   function canReachLightWorld() { return true; } // Open mode: always reachable
 
   function canReachUpperWestDeathMountain() {
+    // Flute + mirror: flute warps to Death Mountain (Lower West DM), mirror used to
+    // navigate the DW DM side and reach the Upper West DM (Spectacle Rock / Hera) area.
+    // Mirror is required in entrance shuffle — flute alone only lands you on Lower West DM.
     if (items.flute >= 1 && items.mirror) return true;
     if (hasFoundEntranceName("Tower of Hera") || (hasFoundEntranceName("Paradox Cave (Top)") && items.hammer)) return true;
-    if (items.mirror && hasFoundRegion([])) return true;
-    if (items.hookshot && items.mirror && hasFoundRegion([])) return true;
+    if (items.mirror && hasFoundRegion([
+      "Spectacle Rock Cave", "Spectacle Rock Cave Peak", "Spectacle Rock Cave (Bottom)",
+      "Old Man Cave (East)", "Death Mountain Return Cave (East)",
+      "Old Man House (Bottom)", "Old Man House (Top)",
+      "Ganons Tower", "Hookshot Cave Back Entrance", "Hookshot Cave",
+      "Superbunny Cave (Top)", "Turtle Rock", "Spike Cave", "Dark Death Mountain Fairy",
+    ])) return true;
+    if (items.hookshot && items.mirror && hasFoundRegion([
+      "Paradox Cave (Top)", "Paradox Cave (Middle)", "Paradox Cave (Bottom)",
+      "Spiral Cave", "Spiral Cave (Bottom)", "Hookshot Fairy",
+      "Fairy Ascension Cave (Top)", "Fairy Ascension Cave (Bottom)",
+      "Superbunny Cave (Bottom)", "Dark Death Mountain Shop",
+      "Turtle Rock Isolated Ledge Entrance",
+      "Dark Death Mountain Ledge (West)", "Dark Death Mountain Ledge (East)",
+    ])) return true;
     return false;
   }
   function canReachLowerWestDeathMountain() {
     if (items.flute >= 1) return true;
     if (canReachUpperWestDeathMountain()) return true;
+    if (hasFoundRegion([
+      "Spectacle Rock Cave", "Spectacle Rock Cave Peak", "Spectacle Rock Cave (Bottom)",
+      "Old Man Cave (East)", "Death Mountain Return Cave (East)",
+      "Old Man House (Bottom)", "Old Man House (Top)", "Tower of Hera",
+    ])) return true;
+    if (items.hookshot && hasFoundRegion([
+      "Paradox Cave (Top)", "Paradox Cave (Middle)", "Paradox Cave (Bottom)",
+      "Spiral Cave", "Spiral Cave (Bottom)", "Hookshot Fairy",
+      "Fairy Ascension Cave (Top)", "Fairy Ascension Cave (Bottom)",
+    ])) return true;
+    if (items.mirror && items.hookshot && hasFoundRegion([
+      "Turtle Rock Isolated Ledge Entrance",
+      "Dark Death Mountain Ledge (West)", "Dark Death Mountain Ledge (East)",
+      "Superbunny Cave (Bottom)", "Dark Death Mountain Shop",
+    ])) return true;
+    if (items.mirror && hasFoundRegion([
+      "Spike Cave", "Dark Death Mountain Fairy", "Ganons Tower",
+      "Hookshot Cave Back Entrance", "Hookshot Cave", "Superbunny Cave (Top)", "Turtle Rock",
+    ])) return true;
     return false;
   }
   function canReachUpperEastDeathMountain() {
@@ -177,7 +221,13 @@
     return false;
   }
   function canReachUpperDarkDeathMountain() {
+    // Titan's Mitt + Upper East DM → walk across to Upper Dark DM
     if (items.hammer && items.glove === 2 && canReachUpperEastDeathMountain()) return true;
+    // NOTE: The isolated east DDM ledge (Superbunny Cave Top, Turtle Rock Isolated
+    // Ledge, DDM Ledge holes) is a dead end — the ONLY exit is mirror back to LW.
+    // There is no hookshot crossing or walking path from the isolated ledge to the
+    // main Upper Dark DM area (Hookshot Cave / Ganons Tower). Mirror + West DM
+    // cascade is handled in refreshSyntheticRegions().
     return false;
   }
   function canReachLowerWestDarkDeathMountain() {
