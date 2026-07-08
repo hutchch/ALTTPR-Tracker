@@ -1058,7 +1058,8 @@ function dungeonColor(key) {
         if (settings.dungeonItems === 'keysanity') {
           if (!it.ipBigKey) return 'yellow';
         }
-        return (it.hammer && it.hookshot) ? 'green' : 'yellow';
+        // Gloves (level 1) needed for push-block room inside IP
+        return (it.hammer && it.hookshot && it.gloves >= 1) ? 'green' : 'yellow';
       }
       // Inverted: DW is home world — no moonpearl or titans mitt needed
       if (!inverted && !it.moonpearl) return 'red';
@@ -1078,10 +1079,10 @@ function dungeonColor(key) {
       if (settings.dungeonItems === 'keysanity') {
         if (!it.ipBigKey) return 'yellow';
       }
-      // Green needs hammer (break pots / progress) and hookshot (cross gap to
-      // the back of the dungeon). Without either it's still completable for
-      // the surface checks, hence yellow.
-      return (it.hammer && it.hookshot) ? 'green' : 'yellow';
+      // Green needs hammer (break pots / progress), hookshot (cross gap to
+      // the back of the dungeon), and gloves (push-block room inside IP).
+      // Without these it's still completable for surface checks, hence yellow.
+      return (it.hammer && it.hookshot && it.gloves >= 1) ? 'green' : 'yellow';
     }
 
     case 'mm':
@@ -1492,6 +1493,15 @@ function checkLogic(it) {
              if (!lwAccess || !book) return 'red';
              return weapon ? 'green' : 'orange';
            }
+           // Open mode entrance shuffle: a connector to South Dark World + mirror lets the
+           // player reach the tablet via mirror (interaction happens on LW, no pearl needed).
+           var _isEnt72 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_isEnt72) {
+             var _reg72 = window._entSyntheticFoundRegions || [];
+             var _dwSouth72 = dwSouth || _reg72.indexOf('South Dark World') !== -1;
+             if (!book || !mirror || !_dwSouth72) return 'red';
+             return weapon ? 'green' : 'orange';
+           }
            if (!book||!mirror||!dwSouth) return 'red';
            return weapon ? 'green' : 'orange';
          },
@@ -1624,7 +1634,8 @@ function checkLogic(it) {
                                 return p[0] === 'Hookshot Cave Back Entrance' || p[1] === 'Hookshot Cave Back Entrance';
                               });
              if (_hcbeFound && mirror) return DMlight ? 'green' : 'yellow';
-             return 'red';
+             // Visible from upper east LW DM but unreachable without HCBE connector
+             return eastDM ? 'orange' : 'red';
            }
            if (!eastDM) return 'red';
            return (mirror&&pearl&&titan) ? (DMlight?'green':'yellow') : 'orange';
@@ -1649,8 +1660,13 @@ function checkLogic(it) {
                }
              }
              var _inv88 = !!(window.trackerSettings && window.trackerSettings.inverted);
+             // Mirror + DW access (pearl-based OR connector-based) → can reach LW Two Brothers area.
+             var _reg88 = window._entSyntheticFoundRegions || [];
+             var _dwAccess88 = dwNW || dwEast || dwSouth ||
+                               _reg88.indexOf('West Dark World') !== -1 ||
+                               _reg88.indexOf('South Dark World') !== -1;
              // Inverted: only a direct connector to Two Brothers House (West) grants access
-             var reachable = found || (!_inv88 && mirror && (dwNW || dwEast || dwSouth));
+             var reachable = found || (!_inv88 && mirror && _dwAccess88);
              return reachable ? 'green' : 'orange';
            }
            // Non-entrance-shuffle: needs bomb or boots to solve; otherwise
@@ -1674,9 +1690,10 @@ function checkLogic(it) {
                if (t89dp.gloves >= 1) return 'green';
                return 'yellow';
              }
-             // No DP connector — the desert overworld is still walkable in non-inverted,
-             // so the ledge is reachable. Book gates green vs orange.
-             return book ? 'green' : 'orange';
+             // No DP connector — book alone doesn't grant ledge access in entrance shuffle.
+             // DW path (Titan's Mitt + Flute + Mirror) is still valid (overworld, not shuffled).
+             if (titan && flute && mirror) return 'green';
+             return 'orange'; // visible from the overworld but unreachable without a DP connector
            }
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
@@ -2357,7 +2374,7 @@ CHECKS.forEach(function(c) {
     }
     // Auto-mark entrance cleared when its key check is collected (one-way)
     if (checkState[id] && typeof window.markEntranceClearedByCode === 'function') {
-      var _autoLabelMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike' };
+      var _autoLabelMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike', 84:'Library', 76:'Magic' };
       var _autoCode = _autoLabelMap[id];
       if (_autoCode) window.markEntranceClearedByCode(_autoCode);
     }
@@ -3369,6 +3386,16 @@ if (_inverted) {
       // overworld pins (those require a direct connector to those specific pins).
       var dpNorthDirect = dpEntranceFound('Desert Palace Entrance (North)');
       if (name === 'Desert Palace Entrance (West)' && dpWestDirect) return false;
+      // DP North has an independent path via South West Dark World + mirror (Mire area
+      // → mirror to desert). This must be checked BEFORE the glove gate below so that
+      // adding a DP West connector doesn't block this already-valid Mire+mirror route.
+      if (name === 'Desert Palace Entrance (North)') {
+        var _dpNIt = window.trackerItems || {};
+        var _dpNSynth = window._entSyntheticFoundRegions || [];
+        var _swDWReach = _dpNSynth.indexOf('South West Dark World') !== -1 ||
+                         (_dpNIt.flute >= 1 && _dpNIt.gloves >= 2); // Flute+Titan → Mire
+        if (_swDWReach && _dpNIt.mirror) return false; // Mire+mirror always grants DP North
+      }
       if ((dpWestDirect || dpNorthDirect)) {
         var tDp2 = window.trackerItems || {};
         // In inverted, DP North is in the LW — moonpearl is needed to lift rocks
@@ -4674,10 +4701,12 @@ function dngStatusText(key) {
 window.onRoomsUpdated = function(data) {
   // Auto-clear check dots
   var dirty = false, annDirty = false;
+  var newlyCleared = [];
   CHECKS.forEach(function(c) {
     var id = c[0];
     if (!checkState[id] && window.SRAM_FLAGS[id] && window.sramCleared(data, window.SRAM_FLAGS[id])) {
       checkState[id] = true;
+      newlyCleared.push(id);
       if (dotById[id]) dotById[id].className = dotClass(id);
       dirty = true;
       // Clearing the check also clears any annotation tagged on it
@@ -4688,7 +4717,19 @@ window.onRoomsUpdated = function(data) {
       }
     }
   });
-  if (dirty)    saveCheckState();
+  if (dirty) {
+    saveCheckState();
+    // Auto-mark entrance cleared when its key check is SRAM-detected.
+    // Mirrors the same auto-map used in the checklist toggle-check handler.
+    if (typeof window.markEntranceClearedByCode === 'function') {
+      var _sramAutoMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike', 84:'Library', 76:'Magic' };
+      newlyCleared.forEach(function(id) {
+        var code = _sramAutoMap[id];
+        if (code) window.markEntranceClearedByCode(code);
+      });
+    }
+    window.refreshMapLogic();
+  }
   if (annDirty) saveAnnotations();
 
   // Boss defeat → clear dungeon
@@ -4950,7 +4991,7 @@ try {
           if (dotById[_tcId]) dotById[_tcId].className = dotClass(_tcId);
           // Auto-mark entrance cleared when its key check is collected (one-way)
           if (_tcCleared && typeof window.markEntranceClearedByCode === 'function') {
-            var _tcAutoMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike' };
+            var _tcAutoMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike', 84:'Library', 76:'Magic' };
             var _tcAutoCode = _tcAutoMap[_tcId];
             if (_tcAutoCode) window.markEntranceClearedByCode(_tcAutoCode);
           }
@@ -5032,7 +5073,7 @@ window.addEventListener('storage', function(ev) {
     saveCheckState();
     if (dotById[id]) dotById[id].className = dotClass(id);
     if (d.cleared && typeof window.markEntranceClearedByCode === 'function') {
-      var _stAutoMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike' };
+      var _stAutoMap = { 68:'Kid', 101:'Smith', 4:'Mimic', 100:'Bat', 66:'Sahas', 13:'Spike', 84:'Library', 76:'Magic' };
       var _stCode = _stAutoMap[id];
       if (_stCode) window.markEntranceClearedByCode(_stCode);
     }
