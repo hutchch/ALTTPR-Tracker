@@ -1086,9 +1086,9 @@ function dungeonColor(key) {
     }
 
     case 'mm':
-      // Entrance shuffle: if a real entrance marker is labeled "MM", the
-      // Misery Mire entrance has been physically located — titans mitts,
-      // flute, and the medallion are not required to access the dungeon.
+      // Entrance shuffle: if a real entrance marker is labeled "MM", the dungeon
+      // has been physically located — titans mitts, flute, and the medallion are
+      // not required to access the dungeon (player reached the area via the labeled exit).
       if (settings.entranceShuffle) {
         var mmLabelFound = false;
         var mmLabels = window._entLabels;
@@ -1099,9 +1099,10 @@ function dungeonColor(key) {
           }
         }
         if (mmLabelFound) {
+          // Boots or hookshot needed to navigate dungeon interiors.
+          // Sword/hammer is NOT a hard gate — dungeon can be explored without
+          // a weapon (yellow). Only somaria + lamp push it to green.
           if (!it.boots && !it.hookshot) return 'red';
-          if (!swordless && !it.sword) return 'red';
-          if (swordless && !it.hammer) return 'red';
           if (settings.dungeonItems === 'keysanity') {
             if (!it.mmBigKey) return 'yellow';
           }
@@ -1464,13 +1465,18 @@ function checkLogic(it) {
            var sl = window.trackerSettings && window.trackerSettings.swordless === 'yes';
            var weapon = sl ? hammer : sword2;
            var _isEntShuffle71 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
-           // Entrance shuffle: Upper West DM via connector grants outdoor tablet access.
-           // No lamp needed (tablet is outside). Still needs book + weapon + mirror (or hookshot+hammer).
+           // Entrance shuffle: any LW DM connector (Upper or Lower) grants outdoor tablet access.
+           // Lower West DM connectors (Spectacle Rock Cave, Old Man Cave East, etc.) let the
+           // player walk the outdoor mountain paths to the Ether Tablet — no lamp needed outdoors.
            if (_isEntShuffle71) {
              var _synth71 = window._entSyntheticFoundRegions || [];
-             var _upperWestDM71 = _synth71.indexOf('Upper West Death Mountain') !== -1 ||
-                                  _synth71.indexOf('Inverted Upper West Death Mountain') !== -1;
-             if (_upperWestDM71) {
+             // climbDM covers vanilla DM access (glove or flute) — no lamp needed outdoors.
+             var _dmReached71 = climbDM ||
+                                _synth71.indexOf('Upper West Death Mountain') !== -1 ||
+                                _synth71.indexOf('Inverted Upper West Death Mountain') !== -1 ||
+                                _synth71.indexOf('Lower West Death Mountain') !== -1 ||
+                                _synth71.indexOf('Inverted Lower West Death Mountain') !== -1;
+             if (_dmReached71) {
                if (!book) return 'red';
                if (!(mirror || (hookshot && hammer))) return 'orange';
                return weapon ? 'green' : 'orange';
@@ -1518,16 +1524,32 @@ function checkLogic(it) {
            // Inverted non-shuffle (and inverted ent-shuffle without East DW connector):
            // glove is always required; additionally need East DW access.
            if (_inv) return (glove && (flippers || (mirror && lwAccess) || (superBunny && mirror) || (hammer || (flute && lwAccess)))) ? 'green' : 'red';
-           // Non-inverted entrance shuffle: connector to East DW (synthetic region) grants access.
-           // Catfish always requires glove.
+           // Non-inverted entrance shuffle: Catfish is in North East Dark World
+           // (requires East DW + pearl + glove — pearl needed to lift block in non-bunny form).
+           // Using North East Dark World here inherits the pearl requirement from the cascade.
            if (_isEntShuffle73) {
              var _synth73 = window._entSyntheticFoundRegions || [];
-             if (_synth73.indexOf('East Dark World') !== -1) return glove ? 'green' : 'red';
+             if (_synth73.indexOf('North East Dark World') !== -1) return glove ? 'green' : 'red';
            }
            return (dwEast&&glove) ? 'green' : 'red';
          },
     74:  function() { return (flippers||glove) ? 'green' : 'red'; },
-    75:  function() { if (!climbDM) return 'red'; return lamp ? 'green' : 'yellow'; },
+    75:  function() {
+           var _entShuffle75 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_entShuffle75) {
+             // In entrance shuffle the DM cave entrance is randomized — glove alone
+             // does not reach the mountain. Access requires flute (bird warp bypasses
+             // the shuffle) or a connector that physically places the player in LWDM.
+             var _synth75 = window._entSyntheticFoundRegions || [];
+             var _dmLeft75 = flute ||
+                             _synth75.indexOf('Lower West Death Mountain') !== -1 ||
+                             _synth75.indexOf('Inverted Lower West Death Mountain') !== -1;
+             if (!_dmLeft75) return 'red';
+           } else {
+             if (!climbDM) return 'red';
+           }
+           return lamp ? 'green' : 'yellow';
+         },
     76:  function() {
            if (mushroom) return 'green';
            // Inverted entrance shuffle: visible as bunny but need moonpearl to use mushroom
@@ -1594,13 +1616,18 @@ function checkLogic(it) {
     86:  function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            var _isEntShuffle86 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
-           // Entrance shuffle: if Upper West DM reached via connector, mirror warps to
-           // Spectacle Rock outdoor check — no lamp needed (fully outdoors).
+           // Entrance shuffle: any LW DM connector (Upper or Lower) grants outdoor check access.
+           // Lower West DM connectors (Spectacle Rock Cave, Old Man Cave East, etc.) let the
+           // player walk the outdoor paths to Spectacle Rock — no lamp needed (fully outdoors).
            if (_isEntShuffle86) {
              var _synth86 = window._entSyntheticFoundRegions || [];
-             var _upperWestDM86 = _synth86.indexOf('Upper West Death Mountain') !== -1 ||
-                                  _synth86.indexOf('Inverted Upper West Death Mountain') !== -1;
-             if (_upperWestDM86) return mirror ? 'green' : 'orange';
+             // climbDM covers vanilla DM access (glove or flute) — no lamp needed outdoors.
+             var _dmReached86 = climbDM ||
+                                _synth86.indexOf('Upper West Death Mountain') !== -1 ||
+                                _synth86.indexOf('Inverted Upper West Death Mountain') !== -1 ||
+                                _synth86.indexOf('Lower West Death Mountain') !== -1 ||
+                                _synth86.indexOf('Inverted Lower West Death Mountain') !== -1;
+             if (_dmReached86) return mirror ? 'green' : 'orange';
            }
            if (_inv) {
              if (!glove) return 'red';
@@ -1622,20 +1649,29 @@ function checkLogic(it) {
              return _eastDMInv ? 'green' : 'red';
            }
            if (_inv) return DMlight ? 'green' : 'yellow';
-           // Open mode entrance shuffle: the ONLY path to the Floating Island is
-           // a connector to Hookshot Cave Back Entrance (the isolated east DDM ledge)
-           // combined with mirror — which warps the player to the LW floating island.
-           // Vanilla item paths (hookshot, mirror+hammer) don't apply in entrance shuffle.
+           // Open mode entrance shuffle:
+           // GREEN  — HCBE direct connector/label + mirror → warp specifically to the LW island.
+           // ORANGE — any Upper East LW DM access (Paradox Cave Top, Superbunny Cave Top, eastDM, HCBE w/o mirror).
+           // RED    — no Upper East DM access at all.
            if (_ent87) {
              var _conns87 = window._entConnections || [];
              var _lbls87  = window._entLabels || {};
-             var _hcbeFound = !!_lbls87['Hookshot Cave Back Entrance'] ||
-                              _conns87.some(function(p) {
-                                return p[0] === 'Hookshot Cave Back Entrance' || p[1] === 'Hookshot Cave Back Entrance';
-                              });
-             if (_hcbeFound && mirror) return DMlight ? 'green' : 'yellow';
-             // Visible from upper east LW DM but unreachable without HCBE connector
-             return eastDM ? 'orange' : 'red';
+             var _synth87 = window._entSyntheticFoundRegions || [];
+             // GREEN:  HCBE direct connector/label + mirror → warp specifically to the LW island
+             // ORANGE: any Upper East LW DM access (Paradox Cave Top, HCBE w/o mirror, Superbunny
+             //         Cave Top area, eastDM) — can see the island but can't collect it
+             // RED:    no Upper East DM access at all
+             var _hcbeFound87 = !!_lbls87['Hookshot Cave Back Entrance'] ||
+                                _conns87.some(function(p) {
+                                  return p[0] === 'Hookshot Cave Back Entrance' || p[1] === 'Hookshot Cave Back Entrance';
+                                });
+             if (_hcbeFound87 && mirror) return 'green';
+             var _hasUpperEastDM87 = eastDM ||
+                                     _hcbeFound87 ||
+                                     _synth87.indexOf('Upper East Death Mountain') !== -1 ||
+                                     _synth87.indexOf('Inverted Upper East Death Mountain') !== -1 ||
+                                     _synth87.indexOf('Isolated East Dark Death Mountain Ledge') !== -1;
+             return _hasUpperEastDM87 ? 'orange' : 'red';
            }
            if (!eastDM) return 'red';
            return (mirror&&pearl&&titan) ? (DMlight?'green':'yellow') : 'orange';
@@ -1681,19 +1717,11 @@ function checkLogic(it) {
            // elsewhere), the ledge is reachable too, but North's rock
            // barrier requires glove.
            var isEntShuffle89 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
-           if (isEntShuffle89 && typeof window.dpEntranceFound === 'function') {
-             if (window.dpEntranceFound('Desert Palace Entrance (West)')) return 'green';
-             var dpNorthDirect89 = window.dpEntranceFound('Desert Palace Entrance (North)') ||
-               (typeof window.dpNorthLabelFound === 'function' && window.dpNorthLabelFound());
-             if (dpNorthDirect89) {
-               var t89dp = window.trackerItems || {};
-               if (t89dp.gloves >= 1) return 'green';
-               return 'yellow';
-             }
-             // No DP connector — book alone doesn't grant ledge access in entrance shuffle.
-             // DW path (Titan's Mitt + Flute + Mirror) is still valid (overworld, not shuffled).
-             if (titan && flute && mirror) return 'green';
-             return 'orange'; // visible from the overworld but unreachable without a DP connector
+           if (isEntShuffle89) {
+             // Green iff Desert Palace Entrance (West) itself is accessible — covers all paths:
+             // direct connector, label group, South West DW + mirror, DP North found + glove.
+             var _euFn89 = typeof window.entranceUnavailable === 'function' ? window.entranceUnavailable : function() { return false; };
+             return !_euFn89('Desert Palace Entrance (West)') ? 'green' : 'orange';
            }
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
@@ -1716,6 +1744,15 @@ function checkLogic(it) {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) return (lwAccess && flippers) ? 'green' : 'orange';
            if (!flippers) return 'orange';
+           // Entrance shuffle: South Dark World access via connector + mirror lets the
+           // player warp from the DW lake area to the LW island (no aga/titan/glove needed).
+           var _isEntShuffle90 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           if (_isEntShuffle90) {
+             var _synth90 = window._entSyntheticFoundRegions || [];
+             var _southDW90 = _synth90.indexOf('South Dark World') !== -1 ||
+                              _synth90.indexOf('Inverted South Dark World') !== -1;
+             if (_southDW90 && pearl && mirror) return 'green';
+           }
            return (pearl&&mirror&&(aga||titan||(glove&&hammer))) ? 'green' : 'orange';
          },
     91:  function() {
@@ -1954,6 +1991,13 @@ window.checkColor = function(id) {
           // Fall through to checkLogic — it returns appropriate orange/green
         } else if (_eastDMFound) {
           // Upper East DM reached via connector; check function handles the rest
+        // Inverted entrance shuffle: Old Man (75) — glove doesn't reach DM when
+        // the cave entrance is shuffled. Flute (bird warp) or a LWDM connector does.
+        } else if (_isEntShuffle && id === 75 &&
+                   (it.flute >= 1 ||
+                    _synthRegs87.indexOf('Lower West Death Mountain') !== -1 ||
+                    _synthRegs87.indexOf('Inverted Lower West Death Mountain') !== -1)) {
+          return it.lamp >= 1 ? 'green' : 'yellow';
         // Inverted entrance shuffle: flippers + pearl + any water-area LW entrance →
         // King Zora (74) and Zora's Ledge (94) accessible by swimming
         } else if (false) { /* water checks handled upstream */
@@ -2421,10 +2465,6 @@ Object.keys(DUNGEONS).forEach(function(key) {
   img.alt = def.label;
   el.appendChild(img);
 
-  // Only cycle prize for dungeons with a prize (prize >= 0)
-  el.addEventListener('click', function() {
-    if (def.prize >= 0) cyclePrize(key);
-  });
   el.addEventListener('mouseenter', function(e) { showTip(def.label + ' — ' + dngStatusText(key), e); });
   el.addEventListener('mousemove',  moveTip);
   el.addEventListener('mouseleave', hideTip);
@@ -2648,7 +2688,8 @@ if (_inverted) {
   try { entNotes  = JSON.parse(localStorage.getItem(ENT_NOTES_KEY)  || '{}'); } catch(ex) {}
   try { entConnections = JSON.parse(localStorage.getItem(ENT_CONNS_KEY) || '[]'); } catch(ex) {}
 
-  window._entLabels = entLabels; // exposed for checkLogic (e.g. Sunken Treasure: Dam label)
+  window._entLabels      = entLabels;      // exposed for checkLogic (e.g. Sunken Treasure: Dam label)
+  window._entConnections = entConnections; // exposed early so entranceUnavailable can read it before any connector op fires
 
   function saveLabels()      { localStorage.setItem(ENT_LABELS_KEY, JSON.stringify(entLabels)); }
   function saveNotes()       { localStorage.setItem(ENT_NOTES_KEY,  JSON.stringify(entNotes)); }
@@ -2763,6 +2804,7 @@ if (_inverted) {
     'Death Mountain Return Cave (East)':   'Lower West Death Mountain',
     'East Dark World Hint':                'East Dark World',
     'Fortune Teller (Dark)':               'West Dark World',
+    'Misery Mire':                         'South West Dark World',
     'Mire Fairy':                          'South West Dark World',
     'Mire Hint':                           'South West Dark World',
     'Mire Shed':                           'South West Dark World',
@@ -2781,14 +2823,20 @@ if (_inverted) {
     'Spiral Cave':                         'Lower East Death Mountain',
     'Spiral Cave (Bottom)':                'Lower East Death Mountain',
     'Superbunny Cave (Bottom)':            'Lower East Dark Death Mountain',
-    // NOTE: "Superbunny Cave (Top)" intentionally OMITTED here.
-    // It sits on the isolated east DDM ledge, which is physically separated from
-    // the main Upper Dark Death Mountain area (Hookshot Cave / Ganons Tower) by a
-    // hookshot gap. Finding/connecting Superbunny Cave Top does NOT automatically
-    // grant Upper Dark DM access — the player must have hookshot to cross.
-    // canReachUpperDarkDeathMountain() in ent_logic.js handles this via the
-    // hookshot + hasFoundRegion path.
+    // "Superbunny Cave (Top)" exits on the isolated east DDM ledge — physically
+    // separate from both Upper Dark DM (hookshot gap) and the main Lower East DDM
+    // area. We give it its own region so cascades can distinguish it:
+    //   • Fall down from ledge  → Lower East DDM (Superbunny Bottom, Dark DM Shop)
+    //   • Mirror from ledge     → Upper East LW DM (Paradox Cave Top area)
+    // Both cascades are handled in refreshSyntheticRegions below.
+    'Superbunny Cave (Top)':              'Isolated East Dark Death Mountain Ledge',
     'Archery Game':                        'South Dark World',
+    // Bumper Cave (Top) is "never" accessible in Open vanilla logic, but physically
+    // the exit lands on the northwest DW ledge adjacent to the main West Dark World.
+    // In entrance shuffle, a connector to/from Bumper Cave (Top) means the player
+    // has physically reached that area — grant West Dark World so nearby entrance
+    // markers (Skull Woods, Dark Lumberjack, C-Shaped House, etc.) are not red.
+    'Bumper Cave (Top)':                   'West Dark World',
     'Chest Game':                          'West Dark World',
     'Dark Death Mountain Fairy':           'Lower West Dark Death Mountain',
     'Dark Lake Hylia Fairy':               'East Dark World',
@@ -2879,6 +2927,19 @@ if (_inverted) {
     // Secondary "drop down / cross over" grants
     var ti = window.trackerItems || {};
     var hasMirror = (ti.mirror || 0) >= 1;
+    // Isolated East DDM Ledge (Superbunny Cave Top exit):
+    // Falling from the ledge lands in the Lower East DDM area; mirroring from
+    // the ledge warps to the Upper East LW DM (Paradox Cave Top / Hookshot Cave area).
+    if (found.indexOf('Isolated East Dark Death Mountain Ledge') !== -1 &&
+        found.indexOf('Lower East Dark Death Mountain') === -1) {
+      found.push('Lower East Dark Death Mountain');
+      if (isInverted && found.indexOf('Inverted Lower East Dark Death Mountain') === -1) found.push('Inverted Lower East Dark Death Mountain');
+    }
+    if (hasMirror && found.indexOf('Isolated East Dark Death Mountain Ledge') !== -1 &&
+        found.indexOf('Upper East Death Mountain') === -1) {
+      found.push('Upper East Death Mountain');
+      if (isInverted && found.indexOf('Inverted Upper East Death Mountain') === -1) found.push('Inverted Upper East Death Mountain');
+    }
     if (found.indexOf('Upper Dark Death Mountain') !== -1 && found.indexOf('Lower East Dark Death Mountain') === -1) {
       found.push('Lower East Dark Death Mountain');
       if (isInverted && found.indexOf('Inverted Lower East Dark Death Mountain') === -1) found.push('Inverted Lower East Dark Death Mountain');
@@ -2930,22 +2991,86 @@ if (_inverted) {
         if (isInverted && found.indexOf('Inverted Lower West Death Mountain') === -1) found.push('Inverted Lower West Death Mountain');
       }
     }
+    // DW DM → LW DM (reverse mirror): mirroring from the Dark World Death Mountain
+    // warps back to the equivalent Light World area. These reverse cascades let the
+    // player access LW DM entrances once they have a DW DM foothold via connectors.
+    //
+    // Lower East DW DM (Superbunny Cave area) → mirror → Lower East LW DM
+    // (Paradox Cave Bottom/Middle, Spiral Cave Bottom, Hookshot Fairy).
+    if (hasMirror && found.indexOf('Lower East Dark Death Mountain') !== -1 &&
+        found.indexOf('Lower East Death Mountain') === -1) {
+      found.push('Lower East Death Mountain');
+      if (isInverted && found.indexOf('Inverted Lower East Death Mountain') === -1) found.push('Inverted Lower East Death Mountain');
+    }
+    // Lower West DW DM (Spike Cave / Dark Death Mountain Fairy area) → mirror →
+    // Lower West LW DM (Old Man Cave East, Spectacle Rock Cave, Old Man House, etc.).
+    if (hasMirror && found.indexOf('Lower West Dark Death Mountain') !== -1 &&
+        found.indexOf('Lower West Death Mountain') === -1) {
+      found.push('Lower West Death Mountain');
+      if (isInverted && found.indexOf('Inverted Lower West Death Mountain') === -1) found.push('Inverted Lower West Death Mountain');
+    }
     if (found.indexOf('West Dark World') !== -1 && found.indexOf('South Dark World') === -1) {
       found.push('South Dark World');
       if (isInverted && found.indexOf('Inverted South Dark World') === -1) found.push('Inverted South Dark World');
     }
+    // East Dark World + mirror → Hyrule Castle Balcony: player can climb the pyramid
+    // and mirror to the HC Balcony area (open mode only; inverted handled by item logic).
+    if (!isInverted && hasMirror && found.indexOf('East Dark World') !== -1 &&
+        found.indexOf('Hyrule Castle Balcony') === -1) {
+      found.push('Hyrule Castle Balcony');
+    }
     // Hyrule Castle Balcony (Pyramid/HC area) is physically inside East Dark World —
     // finding/reaching HC Balcony also grants East Dark World access (open mode only;
     // in inverted the region meanings are flipped and handled separately by item logic).
-    if (!isInverted && found.indexOf('Hyrule Castle Balcony') !== -1 && found.indexOf('East Dark World') === -1) {
+    // In entrance shuffle a connector to an HC entrance puts the player inside a cave
+    // interior, NOT on the East DW overworld — suppress this cascade so POD and other
+    // East DW entrances don't incorrectly become accessible.
+    var _isEntShuffleHCB = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+    if (!isInverted && !_isEntShuffleHCB && found.indexOf('Hyrule Castle Balcony') !== -1 && found.indexOf('East Dark World') === -1) {
       found.push('East Dark World');
     }
-    // East Dark World + glove/flippers/hammer → North East Dark World
-    // (matches canReachInvertedNorthEastDarkWorld / canReachNorthEastDarkWorld logic)
+    // East Dark World + moonpearl + glove/flippers/hammer → North East Dark World
+    // (matches canReachNorthEastDarkWorld logic; pearl required in open mode so
+    // bunny-form players can't lift the block en route to Dark Potion Shop).
+    // In inverted the player is native to DW so pearl is not required.
     var hasGlove    = (ti.gloves || 0) >= 1;
     var hasHammer   = !!(ti.hammer);
     var hasFlippers = !!(ti.flippers);
-    if (found.indexOf('East Dark World') !== -1 && (hasGlove || hasFlippers || hasHammer) &&
+    var hasPearl    = !!(ti.moonpearl);
+    if (found.indexOf('East Dark World') !== -1 && (isInverted || hasPearl) &&
+        (hasGlove || hasFlippers || hasHammer) &&
+        found.indexOf('North East Dark World') === -1) {
+      found.push('North East Dark World');
+      if (isInverted && found.indexOf('Inverted North East Dark World') === -1) found.push('Inverted North East Dark World');
+    }
+    // South Dark World + flippers + moonpearl → South East Dark World
+    // (In vanilla, flippers let you swim from the south DW lake to the Dark Lake Hylia ledge.
+    // In entrance shuffle, once you have a South Dark World connector, you can reach the SE DW
+    // lake area with flippers + moonpearl. In inverted, moonpearl is not needed.)
+    if (found.indexOf('South Dark World') !== -1 && hasFlippers && (isInverted || hasPearl) &&
+        found.indexOf('South East Dark World') === -1) {
+      found.push('South East Dark World');
+      if (isInverted && found.indexOf('Inverted South East Dark World') === -1) found.push('Inverted South East Dark World');
+    }
+    // South Dark World + flippers + moonpearl → East Dark World
+    // Dark Lake Hylia's water connects southward to the East Dark World (Palace of Darkness
+    // area). With flippers + moonpearl the player can swim from any South DW water access
+    // point north into East Dark World.
+    if (found.indexOf('South Dark World') !== -1 && hasFlippers && (isInverted || hasPearl) &&
+        found.indexOf('East Dark World') === -1) {
+      found.push('East Dark World');
+      if (isInverted && found.indexOf('Inverted East Dark World') === -1) found.push('Inverted East Dark World');
+    }
+    // South East Dark World + flippers + moonpearl → East Dark World
+    // Same connected water body — SE DW (Dark Lake Hylia Ledge area) also reaches East DW.
+    if (found.indexOf('South East Dark World') !== -1 && hasFlippers && (isInverted || hasPearl) &&
+        found.indexOf('East Dark World') === -1) {
+      found.push('East Dark World');
+      if (isInverted && found.indexOf('Inverted East Dark World') === -1) found.push('Inverted East Dark World');
+    }
+    // Re-check North East Dark World now that East Dark World may have been added by swimming.
+    if (found.indexOf('East Dark World') !== -1 && (isInverted || hasPearl) &&
+        (hasGlove || hasFlippers || hasHammer) &&
         found.indexOf('North East Dark World') === -1) {
       found.push('North East Dark World');
       if (isInverted && found.indexOf('Inverted North East Dark World') === -1) found.push('Inverted North East Dark World');
@@ -3039,10 +3164,10 @@ if (_inverted) {
     };
   }
 
-  // Returns true if 2 or more of {DP M, DP W, DP E} are CURRENTLY labeled on
-  // real entrance markers (anywhere on the map). These three labels act as a
-  // connector group: once 2+ are placed, each of those specific labeled
-  // markers is mutually "found"/connected to the others.
+  // Returns true if 1 or more of {DP M, DP W, DP E} are CURRENTLY labeled on
+  // real entrance markers (anywhere on the map). One label is sufficient to
+  // establish that Desert Palace has been found; the marker gets dungeon color
+  // and the connection group fires.
   function dpLabelGroupFound() {
     var logic = window.logic_entrances || {};
     var count = 0;
@@ -3051,7 +3176,7 @@ if (_inverted) {
       var c = entLabels[name];
       if (c === 'DP M' || c === 'DP W' || c === 'DP E') count++;
     }
-    return count >= 2;
+    return count >= 1;
   }
   window.dpLabelGroupFound = dpLabelGroupFound; // exposed for checkColor (#89)
 
@@ -3508,6 +3633,29 @@ if (_inverted) {
       }
     }
 
+    // Misery Mire area cluster: Misery Mire, Mire Shed, Mire Fairy, and Mire Hint
+    // all share the same SW Dark World overworld area. When the player physically
+    // reaches any one of them via a connector (e.g. Library ↔ Misery Mire), all
+    // four are reachable — the player is standing in that area.
+    var MIRE_CLUSTER = ['Misery Mire', 'Mire Shed', 'Mire Fairy', 'Mire Hint'];
+    if (MIRE_CLUSTER.indexOf(name) !== -1 && window.trackerSettings && window.trackerSettings.entranceShuffle) {
+      var _mireConns = window._entConnections || entConnections || [];
+      var _mireFound = false;
+      for (var _mireI = 0; _mireI < _mireConns.length && !_mireFound; _mireI++) {
+        for (var _mireJ = 0; _mireJ < MIRE_CLUSTER.length; _mireJ++) {
+          if (_mireConns[_mireI][0] === MIRE_CLUSTER[_mireJ] || _mireConns[_mireI][1] === MIRE_CLUSTER[_mireJ]) {
+            _mireFound = true; break;
+          }
+        }
+      }
+      // Mire Shed/Fairy/Hint are simple cave entrances — if the player
+      // physically reached any Mire-cluster entrance they can walk to all of them.
+      // Misery Mire is a dungeon door that STILL requires the correct medallion +
+      // weapon even when the player is in the area — let it fall through to the
+      // try block and medallion special case below.
+      if (_mireFound && name !== 'Misery Mire') return false;
+    }
+
     try {
       var items = buildEntLogicItems();
       var prizes = [];
@@ -3538,6 +3686,7 @@ if (_inverted) {
       return false;
     }
   }
+  window.entranceUnavailable = entranceUnavailable; // exposed for checkColor (#89)
 
   // Hex colors matching the .dng.<class> rules, for dungeon-marked entrance markers.
   var DUNGEON_COLOR_HEX = {
@@ -3656,6 +3805,16 @@ if (_inverted) {
     // Reachability: red if entrance not yet logically available, lowest precedence
     // (only applies when no key-location color, note color, cleared, connector, or label wins)
     var showUnavail = !color && !hasNote && !marker.classList.contains('cleared') && !marker.classList.contains('connector') && !marker.classList.contains('ent-marked') && entranceUnavailable(name);
+    // Belt-and-suspenders for Misery Mire in entrance shuffle: a connector drawn
+    // directly to the entrance means the player physically reached the area via a
+    // connected exit — never show it as unavailable. We check entConnections (the
+    // closure var) directly in case window._entConnections or the connector CSS
+    // class isn't yet in sync at this point in the render cycle.
+    if (showUnavail && name === 'Misery Mire' && window.trackerSettings && window.trackerSettings.entranceShuffle) {
+      if (entConnections.some(function(p) { return p[0] === 'Misery Mire' || p[1] === 'Misery Mire'; })) {
+        showUnavail = false;
+      }
+    }
     marker.classList.toggle('ent-unavailable', showUnavail);
 
     // Show dungeon prize icon inside the box marker, if applicable
