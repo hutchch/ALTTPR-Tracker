@@ -1348,8 +1348,19 @@ function checkLogic(it) {
     4:   function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            var _entSh4 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
-           // Entrance shuffle: cave physically found — only hammer needed for the chest
-           if (_entSh4) return hammer ? 'green' : 'red';
+           if (_entSh4) {
+             if (!hammer) return 'red';
+             // If the 'Mimic' label is on a Dark World entrance the player is in
+             // bunny form without moonpearl and cannot collect the chest.
+             var _labels4 = window._entLabels || {};
+             var _dwEnts4 = window.ALL_DW_ENTRANCES || {};
+             var _mimicDW4 = false;
+             for (var _n4 in _labels4) {
+               if (_labels4[_n4] === 'Mimic') { _mimicDW4 = !!_dwEnts4[_n4]; break; }
+             }
+             if (_mimicDW4 && !pearl) return 'red';
+             return 'green';
+           }
            if (_inv) {
              // Right side LW DM access gated by outer block (pearl+glove+titans OR hookshot)
              // Hammer required for chest
@@ -1383,8 +1394,19 @@ function checkLogic(it) {
     13:  function() {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
            var _isEntShuffle13 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
-           // Entrance shuffle: cave physically found — hammer to break pegs + byrna or cape for spikes
-           if (_isEntShuffle13) { if (!hammer) return 'red'; return (byrna||cape) ? 'green' : 'red'; }
+           if (_isEntShuffle13) {
+             if (!hammer) return 'red';
+             // If the 'Spike' label is on a Dark World entrance the player is in
+             // bunny form without moonpearl and cannot complete the cave.
+             var _labels13 = window._entLabels || {};
+             var _dwEnts13 = window.ALL_DW_ENTRANCES || {};
+             var _spikeDW13 = false;
+             for (var _n13 in _labels13) {
+               if (_labels13[_n13] === 'Spike') { _spikeDW13 = !!_dwEnts13[_n13]; break; }
+             }
+             if (_spikeDW13 && !pearl) return 'red';
+             return (byrna||cape) ? 'green' : 'red';
+           }
            if (_inv) { if (!glove||!hammer) return 'red'; if (!byrna&&!cape) return 'yellow'; return DMlight ? 'green' : 'yellow'; }
            if (!pearl||!glove||!hammer) return 'red';
            if (!byrna&&!cape) return 'yellow'; return DMlight ? 'green' : 'yellow';
@@ -1465,22 +1487,23 @@ function checkLogic(it) {
            var sl = window.trackerSettings && window.trackerSettings.swordless === 'yes';
            var weapon = sl ? hammer : sword2;
            var _isEntShuffle71 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
-           // Entrance shuffle: any LW DM connector (Upper or Lower) grants outdoor tablet access.
-           // Lower West DM connectors (Spectacle Rock Cave, Old Man Cave East, etc.) let the
-           // player walk the outdoor mountain paths to the Ether Tablet — no lamp needed outdoors.
+           // Entrance shuffle: West DM connector or flute grants outdoor tablet access.
+           // Gloves alone are NOT sufficient — the Old Man Cave entrance is shuffled so
+           // gloves don't get the player to West Death Mountain. Only flute (bird warp
+           // bypasses the shuffle) or a West DM connector reaches the Ether Tablet ledge.
+           // (East DM connectors like Paradox Cave Bottom are a different region and
+           //  don't provide a path to the tablet's Spectacle Rock location.)
            if (_isEntShuffle71) {
              var _synth71 = window._entSyntheticFoundRegions || [];
-             // climbDM covers vanilla DM access (glove or flute) — no lamp needed outdoors.
-             var _dmReached71 = climbDM ||
+             var _dmReached71 = flute ||
                                 _synth71.indexOf('Upper West Death Mountain') !== -1 ||
                                 _synth71.indexOf('Inverted Upper West Death Mountain') !== -1 ||
                                 _synth71.indexOf('Lower West Death Mountain') !== -1 ||
                                 _synth71.indexOf('Inverted Lower West Death Mountain') !== -1;
-             if (_dmReached71) {
-               if (!book) return 'red';
-               if (!(mirror || (hookshot && hammer))) return 'orange';
-               return weapon ? 'green' : 'orange';
-             }
+             if (!_dmReached71) return 'red';
+             if (!book) return 'red';
+             if (!(mirror || (hookshot && hammer))) return 'orange';
+             return weapon ? 'green' : 'orange';
            }
            if (_inv) {
              // Inverted: top-left LW DM access gated by outer block (pearl+glove+hookshot OR pearl+titans+hammer)
@@ -1524,12 +1547,12 @@ function checkLogic(it) {
            // Inverted non-shuffle (and inverted ent-shuffle without East DW connector):
            // glove is always required; additionally need East DW access.
            if (_inv) return (glove && (flippers || (mirror && lwAccess) || (superBunny && mirror) || (hammer || (flute && lwAccess)))) ? 'green' : 'red';
-           // Non-inverted entrance shuffle: Catfish is in North East Dark World
-           // (requires East DW + pearl + glove — pearl needed to lift block in non-bunny form).
-           // Using North East Dark World here inherits the pearl requirement from the cascade.
+           // Non-inverted entrance shuffle: Catfish is in North East Dark World.
+           // Moonpearl is required — there is a rock blocking the path that can only
+           // be lifted in human form (bunny cannot lift rocks).
            if (_isEntShuffle73) {
              var _synth73 = window._entSyntheticFoundRegions || [];
-             if (_synth73.indexOf('North East Dark World') !== -1) return glove ? 'green' : 'red';
+             if (_synth73.indexOf('North East Dark World') !== -1) return (pearl && glove) ? 'green' : 'red';
            }
            return (dwEast&&glove) ? 'green' : 'red';
          },
@@ -1761,20 +1784,16 @@ function checkLogic(it) {
            // Otherwise orange. HC group / Bottom entrance is irrelevant.
            var isEntShuffle91 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
            if (isEntShuffle91) {
+             // Only accessible via a direct connector/label on Bumper Cave (Top).
              var conns91 = window._entConnections || [];
              var labels91 = window._entLabels || {};
              var bcTopFound = false;
-             var dmRetWestFound = false;
              for (var ci = 0; ci < conns91.length; ci++) {
                var ca = conns91[ci][0], cb = conns91[ci][1];
-               if (ca === 'Bumper Cave (Top)' || cb === 'Bumper Cave (Top)') bcTopFound = true;
-               if (ca === 'Death Mountain Return Cave (West)' || cb === 'Death Mountain Return Cave (West)') dmRetWestFound = true;
+               if (ca === 'Bumper Cave (Top)' || cb === 'Bumper Cave (Top)') { bcTopFound = true; break; }
              }
              if (!bcTopFound && labels91['Bumper Cave (Top)']) bcTopFound = true;
-             if (!dmRetWestFound && labels91['Death Mountain Return Cave (West)']) dmRetWestFound = true;
-             if (bcTopFound) return 'green';
-             if (dmRetWestFound && mirror) return 'green';
-             return 'orange';
+             return bcTopFound ? 'green' : 'orange';
            }
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            if (_inv) {
@@ -1861,8 +1880,10 @@ function checkLogic(it) {
     101: function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            var _entSh101 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
-           // Entrance shuffle: smiths physically found — only titans mitts needed to rescue
-           if (_entSh101) return titan ? 'green' : 'red';
+           // Entrance shuffle: smiths physically found.
+           // Non-inverted: frog is in the DW overworld — moonpearl required to not be bunny.
+           // Inverted: smithy is in the LW — no moonpearl needed.
+           if (_entSh101) return _inv ? (titan ? 'green' : 'red') : ((pearl && titan) ? 'green' : 'red');
            if (_inv) return ((titan || mirror) && lwAccess) || (superBunny && mirror) ? 'green' : 'red';
            return (pearl&&titan) ? 'green' : 'red';
          },
@@ -2644,15 +2665,15 @@ if (_inverted) {
       ['HCM','HC M', '#2acbe8'], ['HCW','HC W', '#2acbe8'], ['HCE','HC E', '#2acbe8'],
       ['CT','CT', '#1a8a9a'], ['EP','EP', '#1a8a9a'],
       ['DPM','DP M', '#8a8a2a'], ['DPW','DP W', '#8a8a2a'], ['DPE','DP E', '#8a8a2a'],
-      ['DPN','DP N', '#8a8a2a'], ['TOH','ToH', '#1a8a9a']
+      ['DPN','DP', '#8a8a2a'], ['TOH','ToH', '#1a8a9a']
     ]},
     { title: 'Dark World Dungeons', color: '#1a8a9a', codes: [
       ['POD','PoD'], ['SP','SP'], ['SWM','SW M', '#2acbe8'], ['SWW','SW W', '#2acbe8'], ['SWE','SW E', '#2acbe8'],
       ['SW','SW', '#2acbe8'], ['TT','TT'], ['IP','IP'], ['MM','MM'], ['TRM','TR M', '#cc6a1a'],
-      ['TRW','TR W', '#cc6a1a'], ['TRE','TR E', '#cc6a1a'], ['TRB','TR B', '#cc6a1a'], ['GT','GT'], ['GANON','Ganon']
+      ['TRW','TR W', '#cc6a1a'], ['TRE','TR E', '#cc6a1a'], ['TRB','TR', '#cc6a1a'], ['GT','GT'], ['GANON','Ganon']
     ]},
     { title: 'General Key Locations', color: '#3a9a3a', codes: [
-      ['RUPEE','Rupee 💰'], ['SHOP','Shop $'], ['DARK','Dark', '#1a4a8a'], ['ITEM','Item'], ['FAIRY','Fairy 🧚']
+      ['RUPEE','Rupee 💰'], ['SHOP','Shop $'], ['DARK','Dark', '#2563BE'], ['ITEM','Item', '#4dff88'], ['FAIRY','Fairy 🧚']
     ]},
     { title: 'Light World Key Locations', color: '#cc6a1a', codes: [
       ['MAGIC','Magic'], ['SAHAS','Sahas'],
@@ -2741,7 +2762,7 @@ if (_inverted) {
       'DP M': dpLabelGroupFound(), 'DP W': dpLabelGroupFound(), 'DP E': dpLabelGroupFound(),
       'HC M': hcLabelGroupFound(), 'HC W': hcLabelGroupFound(), 'HC E': hcLabelGroupFound(),
       'TR M': trLabelGroupFound(), 'TR W': trLabelGroupFound(),
-      'TR E': trEBLabelGroupFound(), 'TR B': trEBLabelGroupFound(),
+      'TR E': trEBLabelGroupFound(), 'TR': trEBLabelGroupFound(),
       'SW E': swLabelGroupFound(), 'SW W': swLabelGroupFound()
     };
     Object.keys(entLabels).forEach(function(name) {
@@ -2830,12 +2851,13 @@ if (_inverted) {
     //   • Mirror from ledge     → Upper East LW DM (Paradox Cave Top area)
     // Both cascades are handled in refreshSyntheticRegions below.
     'Superbunny Cave (Top)':              'Isolated East Dark Death Mountain Ledge',
-    'Archery Game':                        'South Dark World',
+    'Archery Game':                        'West Dark World',
     // Bumper Cave (Top) is "never" accessible in Open vanilla logic, but physically
     // the exit lands on the northwest DW ledge adjacent to the main West Dark World.
     // In entrance shuffle, a connector to/from Bumper Cave (Top) means the player
     // has physically reached that area — grant West Dark World so nearby entrance
     // markers (Skull Woods, Dark Lumberjack, C-Shaped House, etc.) are not red.
+    'Brewery':                             'West Dark World',
     'Bumper Cave (Top)':                   'West Dark World',
     'Chest Game':                          'West Dark World',
     'Dark Death Mountain Fairy':           'Lower West Dark Death Mountain',
@@ -2856,6 +2878,7 @@ if (_inverted) {
     'Spectacle Rock Cave Peak':            'Lower West Death Mountain',
     'Spike Cave':                          'Lower West Dark Death Mountain',
     'Swamp Palace':                        'South Dark World',
+    'Thieves Town':                        'West Dark World',
     'Tower of Hera':                       'Upper West Death Mountain'
   };
 
@@ -3009,6 +3032,16 @@ if (_inverted) {
       found.push('Lower West Death Mountain');
       if (isInverted && found.indexOf('Inverted Lower West Death Mountain') === -1) found.push('Inverted Lower West Death Mountain');
     }
+    // Upper Dark DM (GT / Hookshot Cave level) + mirror → Upper East LW DM
+    // (Paradox Cave Top / east side DM area). Mirroring from the top of DW DM
+    // puts you on the EAST side of Upper LW DM — Paradox Cave Top, Hookshot Cave area.
+    // Required for connectors to HCBE, GT, Superbunny Cave Top, Turtle Rock, etc. to
+    // correctly unlock Upper East LW DM entrance markers via the synth region system.
+    if (hasMirror && found.indexOf('Upper Dark Death Mountain') !== -1 &&
+        found.indexOf('Upper East Death Mountain') === -1) {
+      found.push('Upper East Death Mountain');
+      if (isInverted && found.indexOf('Inverted Upper East Death Mountain') === -1) found.push('Inverted Upper East Death Mountain');
+    }
     if (found.indexOf('West Dark World') !== -1 && found.indexOf('South Dark World') === -1) {
       found.push('South Dark World');
       if (isInverted && found.indexOf('Inverted South Dark World') === -1) found.push('Inverted South Dark World');
@@ -3093,11 +3126,11 @@ if (_inverted) {
   // Apply/clear the marker's label-color, respecting the cleared state.
   // Map key-location label codes to DUNGEONS entries (for prize icons)
   var ENT_LABEL_TO_DUNGEON = {
-    'EP': 'ep', 'DP N': 'dp',
+    'EP': 'ep', 'DP': 'dp',
     'ToH': 'toh', 'CT': 'ct', 'PoD': 'pod', 'SP': 'sp',
     'SW': 'sw',
     'TT': 'tt', 'IP': 'ip', 'MM': 'mm',
-    'TR B': 'tr', 'GT': 'gt'
+    'TR': 'tr', 'GT': 'gt'
   };
 
   // Map non-dungeon key-location label codes to a checkLogic id whose
@@ -3219,7 +3252,7 @@ if (_inverted) {
     for (var name in entLabels) {
       if (!logic[name]) continue;
       var c = entLabels[name];
-      if (c === 'TR E' || c === 'TR B') count++;
+      if (c === 'TR E' || c === 'TR') count++;
     }
     return count >= 2;
   }
@@ -3321,12 +3354,11 @@ if (_inverted) {
   };
   // Expose for ent_logic.js and Pyramid Exit check
   window.ALL_DW_ENTRANCES = (function() {
-    // Built by inverting ALL_LW_ENTRANCES against the full entrance list from entrances_data.js.
-    // Used only by legacy code that checks !ALL_DW_ENTRANCES[name].
+    // Built from entrances_data.js (global ENTRANCES array) using the world property.
     var dw = {};
-    if (window.ENTRANCE_DATA) {
-      window.ENTRANCE_DATA.forEach(function(e) {
-        if (!ALL_LW_ENTRANCES[e.name]) dw[e.name] = 1;
+    if (typeof ENTRANCES !== 'undefined') {
+      ENTRANCES.forEach(function(e) {
+        if (e.world === 'dw') dw[e.name] = 1;
       });
     }
     return dw;
@@ -3383,7 +3415,7 @@ if (_inverted) {
   function dpNorthLabelFound() {
     var logic = window.logic_entrances || {};
     for (var name in entLabels) {
-      if (entLabels[name] !== 'DP N') continue;
+      if (entLabels[name] !== 'DP') continue;
       if (!logic[name]) continue;
       // Skip the vanilla pins themselves here — they're handled by
       // dpEntranceFound, and including them would just be redundant.
@@ -3453,7 +3485,7 @@ if (_inverted) {
     if ((trCode === 'TR M' || trCode === 'TR W') && trLabelGroupFound()) {
       return false;
     }
-    if ((trCode === 'TR E' || trCode === 'TR B') && trEBLabelGroupFound()) {
+    if ((trCode === 'TR E' || trCode === 'TR') && trEBLabelGroupFound()) {
       return false;
     }
 
@@ -3579,10 +3611,11 @@ if (_inverted) {
     // "Pyramid Fairy": if the player has both red crystals AND a real
     // entrance marker is labeled "Bomb" (i.e. the Big Bomb Shop has been
     // located), Pyramid Fairy is available — no need to separately satisfy
-    // canReach|East Dark World.
+    // canReach|East Dark World. Moonpearl is also required: the fairy
+    // entrance is in the Dark World and a bunny cannot interact with it.
     if (name === 'Pyramid Fairy') {
       var pfItems = window.trackerItems || {};
-      if ((pfItems.redCrystal || 0) >= 2) {
+      if ((pfItems.redCrystal || 0) >= 2 && pfItems.moonpearl) {
         var pfLogic = window.logic_entrances || {};
         for (var pfName in entLabels) {
           if (entLabels[pfName] === 'Bomb' && pfLogic[pfName]) return false;
@@ -3723,12 +3756,15 @@ if (_inverted) {
 
     // "Mimic" — entrance shuffle only: the entrance itself being found means
     // the overworld access route (pearl/titan/mirror/medallion/etc.) used by
-    // check 4 is irrelevant. Only the hammer is needed for the chest.
+    // check 4 is irrelevant. Hammer is needed for the chest. If the label is
+    // on a Dark World entrance, moonpearl is also required (bunny can't collect).
     if (code === 'Mimic') {
       var isEntShuffleMimic = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
       if (isEntShuffleMimic) {
         var ti2 = window.trackerItems || {};
-        color = ti2.hammer ? DUNGEON_COLOR_HEX.green : DUNGEON_COLOR_HEX.red;
+        var _mimicIsDW = !!(window.ALL_DW_ENTRANCES && window.ALL_DW_ENTRANCES[name]);
+        var _mimicNeedPearl = _mimicIsDW && !ti2.moonpearl;
+        color = (ti2.hammer && !_mimicNeedPearl) ? DUNGEON_COLOR_HEX.green : DUNGEON_COLOR_HEX.red;
       } else if (window.checkColor) {
         var mimicColor = window.checkColor(4);
         if (DUNGEON_COLOR_HEX[mimicColor]) color = DUNGEON_COLOR_HEX[mimicColor];
@@ -3746,12 +3782,13 @@ if (_inverted) {
       }
     }
 
-    // "Bomb" — once both red crystals are obtained, the Big Bomb Shop
-    // location is fully "done" (nothing further needed), so show green.
+    // "Bomb" — Big Bomb Shop. Requires 2 red crystals to stock the bomb AND
+    // moonpearl to interact (shop is in the DW; bunny can't purchase regardless
+    // of whether the entrance is on LW or DW side).
     if (code === 'Bomb') {
       var biItems = window.trackerItems || {};
       if ((biItems.redCrystal || 0) >= 2) {
-        color = DUNGEON_COLOR_HEX.green;
+        color = biItems.moonpearl ? DUNGEON_COLOR_HEX.green : DUNGEON_COLOR_HEX.red;
       }
     }
 
@@ -3814,6 +3851,15 @@ if (_inverted) {
       if (entConnections.some(function(p) { return p[0] === 'Misery Mire' || p[1] === 'Misery Mire'; })) {
         showUnavail = false;
       }
+    }
+    // Lumberjack Tree Tree requires Aga1 + boots to chase the bat in — this gate
+    // applies even when the entrance has been labeled or connected, because finding
+    // the entrance doesn't open it without the right items.
+    if (!showUnavail && !marker.classList.contains('cleared') &&
+        name === 'Lumberjack Tree Tree' &&
+        window.trackerSettings && window.trackerSettings.entranceShuffle) {
+      var _lj = window.trackerItems || {};
+      if (!_lj.agahnim || !_lj.boots) showUnavail = true;
     }
     marker.classList.toggle('ent-unavailable', showUnavail);
 
