@@ -263,7 +263,8 @@ body {
 .ent-popup-btn.danger:hover { background: #3a1414; color: #fff; }
 .ent-popup-section-label { color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 8px 0 4px; }
 .ent-popup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 4px; }
-.ent-popup-grid .ent-popup-btn { padding: 5px 4px; text-align: center; font-size: 11px; white-space: nowrap; }
+.ent-popup-grid .ent-popup-btn { padding: 5px 4px; text-align: center; font-size: 11px; white-space: nowrap; position: relative; }
+.ent-popup-prize { position: absolute; bottom: 1px; right: 1px; width: 14px; height: 14px; object-fit: contain; cursor: pointer; pointer-events: auto; }
 .ent-popup-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
 .ent-popup-conn-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .ent-popup-conn-row .swatch { width: 10px; height: 10px; border: 1px solid #000; transform: rotate(45deg); flex-shrink: 0; }
@@ -3945,6 +3946,7 @@ if (_inverted) {
   window._entRefreshPrizeIcons = function() {
     refreshSyntheticRegions();
     Object.keys(entMarkers).forEach(applyMarkerColor);
+    if (window.refreshPopupPrizeIcons) window.refreshPopupPrizeIcons();
   };
 
   // ── GT flash debug instrumentation ──────────────────────────────────────────
@@ -4291,6 +4293,7 @@ if (_inverted) {
   var popupCols   = document.getElementById('ent-popup-cols');
   var activeName  = null;
 
+
   // Build the key-location code grid once.
   KEY_LOCATION_GROUPS.forEach(function(group) {
     var col = document.createElement('div');
@@ -4319,6 +4322,17 @@ if (_inverted) {
         Object.keys(entMarkers).forEach(applyMarkerColor);
         closePopup();
       });
+      // Add prize icon for dungeon labels that have a cycled prize (read-only; synced from item tracker)
+      var dKeyForBtn = ENT_LABEL_TO_DUNGEON[pair[1]];
+      if (dKeyForBtn && DUNGEONS[dKeyForBtn] && DUNGEONS[dKeyForBtn].prize >= 0) {
+        (function(dk) {
+          var prizeImg = document.createElement('img');
+          prizeImg.className = 'ent-popup-prize';
+          prizeImg.dataset.dkey = dk;
+          prizeImg.src = PRIZE_CYCLE[DUNGEONS[dk].prize].img;
+          btn.appendChild(prizeImg);
+        })(dKeyForBtn);
+      }
       grid.appendChild(btn);
     });
     col.appendChild(grid);
@@ -4342,6 +4356,7 @@ if (_inverted) {
     popupTitle.textContent = name;
     popupNote.value = entNotes[name] || '';
     refreshKeyLocationMarks();
+    if (window.refreshPopupPrizeIcons) window.refreshPopupPrizeIcons();
     popupConnect.classList.toggle('active', window._entConnectPending === name);
     popupConnect.textContent = (window._entConnectPending === name) ? 'Cancel Connector' : 'Add Connector';
 
@@ -4654,6 +4669,19 @@ if (_inverted) {
     if (infoPopup) infoPopup.classList.remove('open');
   };
 })();
+
+// Refresh popup prize icons from current DUNGEONS state (item tracker is the source).
+// Defined globally so the BroadcastChannel prizes handler can call it directly,
+// regardless of whether the entrance overlay IIFE has run.
+window.refreshPopupPrizeIcons = function() {
+  document.querySelectorAll('.ent-popup-prize[data-dkey]').forEach(function(img) {
+    var dk = img.dataset.dkey;
+    var pDef = DUNGEONS[dk];
+    if (!pDef || pDef.prize < 0) return;
+    var isGreyed = !!(pDef.cleared || pDef.fullyCleared);
+    img.src = isGreyed ? PRIZE_CYCLE[pDef.prize].imgCleared : PRIZE_CYCLE[pDef.prize].img;
+  });
+};
 
 function cyclePrize(key) {
   var def = DUNGEONS[key];
@@ -5146,6 +5174,7 @@ try {
           window.trackerItems.redCrystal   = rc;
         }
         window.refreshMapLogic();
+        if (window.refreshPopupPrizeIcons) window.refreshPopupPrizeIcons();
         break;
       case 'boss':
         // Dedicated boss-state update from the item tracker (e.g. user picked
