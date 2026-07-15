@@ -48,10 +48,10 @@ User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/wiki)
 Emulator setup can be found: [Emulator Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Emulator-Setup)
 
 Windows Emulator Setup Guides
-- [Windows RetroArch Setup](https://github.com/hutchch/Emulator-Setup/wiki/Retroarch-Setup)
-- [Windows Bizhawk Setup](https://github.com/hutchch/Emulator-Setup/wiki/Bizhawk)
-- [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9x%E2%80%90EMUNWA)
-- [Windows SNES9x-RR Setup](https://github.com/hutchch/Emulator-Setup/wiki/SNES9X%E2%80%90RR)
+- [Windows RetroArch Setup](https://github.com/hutchch/ALTTPR-TRACKER/wiki/Retroarch-Setup)
+- [Windows Bizhawk Setup](https://github.com/hutchchALTTPR-TRACKER/wiki/Bizhawk)
+- [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/ALTTPR-Racker/wiki/SNES9x%E2%80%90EMUNWA)
+- [Windows SNES9x-RR Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9X%E2%80%90RR)
 
  macOS Emulator Setup Guide
 - [macOS RetroArch v1.22.2](https://github.com/hutchch/ALTTPR-Tracker/wiki/Retroarch-MacOS-Setup)
