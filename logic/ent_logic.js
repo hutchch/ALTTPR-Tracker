@@ -221,13 +221,14 @@
     return false;
   }
   function canReachUpperDarkDeathMountain() {
+    // Entrance shuffle: a connector/label on any Upper Dark DM entrance (including the
+    // isolated east ledge — Superbunny Cave Top, Turtle Rock, Hookshot Cave) grants full
+    // Upper Dark DM access. Walking from the isolated east ledge to the Hookshot Cave /
+    // GT area is possible without hookshot. Matches ref_chests.js.
+    if (hasFoundRegion(["Ganons Tower", "Hookshot Cave Back Entrance", "Hookshot Cave",
+                         "Superbunny Cave (Top)", "Turtle Rock"])) return true;
     // Titan's Mitt + Upper East DM → walk across to Upper Dark DM
     if (items.hammer && items.glove === 2 && canReachUpperEastDeathMountain()) return true;
-    // NOTE: The isolated east DDM ledge (Superbunny Cave Top, Turtle Rock Isolated
-    // Ledge, DDM Ledge holes) is a dead end — the ONLY exit is mirror back to LW.
-    // There is no hookshot crossing or walking path from the isolated ledge to the
-    // main Upper Dark DM area (Hookshot Cave / Ganons Tower). Mirror + West DM
-    // cascade is handled in refreshSyntheticRegions().
     return false;
   }
   function canReachLowerWestDarkDeathMountain() {
@@ -251,6 +252,9 @@
     if (items.moonpearl && items.glove > 1 && items.flippers) return true;
     if ((items.hammer || items.flippers) && items.moonpearl && canReachSouthDarkWorld(true)) return true;
     if (canLeaveSouthEastDarkWorld() && canReachSouthEastDarkWorld(true)) return true;
+    // Connector/label found an East DW entrance — player is physically there.
+    var _synthEDW = window._entSyntheticFoundRegions || [];
+    if (_synthEDW.indexOf('East Dark World') !== -1) return true;
     return false;
   }
   function canReachNorthEastDarkWorld() {
@@ -270,6 +274,9 @@
       if (items.moonpearl && items.hammer && canReachEastDarkWorld()) return true;
     }
     if (canReachWestDarkWorld(toEastDarkWorld)) return true;
+    // Connector/label found a South DW entrance — player is physically there.
+    var _synthSDW = window._entSyntheticFoundRegions || [];
+    if (_synthSDW.indexOf('South Dark World') !== -1) return true;
     return false;
   }
   function canReachSouthEastDarkWorld(toEastDarkWorld) {
@@ -284,6 +291,11 @@
   }
   function canReachHyruleCastleBalcony() {
     if (canReachEastDarkWorld() && items.mirror) return true;
+    // Connector-found East Dark World + mirror → player can climb the pyramid and
+    // mirror to the HC Balcony area. Check _entSyntheticFoundRegions directly so
+    // this works regardless of whether refreshSyntheticRegions ran after mirror toggle.
+    var _synth = window._entSyntheticFoundRegions || [];
+    if (items.mirror && _synth.indexOf('East Dark World') !== -1) return true;
     return false;
   }
 
