@@ -988,6 +988,7 @@ function dungeonColor(key) {
       if (isEntShuffleSW) {
         var swSwordOk = swordless ? !!it.hammer : !!it.sword;
         if (!swSwordOk) return 'yellow';
+        if ((it.swSmallKeys || 0) < 1) return 'yellow';
         if (settings.dungeonItems === 'keysanity') {
           if (!it.swBigKey) return 'yellow';
         }
@@ -1396,7 +1397,7 @@ function checkLogic(it) {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
            var _isEntShuffle13 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
            if (_isEntShuffle13) {
-             if (!hammer) return 'red';
+             if (!glove||!hammer) return 'red';
              // If the 'Spike' label is on a Dark World entrance the player is in
              // bunny form without moonpearl and cannot complete the cave.
              var _labels13 = window._entLabels || {};
@@ -1718,6 +1719,12 @@ function checkLogic(it) {
                for (var i = 0; i < conns.length; i++) {
                  if (conns[i][0] === 'Two Brothers House (West)' || conns[i][1] === 'Two Brothers House (West)') { found = true; break; }
                }
+             }
+             // Also check label-based synthetic connections (e.g. TBH(W) labeled as a
+             // DP entrance with 2+ DP labels placed → group treats it as found).
+             if (!found) {
+               var _synth88 = window._entSyntheticFoundEntrances || [];
+               found = _synth88.indexOf('Two Brothers House (West)') !== -1;
              }
              var _inv88 = !!(window.trackerSettings && window.trackerSettings.inverted);
              // Mirror + DW access (pearl-based OR connector-based) → can reach LW Two Brothers area.
@@ -2812,6 +2819,8 @@ if (_inverted) {
     // sits on Upper Dark Death Mountain.
     'Hookshot Cave Back Entrance':         'Upper Dark Death Mountain',
     'Big Bomb Shop':                       'South Dark World',
+    'Bonk Fairy (Dark)':                   'South Dark World',
+    'Hype Cave':                           'South Dark World',
     'C-Shaped House':                      'West Dark World',
     'Dark Death Mountain Shop':            'Lower East Dark Death Mountain',
     'Dark Lake Hylia Ledge Hint':          'South East Dark World',
@@ -2852,7 +2861,7 @@ if (_inverted) {
     //   • Mirror from ledge     → Upper East LW DM (Paradox Cave Top area)
     // Both cascades are handled in refreshSyntheticRegions below.
     'Superbunny Cave (Top)':              'Isolated East Dark Death Mountain Ledge',
-    'Archery Game':                        'West Dark World',
+    'Archery Game':                        'South Dark World',
     // Bumper Cave (Top) is "never" accessible in Open vanilla logic, but physically
     // the exit lands on the northwest DW ledge adjacent to the main West Dark World.
     // In entrance shuffle, a connector to/from Bumper Cave (Top) means the player
@@ -2869,6 +2878,7 @@ if (_inverted) {
     'Hyrule Castle Entrance (West)':       'Hyrule Castle Balcony',
     'Pyramid Exit':                        'Hyrule Castle Balcony',
     'Old Man House (Bottom)':              'Lower West Death Mountain',
+    'Palace of Darkness':                  'East Dark World',
     'Palace of Darkness Hint':             'East Dark World',
     'Pyramid Fairy':                       'East Dark World',
     'Paradox Cave (Top)':                  'Upper East Death Mountain',
@@ -2941,7 +2951,23 @@ if (_inverted) {
         if (inv && found.indexOf(inv) === -1) found.push(inv);
       }
     }
-    Object.keys(entLabels).forEach(addFor);
+    // Dungeon-destination labels (EP, DP, ToH, etc.) only identify what dungeon is
+    // behind an entrance — they do NOT confirm the player has overworld access to
+    // the surrounding region. Only multi-exit group labels (HC M/W/E, DP M/W/E,
+    // TR M/W/E, SW E/W, Link/Sanc/Mount) and actual connectors should grant region.
+    // Without this filter, e.g. labeling Archery Game as "EP" would cascade
+    // West Dark World → South Dark World and incorrectly unlock the entire
+    // southern DW via the canReachSouthDarkWorld synth-region check.
+    var _dungeonDestLabels = {
+      'EP':1,'DP':1,'ToH':1,'AT':1,'CT':1,'PoD':1,
+      'SP':1,'SW':1,'TT':1,'IP':1,'MM':1,'GT':1
+      // 'TR' is intentionally excluded: it is TR Entrance B (a multi-exit connector label)
+      // and must be allowed to grant region, just like TR M / TR W / TR E.
+    };
+    Object.keys(entLabels).forEach(function(name) {
+      if (_dungeonDestLabels[entLabels[name]]) return;
+      addFor(name);
+    });
     entConnections.forEach(function(pair) {
       addFor(pair[0]);
       addFor(pair[1]);
@@ -3076,6 +3102,44 @@ if (_inverted) {
         found.indexOf('North East Dark World') === -1) {
       found.push('North East Dark World');
       if (isInverted && found.indexOf('Inverted North East Dark World') === -1) found.push('Inverted North East Dark World');
+    }
+    // North East Dark World (Dark Potion Shop area) + moonpearl + mobility → East Dark World
+    // Mirrors ref_chests.js: canLeaveNorthEastDarkWorldSouth() && hasFoundEntranceName("Dark Potion Shop").
+    // With a connector to Dark Potion Shop, the player physically exits into the NE DW overworld.
+    // Moonpearl + any mobility item (glove/hammer/flippers) lets them walk south to East DW (PoD area).
+    // Without this cascade, check dots (ref_chests.js) would show East DW as accessible while
+    // entrance markers (ent_logic.js synth check) would stay red — an inconsistency.
+    if (found.indexOf('North East Dark World') !== -1 && (isInverted || hasPearl) &&
+        (hasGlove || hasHammer || hasFlippers) &&
+        found.indexOf('East Dark World') === -1) {
+      found.push('East Dark World');
+      if (isInverted && found.indexOf('Inverted East Dark World') === -1) found.push('Inverted East Dark World');
+    }
+    // Dark World Shop (connector OR multi-exit dungeon label) + moonpearl + hammer → West Dark World
+    // Moonpearl + hammer are required even with a label; the label/connector confirms physical
+    // presence at the entrance but the player still needs items to navigate the WDW overworld.
+    // Checks both direct connectors AND any non-dungeon-destination label (DP W, HC M, TR M, etc.).
+    // The West DW → South DW cascade already ran before item variables were available, so
+    // South Dark World is propagated manually here as well.
+    var _dwsLabel = entLabels && entLabels['Dark World Shop'];
+    var _dwsFound = entConnections.some(function(p) { return p[0] === 'Dark World Shop' || p[1] === 'Dark World Shop'; }) ||
+                    (_dwsLabel && !_dungeonDestLabels[_dwsLabel]);
+    if (_dwsFound && hasPearl && hasHammer && found.indexOf('West Dark World') === -1) {
+      found.push('West Dark World');
+      if (isInverted && found.indexOf('Inverted West Dark World') === -1) found.push('Inverted West Dark World');
+      if (found.indexOf('South Dark World') === -1) {
+        found.push('South Dark World');
+        if (isInverted && found.indexOf('Inverted South Dark World') === -1) found.push('Inverted South Dark World');
+      }
+    }
+    // East Dark World + moonpearl + hammer → South Dark World
+    // With a connector into East DW and hammer + pearl the player can walk south
+    // through the overworld to reach the South DW (Big Bomb Shop / Dark Lake Hylia shore).
+    // Mirrors the canReachSouthDarkWorld(moonpearl+hammer+canReachEastDarkWorld) path.
+    if (found.indexOf('East Dark World') !== -1 && hasPearl && hasHammer &&
+        found.indexOf('South Dark World') === -1) {
+      found.push('South Dark World');
+      if (isInverted && found.indexOf('Inverted South Dark World') === -1) found.push('Inverted South Dark World');
     }
     // South Dark World + flippers + moonpearl → South East Dark World
     // (In vanilla, flippers let you swim from the south DW lake to the Dark Lake Hylia ledge.
@@ -3464,39 +3528,24 @@ if (_inverted) {
     // unconditionally. The Magic Glove requirement applies only to the
     // actual vanilla "Desert Palace Entrance (West/North)" markers (handled
     // separately below via dpWestOrNorthFound), not to the labels.
+    // Dungeon group labels (DP/HC/TR/SW): if the entrance carries one of these
+    // codes, the player has physically been to that entrance (they labeled it).
+    // Make it available immediately — no item or group-count gate needed for
+    // the marker itself. The group-count check (2+ labels) is still used by
+    // refreshSyntheticConnections for the traversal cascade, but that's
+    // separate from whether THIS entrance pin should show as reachable.
     var dpCode = entLabels[name];
-    if ((dpCode === 'DP M' || dpCode === 'DP W' || dpCode === 'DP E') && dpLabelGroupFound()) {
-      return false;
-    }
+    if (dpCode === 'DP M' || dpCode === 'DP W' || dpCode === 'DP E') return false;
 
-    // Hyrule Castle exit labels (HC M/W/E) act as pure connectors with no
-    // item requirement: once 2+ of them are labeled anywhere
-    // (hcLabelGroupFound), each of those labeled markers is itself available
-    // unconditionally.
     var hcCode = entLabels[name];
-    if ((hcCode === 'HC M' || hcCode === 'HC W' || hcCode === 'HC E') && hcLabelGroupFound()) {
-      return false;
-    }
+    if (hcCode === 'HC M' || hcCode === 'HC W' || hcCode === 'HC E') return false;
 
-    // Turtle Rock exit labels (TR M/W) act as pure connectors with no item
-    // requirement: once 2+ of them are labeled anywhere (trLabelGroupFound),
-    // each of those labeled markers is itself available unconditionally.
-    // TR E/B act the same way as a separate connector pair.
     var trCode = entLabels[name];
-    if ((trCode === 'TR M' || trCode === 'TR W') && trLabelGroupFound()) {
-      return false;
-    }
-    if ((trCode === 'TR E' || trCode === 'TR') && trEBLabelGroupFound()) {
-      return false;
-    }
+    if (trCode === 'TR M' || trCode === 'TR W') return false;
+    if (trCode === 'TR E' || trCode === 'TR') return false;
 
-    // Skull Woods exit labels (SW E/W) act as pure connectors with no item
-    // requirement: once 2+ of them are labeled anywhere (swLabelGroupFound),
-    // each of those labeled markers is itself available unconditionally.
     var swCode = entLabels[name];
-    if ((swCode === 'SW E' || swCode === 'SW W') && swLabelGroupFound()) {
-      return false;
-    }
+    if (swCode === 'SW E' || swCode === 'SW W') return false;
 
     // "SW M" label: marks "Skull Woods Second Section Door (West)" as found.
     // Per the dungeon's interior connections, that single entrance directly
@@ -3690,6 +3739,38 @@ if (_inverted) {
       if (_mireFound && name !== 'Misery Mire') return false;
     }
 
+    // Lower East Death Mountain cluster: Hookshot Fairy, Paradox Cave (Bottom),
+    // Paradox Cave (Middle), and Spiral Cave (Bottom) all sit on the lower east
+    // Death Mountain ledge. Finding Fairy Ascension Cave (Top) or (Bottom) via
+    // a connector physically places the player on that ledge — all four are
+    // then reachable by walking, with no additional item requirement.
+    // (Paradox Cave (Top) and Spiral Cave top are NOT included — they sit on
+    // the upper ledge and are handled separately by canReachUpperEastDeathMountain.)
+    var LOWER_EDM_CLUSTER = ['Hookshot Fairy', 'Paradox Cave (Bottom)', 'Paradox Cave (Middle)', 'Spiral Cave (Bottom)'];
+    var FAC_ENTRANCES = ['Fairy Ascension Cave (Top)', 'Fairy Ascension Cave (Bottom)'];
+    if (LOWER_EDM_CLUSTER.indexOf(name) !== -1 && window.trackerSettings && window.trackerSettings.entranceShuffle) {
+      var _facFound = false;
+      var _facConns = window._entConnections;
+      if (_facConns && _facConns.length) {
+        for (var _facI = 0; _facI < _facConns.length && !_facFound; _facI++) {
+          for (var _facJ = 0; _facJ < FAC_ENTRANCES.length; _facJ++) {
+            if (_facConns[_facI][0] === FAC_ENTRANCES[_facJ] || _facConns[_facI][1] === FAC_ENTRANCES[_facJ]) {
+              _facFound = true; break;
+            }
+          }
+        }
+      }
+      if (!_facFound) {
+        var _facSynth = window._entSyntheticFoundEntrances;
+        if (_facSynth && _facSynth.length) {
+          for (var _facK = 0; _facK < FAC_ENTRANCES.length; _facK++) {
+            if (_facSynth.indexOf(FAC_ENTRANCES[_facK]) !== -1) { _facFound = true; break; }
+          }
+        }
+      }
+      if (_facFound) return false;
+    }
+
     try {
       var items = buildEntLogicItems();
       var prizes = [];
@@ -3843,13 +3924,15 @@ if (_inverted) {
     // Reachability: red if entrance not yet logically available, lowest precedence
     // (only applies when no key-location color, note color, cleared, connector, or label wins)
     var showUnavail = !color && !hasNote && !marker.classList.contains('cleared') && !marker.classList.contains('connector') && !marker.classList.contains('ent-marked') && entranceUnavailable(name);
-    // Belt-and-suspenders for Misery Mire in entrance shuffle: a connector drawn
-    // directly to the entrance means the player physically reached the area via a
-    // connected exit — never show it as unavailable. We check entConnections (the
-    // closure var) directly in case window._entConnections or the connector CSS
-    // class isn't yet in sync at this point in the render cycle.
-    if (showUnavail && name === 'Misery Mire' && window.trackerSettings && window.trackerSettings.entranceShuffle) {
-      if (entConnections.some(function(p) { return p[0] === 'Misery Mire' || p[1] === 'Misery Mire'; })) {
+    // Belt-and-suspenders for ALL entrances in entrance shuffle: if showUnavail
+    // is still true after the CSS-class and window._entConnections checks above,
+    // consult the closure's entConnections array directly (always authoritative,
+    // never stale). A render-cycle timing edge case can leave the connector CSS
+    // class or window._entConnections out of sync when applyMarkerColor fires —
+    // the closure array is immune to that race. If a direct connector exists,
+    // the player physically reached the entrance and it must never show red.
+    if (showUnavail && window.trackerSettings && window.trackerSettings.entranceShuffle) {
+      if (entConnections.some(function(p) { return p[0] === name || p[1] === name; })) {
         showUnavail = false;
       }
     }
@@ -4923,6 +5006,23 @@ window.refreshMapLogic = function() {
       _bc.postMessage({ type: 'checkcolors', colors: _clColors, cleared: _clCleared });
     }
   } catch(ex) {}
+};
+
+window._debugCheck88 = function() {
+  var conns = window._entConnections || [];
+  var found = conns.some(function(c) {
+    return c[0] === 'Two Brothers House (West)' || c[1] === 'Two Brothers House (West)';
+  });
+  var color = window.checkColor ? window.checkColor(88) : '(checkColor missing)';
+  var dotClass = dotById && dotById[88] ? dotById[88].className : '(dot missing)';
+  console.log('=== Debug Check 88: Race Minigame ===');
+  console.log('entranceShuffle:', window.trackerSettings && window.trackerSettings.entranceShuffle);
+  console.log('_entConnections:', JSON.stringify(conns));
+  console.log('TBH(W) found in connections:', found);
+  console.log('checkColor(88):', color);
+  console.log('dot className:', dotClass);
+  console.log('trackerItems.bomb:', window.trackerItems && window.trackerItems.bomb);
+  console.log('trackerItems.boots:', window.trackerItems && window.trackerItems.boots);
 };
 
 function dngStatusText(key) {
