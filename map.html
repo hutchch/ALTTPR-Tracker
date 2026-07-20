@@ -1497,14 +1497,18 @@ function checkLogic(it) {
            //  don't provide a path to the tablet's Spectacle Rock location.)
            if (_isEntShuffle71) {
              var _synth71 = window._entSyntheticFoundRegions || [];
-             var _dmReached71 = flute ||
-                                _synth71.indexOf('Upper West Death Mountain') !== -1 ||
-                                _synth71.indexOf('Inverted Upper West Death Mountain') !== -1 ||
+             var _upperWDM71 = _synth71.indexOf('Upper West Death Mountain') !== -1 ||
+                               _synth71.indexOf('Inverted Upper West Death Mountain') !== -1;
+             var _dmReached71 = flute || _upperWDM71 ||
                                 _synth71.indexOf('Lower West Death Mountain') !== -1 ||
                                 _synth71.indexOf('Inverted Lower West Death Mountain') !== -1;
              if (!_dmReached71) return 'red';
              if (!book) return 'red';
-             if (!(mirror || (hookshot && hammer))) return 'orange';
+             // Upper WDM access (Tower of Hera area) means the player is already at
+             // Spectacle Rock — mirror/hookshot are not needed to reach the tablet.
+             // Lower WDM or flute only puts the player at the base of the mountain;
+             // they still need mirror or hookshot+hammer to traverse up to the ledge.
+             if (!_upperWDM71 && !(mirror || (hookshot && hammer))) return 'orange';
              return weapon ? 'green' : 'orange';
            }
            if (_inv) {
@@ -2883,8 +2887,9 @@ if (_inverted) {
     'Pyramid Fairy':                       'East Dark World',
     'Paradox Cave (Top)':                  'Upper East Death Mountain',
     'Red Shield Shop':                     'West Dark World',
-    'Skull Woods First Section Door':      'West Dark World',
-    'Skull Woods Second Section Door (East)': 'West Dark World',
+    'Skull Woods First Section Door':           'West Dark World',
+    'Skull Woods Second Section Door (East)':   'West Dark World',
+    'Skull Woods Second Section Door (West)':   'West Dark World',
     'Spectacle Rock Cave (Bottom)':        'Lower West Death Mountain',
     'Spectacle Rock Cave Peak':            'Lower West Death Mountain',
     'Spike Cave':                          'Lower West Dark Death Mountain',
@@ -2960,9 +2965,11 @@ if (_inverted) {
     // southern DW via the canReachSouthDarkWorld synth-region check.
     var _dungeonDestLabels = {
       'EP':1,'DP':1,'ToH':1,'AT':1,'CT':1,'PoD':1,
-      'SP':1,'SW':1,'TT':1,'IP':1,'MM':1,'GT':1
+      'SP':1,'SW':1,'SW M':1,'TT':1,'IP':1,'MM':1,'GT':1
       // 'TR' is intentionally excluded: it is TR Entrance B (a multi-exit connector label)
       // and must be allowed to grant region, just like TR M / TR W / TR E.
+      // 'SW M' is a single-entrance label (Skull Woods Second Section Door) — not a
+      // multi-exit connector. Only SW E and SW W are legitimate region-granting SW labels.
     };
     Object.keys(entLabels).forEach(function(name) {
       if (_dungeonDestLabels[entLabels[name]]) return;
@@ -3069,6 +3076,16 @@ if (_inverted) {
       found.push('Upper East Death Mountain');
       if (isInverted && found.indexOf('Inverted Upper East Death Mountain') === -1) found.push('Inverted Upper East Death Mountain');
     }
+    // Upper West Death Mountain → Lower West Death Mountain (walk down)
+    // The player can always walk down from the ToH peak area to the lower cave area.
+    // Mirrors canReachLowerWestDeathMountain() in ent_logic.js which calls
+    // canReachUpperWestDeathMountain(). Without this cascade, Upper WDM in synth
+    // regions correctly turns Tower of Hera green but Spectacle Rock Cave, Old Man
+    // Cave (East), etc. (which require Lower WDM) remain red.
+    if (found.indexOf('Upper West Death Mountain') !== -1 && found.indexOf('Lower West Death Mountain') === -1) {
+      found.push('Lower West Death Mountain');
+      if (isInverted && found.indexOf('Inverted Lower West Death Mountain') === -1) found.push('Inverted Lower West Death Mountain');
+    }
     if (found.indexOf('West Dark World') !== -1 && found.indexOf('South Dark World') === -1) {
       found.push('South Dark World');
       if (isInverted && found.indexOf('Inverted South Dark World') === -1) found.push('Inverted South Dark World');
@@ -3094,9 +3111,37 @@ if (_inverted) {
     // bunny-form players can't lift the block en route to Dark Potion Shop).
     // In inverted the player is native to DW so pearl is not required.
     var hasGlove    = (ti.gloves || 0) >= 1;
+    var hasTitans   = (ti.gloves || 0) >= 2;
     var hasHammer   = !!(ti.hammer);
     var hasFlippers = !!(ti.flippers);
     var hasPearl    = !!(ti.moonpearl);
+    // Upper West Death Mountain + hammer → Upper East Death Mountain
+    // With hammer the player can cross the DM peak from the ToH side to the east
+    // (Paradox Cave Top / Hookshot Cave area). Mirrors canReachUpperEastDeathMountain()
+    // which checks canReachUpperWestDeathMountain() && items.hammer.
+    if (found.indexOf('Upper West Death Mountain') !== -1 && hasHammer && found.indexOf('Upper East Death Mountain') === -1) {
+      found.push('Upper East Death Mountain');
+      if (isInverted && found.indexOf('Inverted Upper East Death Mountain') === -1) found.push('Inverted Upper East Death Mountain');
+      // Upper East DM → Lower East DM (walk down from Paradox Cave Top area)
+      if (found.indexOf('Lower East Death Mountain') === -1) {
+        found.push('Lower East Death Mountain');
+        if (isInverted && found.indexOf('Inverted Lower East Death Mountain') === -1) found.push('Inverted Lower East Death Mountain');
+      }
+    }
+    // Lower East Death Mountain + Titan's Mitts → Lower East Dark Death Mountain
+    // Mirrors canReachLowerEastDarkDeathMountain() which checks
+    // canReachLowerEastDeathMountain() && items.glove === 2.
+    // A connector to Spiral Cave (Bottom) / Paradox Cave (Bottom) / Hookshot Fairy
+    // adds 'Lower East Death Mountain' to synth regions; with Titan's Mitts the
+    // player can lift the rock blocking the DW side and cross over. Without this
+    // cascade, Superbunny Cave (Bottom) stays red despite a Spiral Cave connector
+    // + Titan's Mitts because ent_logic.js's canReachLowerEastDeathMountain()
+    // doesn't read _entSyntheticFoundRegions directly.
+    if (found.indexOf('Lower East Death Mountain') !== -1 && hasTitans &&
+        found.indexOf('Lower East Dark Death Mountain') === -1) {
+      found.push('Lower East Dark Death Mountain');
+      if (isInverted && found.indexOf('Inverted Lower East Dark Death Mountain') === -1) found.push('Inverted Lower East Dark Death Mountain');
+    }
     if (found.indexOf('East Dark World') !== -1 && (isInverted || hasPearl) &&
         (hasGlove || hasFlippers || hasHammer) &&
         found.indexOf('North East Dark World') === -1) {
@@ -3547,29 +3592,11 @@ if (_inverted) {
     var swCode = entLabels[name];
     if (swCode === 'SW E' || swCode === 'SW W') return false;
 
-    // "SW M" label: marks "Skull Woods Second Section Door (West)" as found.
-    // Per the dungeon's interior connections, that single entrance directly
-    // unlocks "Skull Woods Final Section" (firerod [+moonpearl]) and "Skull
-    // Woods Second Section Hole" (no extra requirement) — both defined in
-    // ref_logic_entrances.js as hasFoundEntrance|Skull Woods Second Section
-    // Door (West). If any real marker carries the "SW M" label, treat that
-    // door as found for all three entrances in this cluster.
-    var SW_M_DOOR = 'Skull Woods Second Section Door (West)';
-    var swMFound = false;
-    for (var swMName in entLabels) {
-      if (entLabels[swMName] === 'SW M' && window.logic_entrances && window.logic_entrances[swMName]) { swMFound = true; break; }
-    }
-    if (swMFound) {
-      if (name === SW_M_DOOR) return false;
-      if (name === 'Skull Woods Second Section Hole') return false;
-      if (name === 'Skull Woods Final Section') {
-        var swMItems = window.trackerItems || {};
-        var swMInverted = !!(window.trackerSettings && window.trackerSettings.inverted);
-        if (!swMItems.firerod) return true;
-        if (!swMInverted && !swMItems.moonpearl) return true;
-        return false;
-      }
-    }
+    // "SW M" is a dungeon-destination label only (Skull Woods Second Section West door).
+    // It does NOT grant access to Skull Woods Final Section or Skull Woods Second Section Hole
+    // on its own — a real connector to "Skull Woods Second Section Door (West)" is required.
+    // Access to those areas is handled by hasFoundEntrance logic in ent_logic.js once a
+    // connector to that entrance exists. (See ENT_ENTRANCE_REGION for the West Dark World grant.)
 
     // "Desert Palace Entrance (West)" and "Desert Palace Entrance (North)"
     // are reachable from each other via the dungeon interior — but North is
