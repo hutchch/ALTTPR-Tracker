@@ -187,7 +187,7 @@ function dungeonColor(key) {
       // Access routes:
       // flute + mirror
       // flute + hookshot + hammer
-      // lamp + gloves + mirror
+      // mirror + gloves        (yellow without lamp/firerod)
       // lamp + gloves + hookshot + hammer
       var flute   = it.flute >= 1;
       var gloves  = it.gloves >= 1;
@@ -195,7 +195,7 @@ function dungeonColor(key) {
       var hookham = it.hookshot && it.hammer;
       var canAccess = (flute && mirror) ||
                       (flute && hookham) ||
-                      (it.lamp && gloves && mirror) ||
+                      (mirror && gloves) ||
                       (it.lamp && gloves && hookham);
       if (!canAccess) return 'red';
       // Yellow if using flute route without lamp/firerod
