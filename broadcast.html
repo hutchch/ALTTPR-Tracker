@@ -85,7 +85,7 @@ html[data-bg="transparent"] .bbg-bar * {
   content: '';
   position: absolute; inset: 2px;
   border-radius: 4px;
-  background: var(--item-fill-color, #2ecc71);
+  background: linear-gradient(to bottom left, var(--item-fill-color, #2ecc71), var(--item-fill-color2, #b675ff));
   opacity: 0;
   z-index: 1;
   pointer-events: none;
@@ -149,7 +149,7 @@ html[data-bg="transparent"] .bbg-bar * {
   content: '';
   position: absolute; inset: 1px;
   border-radius: 4px;
-  background: var(--item-fill-color, #2ecc71);
+  background: linear-gradient(to bottom left, var(--item-fill-color, #2ecc71), var(--item-fill-color2, #b675ff));
   opacity: 0;
   z-index: 1;
   pointer-events: none;
@@ -187,7 +187,7 @@ html[data-bg="transparent"] .bbg-bar * {
 .bcombo-img::before {
   content: '';
   position: absolute; inset: 0;
-  background: var(--item-fill-color, #2ecc71);
+  background: linear-gradient(to bottom left, var(--item-fill-color, #2ecc71), var(--item-fill-color2, #b675ff));
   opacity: 0;
   z-index: 1;
   pointer-events: none;
@@ -227,7 +227,7 @@ html[data-bg="transparent"] .bbg-bar * {
   content: '';
   position: absolute; left: 6px; top: 2px; width: 36px; bottom: 2px;
   border-radius: 4px;
-  background: var(--item-fill-color, #2ecc71);
+  background: linear-gradient(to bottom left, var(--item-fill-color, #2ecc71), var(--item-fill-color2, #b675ff));
   opacity: 0;
   z-index: 1;
   pointer-events: none;
@@ -261,6 +261,16 @@ html[data-bg="transparent"] .bbg-bar * {
 .bstat-check { color: #4dff88; }
 .bstat-death { color: #ff4444; }
 .bstat-bonk  { color: #ffa500; }
+
+#gomode-spark-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  display: none;
+}
+#gomode-spark-canvas.active { display: block; }
 
 /* Dungeon slot — item-tracker style ------------------------------------- */
 .bdng-slot {
@@ -364,6 +374,9 @@ html[data-bg="transparent"] .bbg-bar * {
   display: inline-flex; align-items: center; gap: 4px;
 }
 .bsettings-btn:hover { border-color: #4dff88; color: #fff; }
+.bsettings-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.bsettings-btn:disabled:hover { border-color: inherit; color: inherit; }
+.bsize-btn { padding: 2px 5px; min-width: 20px; justify-content: center; font-size: 13px; line-height: 1; }
 
 /* ── Item Animation overlay ─────────────────────────────────────────────── */
 #item-anim-overlay {
@@ -505,8 +518,13 @@ html[data-bg="transparent"] .bbg-bar * {
   <div class="bcast-row" id="row4"></div>
 </div>
 <div class="bbg-bar">
+  <button class="bsettings-btn bsize-btn" onclick="bcastSizeDown()">−</button>
+  <button class="bsettings-btn bsize-btn" onclick="bcastSizeUp()">+</button>
   <button class="bsettings-btn" onclick="openSettings()">⚙ Settings</button>
+  <button class="bsettings-btn" id="item-sounds-btn" onclick="openItemSounds()">♪ Item Sounds</button>
 </div>
+
+<canvas id="gomode-spark-canvas"></canvas>
 
 <!-- Item animation overlay -->
 <div id="item-anim-overlay">
@@ -547,13 +565,21 @@ html[data-bg="transparent"] .bbg-bar * {
           <label><input type="checkbox" id="opt-fill-enabled"> Item Fill</label>
         </div>
         <div class="settings-sub" id="fill-sub">
-          <div class="sub-label">Fill Color</div>
+          <div class="sub-label">Fill Color (top-right)</div>
           <div class="settings-radios">
             <label><input type="radio" name="fill-color" value="green"> Green</label>
             <label><input type="radio" name="fill-color" value="blue"> Blue</label>
             <label><input type="radio" name="fill-color" value="purple"> Purple</label>
             <label><input type="radio" name="fill-color" value="custom"> Custom</label>
             <input type="color" class="settings-color-picker" id="opt-fill-custom" value="#00aa00">
+          </div>
+          <div class="sub-label">Second Color (bottom-left)</div>
+          <div class="settings-radios">
+            <label><input type="radio" name="fill-color-2" value="green"> Green</label>
+            <label><input type="radio" name="fill-color-2" value="blue"> Blue</label>
+            <label><input type="radio" name="fill-color-2" value="purple"> Purple</label>
+            <label><input type="radio" name="fill-color-2" value="custom"> Custom</label>
+            <input type="color" class="settings-color-picker" id="opt-fill-custom-2" value="#b675ff">
           </div>
           <div class="sub-label">Fill Effect</div>
           <div class="settings-radios">
@@ -586,6 +612,7 @@ html[data-bg="transparent"] .bbg-bar * {
             <label><input type="radio" name="anim-bg" value="none"> None</label>
             <label><input type="radio" name="anim-bg" value="stars"> Falling Stars</label>
             <label><input type="radio" name="anim-bg" value="starburst"> Starburst</label>
+            <label><input type="radio" name="anim-bg" value="matrix"> Matrix</label>
             <label><input type="radio" name="anim-bg" value="image"> Image</label>
           </div>
           <div class="settings-sub disabled" id="anim-image-sub">
@@ -644,6 +671,8 @@ html[data-bg="transparent"] .bbg-bar * {
         </div>
       </div>
 
+      <!-- Go Mode Spark Lines hidden (Max build only) -->
+
       <div class="settings-section">
         <h4>Dungeon Background</h4>
         <div class="settings-row">
@@ -690,8 +719,10 @@ var SETTINGS = {
   bg:           'black',
   bgImage:      '',          // data: URL of uploaded background image
   fillEnabled:  false,
-  fillColor:    'green',     // green | blue | purple | custom
+  fillColor:    'green',     // green | blue | purple | custom (top-right of diagonal)
   fillCustom:   '#00aa00',
+  fillColor2:   'purple',    // green | blue | purple | custom (bottom-left of diagonal)
+  fillCustom2:  '#b675ff',
   fillEffect:   'none',      // none | falling | starburst
   chestsColor:  'blue',      // blue | green | purple | yellow | custom — All chests collected tint
   chestsCustom: '#5a8eff',
@@ -709,7 +740,9 @@ var SETTINGS = {
   animShowLabel:   true,         // Show item name at bottom during animation
   gomodeSoundEnabled: false,     // Play a sound when Go Mode (level 1) is activated
   gomodeSoundData:    '',        // data: URL of the audio file
-  animBg:           'none',      // 'none' | 'stars' | 'starburst' | 'image'
+  sparkColors:      ['#22cc55','#66ff88','#aaffbb','#4488ff','#88bbff','#cc44ff'],  // default
+  gomodeSparksEnabled: false,
+  animBg:           'none',      // 'none' | 'stars' | 'starburst' | 'matrix' | 'image'
   animBgImage:      '',          // data URL for anim background image (empty = use triforce.jpg)
   animColorPreset:  'blue',      // 'blue' | 'green' | 'purple' | 'custom'
   animColorA:       '#3498db',   // color A (primary)
@@ -720,6 +753,12 @@ var FILL_COLORS = {
   green:  '#2ecc71',
   blue:   '#3498db',
   purple: '#b675ff'
+};
+// Darker variants used for the second (bottom-left) fill color presets.
+var FILL_COLORS_DARK = {
+  green:  '#176b3b',
+  blue:   '#1c5478',
+  purple: '#5e3d99'
 };
 
 var DUNGEON_PRESETS = {
@@ -736,6 +775,8 @@ function loadSettings() {
     SETTINGS.fillEnabled   = localStorage.getItem('alttp-broadcast-fill-enabled') === 'true';
     SETTINGS.fillColor     = localStorage.getItem('alttp-broadcast-fill-color')   || SETTINGS.fillColor;
     SETTINGS.fillCustom    = localStorage.getItem('alttp-broadcast-fill-custom')  || SETTINGS.fillCustom;
+    SETTINGS.fillColor2    = localStorage.getItem('alttp-broadcast-fill-color-2')  || SETTINGS.fillColor2;
+    SETTINGS.fillCustom2   = localStorage.getItem('alttp-broadcast-fill-custom-2') || SETTINGS.fillCustom2;
     SETTINGS.fillEffect    = localStorage.getItem('alttp-broadcast-fill-effect')  || SETTINGS.fillEffect;
     SETTINGS.chestsColor   = localStorage.getItem('alttp-broadcast-chests-color') || SETTINGS.chestsColor;
     SETTINGS.chestsCustom  = localStorage.getItem('alttp-broadcast-chests-custom')|| SETTINGS.chestsCustom;
@@ -754,6 +795,10 @@ function loadSettings() {
     SETTINGS.animShowLabel      = localStorage.getItem('alttp-broadcast-anim-label') !== 'false';
     SETTINGS.gomodeSoundEnabled = localStorage.getItem('alttp-broadcast-gomode-sound') === 'true';
     SETTINGS.gomodeSoundData    = localStorage.getItem('alttp-broadcast-gomode-sound-data') || '';
+    var sc = localStorage.getItem('alttp-broadcast-spark-colors');
+    if (sc) try { SETTINGS.sparkColors = JSON.parse(sc); } catch(e2) {}
+    // Spark lines are Max-only — always disabled in this build
+    SETTINGS.gomodeSparksEnabled = false;
     SETTINGS.animBg          = localStorage.getItem('alttp-broadcast-anim-bg')            || SETTINGS.animBg;
     SETTINGS.animBgImage     = localStorage.getItem('alttp-broadcast-anim-bg-image')      || '';
     SETTINGS.animColorPreset = localStorage.getItem('alttp-broadcast-anim-color-preset') || SETTINGS.animColorPreset;
@@ -774,6 +819,8 @@ function saveSettings() {
     localStorage.setItem('alttp-broadcast-fill-enabled',   SETTINGS.fillEnabled ? 'true' : 'false');
     localStorage.setItem('alttp-broadcast-fill-color',     SETTINGS.fillColor);
     localStorage.setItem('alttp-broadcast-fill-custom',    SETTINGS.fillCustom);
+    localStorage.setItem('alttp-broadcast-fill-color-2',   SETTINGS.fillColor2);
+    localStorage.setItem('alttp-broadcast-fill-custom-2',  SETTINGS.fillCustom2);
     localStorage.setItem('alttp-broadcast-fill-effect',    SETTINGS.fillEffect);
     localStorage.setItem('alttp-broadcast-chests-color',   SETTINGS.chestsColor);
     localStorage.setItem('alttp-broadcast-chests-custom',  SETTINGS.chestsCustom);
@@ -790,6 +837,8 @@ function saveSettings() {
     localStorage.setItem('alttp-broadcast-item-anim',        SETTINGS.itemAnimEnabled    ? 'true' : 'false');
     localStorage.setItem('alttp-broadcast-anim-label',      SETTINGS.animShowLabel      ? 'true' : 'false');
     localStorage.setItem('alttp-broadcast-gomode-sound',    SETTINGS.gomodeSoundEnabled ? 'true' : 'false');
+    localStorage.setItem('alttp-broadcast-spark-colors',   JSON.stringify(SETTINGS.sparkColors));
+    localStorage.setItem('alttp-broadcast-gomode-sparks',  SETTINGS.gomodeSparksEnabled ? 'true' : 'false');
     localStorage.setItem('alttp-broadcast-anim-bg',            SETTINGS.animBg);
     localStorage.setItem('alttp-broadcast-anim-color-preset', SETTINGS.animColorPreset);
     localStorage.setItem('alttp-broadcast-anim-color-a',      SETTINGS.animColorA);
@@ -829,7 +878,9 @@ function updateAnimBgImageStatus() {
 
 function applyFillVariable() {
   var color = SETTINGS.fillColor === 'custom' ? SETTINGS.fillCustom : (FILL_COLORS[SETTINGS.fillColor] || FILL_COLORS.green);
+  var color2 = SETTINGS.fillColor2 === 'custom' ? SETTINGS.fillCustom2 : (FILL_COLORS_DARK[SETTINGS.fillColor2] || FILL_COLORS_DARK.purple);
   document.documentElement.style.setProperty('--item-fill-color', color);
+  document.documentElement.style.setProperty('--item-fill-color2', color2);
 }
 
 // Re-evaluates the small-key row's display state for one dungeon. Combines the
@@ -950,8 +1001,10 @@ function openSettings() {
   document.querySelectorAll('input[name="bg"]').forEach(function(r) { r.checked = (r.value === SETTINGS.bg); });
   document.getElementById('opt-fill-enabled').checked = SETTINGS.fillEnabled;
   document.querySelectorAll('input[name="fill-color"]').forEach(function(r) { r.checked = (r.value === SETTINGS.fillColor); });
+  document.querySelectorAll('input[name="fill-color-2"]').forEach(function(r) { r.checked = (r.value === SETTINGS.fillColor2); });
   document.querySelectorAll('input[name="fill-effect"]').forEach(function(r) { r.checked = (r.value === SETTINGS.fillEffect); });
   document.getElementById('opt-fill-custom').value = SETTINGS.fillCustom;
+  document.getElementById('opt-fill-custom-2').value = SETTINGS.fillCustom2;
   document.querySelectorAll('input[name="chests-color"]').forEach(function(r) { r.checked = (r.value === SETTINGS.chestsColor); });
   document.getElementById('opt-chests-custom').value = SETTINGS.chestsCustom;
   document.querySelectorAll('input[name="complete-color"]').forEach(function(r) { r.checked = (r.value === SETTINGS.completeColor); });
@@ -976,6 +1029,7 @@ function openSettings() {
   document.getElementById('anim-color-b-hex').textContent = SETTINGS.animColorB;
   syncAnimSubEnabled();
   syncGomodeSoundSub();
+  // Spark lines disabled in this build — no UI elements to sync
   syncFillSubEnabled();
   updateBgImageStatus();
   updateAnimBgImageStatus();
@@ -994,11 +1048,48 @@ function syncGomodeSoundSub() {
   if (SETTINGS.gomodeSoundEnabled) sub.classList.remove('disabled');
   else                              sub.classList.add('disabled');
 }
+function syncGomodeSparksSubEnabled() {
+  var sub = document.getElementById('gomode-sparks-sub');
+  if (sub) {
+    if (SETTINGS.gomodeSparksEnabled) sub.classList.remove('disabled');
+    else                               sub.classList.add('disabled');
+  }
+}
+function buildSparkSwatches() {
+  var container = document.getElementById('spark-color-swatches');
+  if (!container) return;
+  container.innerHTML = '';
+  var colors = SETTINGS.sparkColors;
+  var MAX_COLORS = 6;
+  for (var i = 0; i < MAX_COLORS; i++) {
+    (function(idx) {
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
+      var picker = document.createElement('input');
+      picker.type = 'color';
+      picker.className = 'settings-color-picker';
+      picker.value = colors[idx] || '#333333';
+      picker.style.opacity = colors[idx] ? '1' : '0.35';
+      picker.addEventListener('input', function(e) {
+        SETTINGS.sparkColors[idx] = e.target.value;
+        picker.style.opacity = '1';
+        saveSettings();
+      });
+      var lbl = document.createElement('span');
+      lbl.style.cssText = 'font-size:9px;color:#666;';
+      lbl.textContent = idx + 1;
+      wrap.appendChild(picker);
+      wrap.appendChild(lbl);
+      container.appendChild(wrap);
+    })(i);
+  }
+}
 function updateGomodeSoundStatus() {
   var el = document.getElementById('gomode-sound-status');
   if (el) el.textContent = SETTINGS.gomodeSoundData ? 'File loaded' : 'No file';
 }
 function playGomodeSound() {
+  if (RACE_MODE) return; // Race Mode: no Go Mode sound.
   if (!SETTINGS.gomodeSoundEnabled || !SETTINGS.gomodeSoundData) return;
   try {
     var audio = new Audio(SETTINGS.gomodeSoundData);
@@ -1066,6 +1157,18 @@ function wireSettingsHandlers() {
   document.getElementById('opt-fill-custom').addEventListener('input', function(e) {
     SETTINGS.fillCustom = e.target.value;
     if (SETTINGS.fillColor === 'custom') applyFillVariable();
+    saveSettings();
+  });
+  document.querySelectorAll('input[name="fill-color-2"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      SETTINGS.fillColor2 = r.value;
+      saveSettings(); applyFillVariable();
+    });
+  });
+  document.getElementById('opt-fill-custom-2').addEventListener('input', function(e) {
+    SETTINGS.fillCustom2 = e.target.value;
+    if (SETTINGS.fillColor2 === 'custom') applyFillVariable();
     saveSettings();
   });
   document.querySelectorAll('input[name="fill-effect"]').forEach(function(r) {
@@ -1159,6 +1262,21 @@ function wireSettingsHandlers() {
   });
   document.getElementById('opt-gomode-sound-test').addEventListener('click', function() {
     playGomodeSound();
+  });
+  // Go Mode Sparklines disabled in this build — no event listeners needed
+  var SPARK_PRESETS = {
+    green:  ['#22cc55','#66ff88','#aaffbb','#448855','#225533','#88aa99'],
+    blue:   ['#4488ff','#88bbff','#aaccff','#667799','#334466','#99aacc'],
+    purple: ['#aa44ff','#cc88ff','#ddaaff','#774499','#442266','#aa99cc']
+  };
+  ['green','blue','purple'].forEach(function(preset) {
+    var btn = document.getElementById('spark-preset-' + preset);
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      SETTINGS.sparkColors = SPARK_PRESETS[preset].slice();
+      saveSettings();
+      buildSparkSwatches();
+    });
   });
   // Item Animation toggle
   document.getElementById('opt-item-anim').addEventListener('change', function(e) {
@@ -1274,7 +1392,21 @@ function wireSettingsHandlers() {
 }
 
 // ── Tracker data ─────────────────────────────────────────────────────────
-var BASE = 'items';
+// BASE is resolved from the approot query param passed by the app.
+// Start with the query-param approot if provided, otherwise 'items' (relative).
+// After init, getPaths() will update BASE and rebuild all img srcs if needed.
+var BASE = (function() {
+  var p = new URLSearchParams(window.location.search);
+  var approot = p.get('approot');
+  return approot ? approot + '/items' : 'items';
+})();
+
+// Race Mode: when on, item collect sounds are suppressed in the broadcast view.
+var RACE_MODE = (function() {
+  var p = new URLSearchParams(window.location.search);
+  return (p.get('race') || localStorage.getItem('alttp-race-mode') || 'no') === 'yes';
+})();
+
 
 var IMGS = {
   bow:       ['bow00','bow10','bow11','bow12'],
@@ -1642,7 +1774,15 @@ function updateItem(key, val) {
     var prev = _appliedGomode;
     _appliedGomode = val;
     btn.className = 'bgo-btn' + (val === 1 ? ' on' : val === 2 ? ' feeling' : '');
-    if (val === 1 && prev !== 1) playGomodeSound();
+    if (val === 1 && prev !== 1) {
+      playGomodeSound();
+      if (SETTINGS.gomodeSparksEnabled) startGomodeSparks();
+      if (SETTINGS.itemAnimEnabled && !_animSuppressNext) {
+        queueItemAnim('gomode', imgSrc('gomode', 1), 'Go Mode !!');
+      }
+    } else if (val !== 1) {
+      stopGomodeSparks();
+    }
     return;
   }
   var el = slotEls[key]; if (!el) return;
@@ -1660,7 +1800,10 @@ function updateItem(key, val) {
   var bottleAlreadyOwned = isBottle && ['bottle1','bottle2','bottle3','bottle4'].some(function(b) {
     return b !== key && (state[b]||0) > 0;
   });
-  if (SETTINGS.itemAnimEnabled && !_animSuppressNext && val > prevApplied && key !== 'bomb' && !bottleAlreadyOwned) {
+  // Flute/mushroom: only animate + play sound on first pickup (0 → 1), not on
+  // their progression (flute activated, mushroom turned into powder).
+  var _progOnlyItem = (key === 'flute' || key === 'mushroom');
+  if (SETTINGS.itemAnimEnabled && !_animSuppressNext && val > prevApplied && key !== 'bomb' && !bottleAlreadyOwned && !(_progOnlyItem && prevApplied > 0)) {
     var animLabel = ITEM_NAMES[key] || key;
     if (key === 'boomerang') {
       var gotBlue = (val & 1) && !(prevApplied & 1);
@@ -1676,6 +1819,8 @@ function updateItem(key, val) {
       animLabel = val === 2 ? 'Go Mode Feeling!' : 'Go Mode!';
     }
     queueItemAnim(key, imgSrc(key, val), animLabel);
+    // Per-item collect sound (not for bomb)
+    playItemSound(key, val);
   }
 
   // Update fill — bottles key fill on parent container; combo sub-items each have their own container
@@ -1830,6 +1975,7 @@ function applySnap(snap) {
 
 function resetAll() {
   abortItemAnim();
+  stopGomodeSparks();
   Object.keys(state).forEach(function(k){state[k]=0;});
   maxState = {};
   _animSuppressNext = true;      // next snap is the post-reset seed, not a new collect
@@ -2086,6 +2232,104 @@ function _startAnimBg(canvas) {
       rafId = requestAnimationFrame(drawBurst);
     }
     rafId = requestAnimationFrame(drawBurst);
+
+  } else if (SETTINGS.animBg === 'matrix') {
+    var FONT_SIZE = 16;
+    var HALF = FONT_SIZE / 2;
+    var COLS = Math.floor(W / FONT_SIZE);
+    var drops = [];
+    for (var ci = 0; ci < COLS; ci++) drops[ci] = Math.floor(Math.random() * -40);
+
+    // Symbol pool: 0=triforce, 1=sword, 3=bow, 4=heart, 5=key — triforce weighted 2:1
+    var TRIFORCE_TYPES = [0, 0, 1, 3, 4, 5];
+
+    function drawTriforce(type, cx, cy, color, alpha) {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = alpha;
+      var s = FONT_SIZE * 0.72;
+
+      if (type === 0) {
+        var h = s*(Math.sqrt(3)/2), ts=s*0.5, th=ts*(Math.sqrt(3)/2), ths=ts/2;
+        var top = cy - h*0.5;
+        ctx.beginPath(); ctx.moveTo(cx,top); ctx.lineTo(cx-ths,top+th); ctx.lineTo(cx+ths,top+th); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx-ths,top+th); ctx.lineTo(cx-ths*2,top+th*2); ctx.lineTo(cx,top+th*2); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx+ths,top+th); ctx.lineTo(cx,top+th*2); ctx.lineTo(cx+ths*2,top+th*2); ctx.closePath(); ctx.fill();
+      } else if (type === 1) {
+        var bw=s*0.13, tip=cy-s*0.48, guard=cy+s*0.08, pommy=cy+s*0.48;
+        ctx.beginPath(); ctx.moveTo(cx,tip); ctx.lineTo(cx+bw,guard); ctx.lineTo(cx,guard+s*0.06); ctx.lineTo(cx-bw,guard); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx,guard+s*0.06); ctx.lineTo(cx+bw*0.6,pommy); ctx.lineTo(cx,pommy+s*0.04); ctx.lineTo(cx-bw*0.6,pommy); ctx.closePath(); ctx.fill();
+        ctx.lineWidth=s*0.10; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(cx-s*0.32,guard); ctx.lineTo(cx+s*0.32,guard); ctx.stroke();
+      } else if (type === 3) {
+        var r=s*0.44, lw=s*0.09;
+        var bx1=cx-r*0.6, by1=cy-r*0.6, bx2=cx+r*0.6, by2=cy+r*0.6;
+        var bcx=cx-r*0.35, bcy=cy+r*0.35;
+        ctx.lineWidth=lw; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(bx1,by1); ctx.quadraticCurveTo(bcx,bcy,bx2,by2); ctx.stroke();
+        ctx.lineWidth=lw*0.5;
+        ctx.beginPath(); ctx.moveTo(bx1,by1); ctx.lineTo(bx2,by2); ctx.stroke();
+        ctx.lineWidth=lw*0.7;
+        ctx.beginPath(); ctx.moveTo(bx1+(bx2-bx1)*0.1,by1+(by2-by1)*0.1); ctx.lineTo(bx1+(bx2-bx1)*0.85,by1+(by2-by1)*0.85); ctx.stroke();
+        var ax=bx1+(bx2-bx1)*0.85, ay=by1+(by2-by1)*0.85, ah=s*0.16;
+        ctx.fillStyle=color;
+        ctx.beginPath(); ctx.moveTo(ax+ah*0.5,ay+ah*0.5); ctx.lineTo(ax-ah*0.3,ay+ah*0.1); ctx.lineTo(ax+ah*0.1,ay-ah*0.3); ctx.closePath(); ctx.fill();
+        ctx.lineWidth=lw*0.6;
+        var fx=bx1+(bx2-bx1)*0.18, fy=by1+(by2-by1)*0.18;
+        ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx-ah*0.4,fy-ah*0.6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx-ah*0.6,fy-ah*0.3); ctx.stroke();
+      } else if (type === 4) {
+        var hr=s*0.28, htop=cy-s*0.18;
+        ctx.beginPath();
+        ctx.arc(cx-hr*0.5,htop,hr,Math.PI,0);
+        ctx.arc(cx+hr*0.5,htop,hr,Math.PI,0);
+        ctx.lineTo(cx,cy+s*0.42);
+        ctx.closePath(); ctx.fill();
+      } else if (type === 5) {
+        var kcy=cy-s*0.12, khr=s*0.22, ksh=s*0.55, ksw=s*0.07;
+        ctx.beginPath(); ctx.arc(cx,kcy,khr,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(0,0,0,0.75)';
+        ctx.beginPath(); ctx.arc(cx,kcy,khr*0.5,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle=color;
+        ctx.beginPath(); ctx.rect(cx-ksw,kcy+khr*0.85,ksw*2,ksh); ctx.fill();
+        ctx.beginPath(); ctx.rect(cx+ksw,kcy+khr*0.85+ksh*0.35,s*0.12,s*0.10); ctx.fill();
+        ctx.beginPath(); ctx.rect(cx+ksw,kcy+khr*0.85+ksh*0.60,s*0.10,s*0.09); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    var colSymType = [];
+    for (var cs = 0; cs < COLS; cs++) colSymType[cs] = Math.floor(Math.random() * TRIFORCE_TYPES.length);
+
+    function drawMatrix(now) {
+      if (stopped) { ctx.clearRect(0, 0, W, H); return; }
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.font = FONT_SIZE + 'px monospace';
+      var pal3 = [SETTINGS.animColorA, SETTINGS.animColorB];
+      for (var col = 0; col < COLS; col++) {
+        var x = col * FONT_SIZE;
+        var y = drops[col] * FONT_SIZE;
+        var colColor = pal3[col % pal3.length];
+        var symType   = TRIFORCE_TYPES[Math.floor(Math.random() * TRIFORCE_TYPES.length)];
+        var trailType = TRIFORCE_TYPES[Math.floor(Math.random() * TRIFORCE_TYPES.length)];
+        if (y > 0)             drawTriforce(symType,   x + HALF, y - HALF,            colColor, 1.0);
+        if (y - FONT_SIZE > 0) drawTriforce(trailType, x + HALF, y - FONT_SIZE - HALF, colColor, 0.55);
+        drops[col]++;
+        if (drops[col] * FONT_SIZE > H && Math.random() > 0.975) drops[col] = 0;
+      }
+      ctx.globalAlpha = 1.0;
+      var matVig = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.min(W, H) * 0.38);
+      matVig.addColorStop(0,    'rgba(0,0,0,0.80)');
+      matVig.addColorStop(0.55, 'rgba(0,0,0,0.20)');
+      matVig.addColorStop(1,    'rgba(0,0,0,0)');
+      ctx.fillStyle = matVig;
+      ctx.fillRect(0, 0, W, H);
+      rafId = requestAnimationFrame(drawMatrix);
+    }
+    rafId = requestAnimationFrame(drawMatrix);
+
   } else if (SETTINGS.animBg === 'image') {
     var imgSrc = SETTINGS.animBgImage || 'items/triforce.jpg';
     var bgImg = new Image();
@@ -2121,12 +2365,51 @@ function _hexToRgba(hex, alpha) {
   return 'rgba('+r+','+g+','+b+','+alpha.toFixed(3)+')';
 }
 
+// ── Per-item sounds ───────────────────────────────────────────────────────
+function playItemSound(key, val) {
+  if (RACE_MODE) return; // Race Mode: no item collect sounds.
+  try {
+    // Check level-specific sound first (e.g. 'sword-2' for Master Sword),
+    // then fall back to the base key sound (e.g. 'sword' for any sword).
+    var dataUrl = (val !== undefined
+      ? localStorage.getItem('alttp-item-sound-' + key + '-' + val)
+      : null) || localStorage.getItem('alttp-item-sound-' + key);
+    if (!dataUrl) return;
+    var a = new Audio(dataUrl);
+    a.play().catch(function() {});
+  } catch(e) {}
+}
+
+function openItemSounds() {
+  if (RACE_MODE) return; // disabled in Race Mode
+  if (window.electronAPI && window.electronAPI.openBcastSettings) {
+    window.electronAPI.openBcastSettings();
+  }
+}
+
+// Reflect Race Mode in the UI: disable the Item Sounds button when racing.
+function updateRaceModeUI() {
+  var btn = document.getElementById('item-sounds-btn');
+  if (btn) {
+    btn.disabled = RACE_MODE;
+    btn.title = RACE_MODE ? 'Disabled in Race Mode' : '';
+  }
+}
+
 // ── BroadcastChannel ─────────────────────────────────────────────────────
 try {
   var bc = new BroadcastChannel('alttp-tracker');
   bc.onmessage = function(e) {
     if (!e.data) return;
-    if (e.data.type==='items'||e.data.type==='snap') applySnapCoalesced(e.data.data||e.data);
+    if (e.data.type==='items'||e.data.type==='snap') {
+      var _snapData = e.data.data||e.data;
+      // Keep Race Mode in sync live, even if this window opened before it was set.
+      if (_snapData && typeof _snapData.raceMode === 'boolean' && _snapData.raceMode !== RACE_MODE) {
+        RACE_MODE = _snapData.raceMode;
+        updateRaceModeUI();
+      }
+      applySnapCoalesced(_snapData);
+    }
     else if (e.data.type==='prizes') applyPrizesCoalesced(e.data.data);
     else if (e.data.type==='stats') {
       if(slotEls['stat_check'])slotEls['stat_check'].textContent=e.data.checks||0;
@@ -2137,19 +2420,202 @@ try {
   };
 } catch(err) { console.error('BroadcastChannel error:', err); }
 
+// ── Go Mode Sparklines ────────────────────────────────────────────────────
+var _gomodeSparkRaf  = null;
+var _gomodeSparkStop = false;
+
+function startGomodeSparks() {
+  _gomodeSparkStop = false;
+  var canvas = document.getElementById('gomode-spark-canvas');
+  if (!canvas) return;
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.classList.add('active');
+  var ctx = canvas.getContext('2d');
+
+  var SPARK_PALETTE = (SETTINGS.sparkColors && SETTINGS.sparkColors.length)
+    ? SETTINGS.sparkColors
+    : ['#22cc55','#66ff88','#aaffbb','#4488ff','#88bbff','#cc44ff'];
+  var SPARK_TRAIL = 16;
+  var SPARK_SPEED = 2.0;
+  var SPARK_SIZE  = 3;
+
+  var _comboSubKeys = {};
+  Object.keys(COMBO_SLOTS).forEach(function(ck) {
+    COMBO_SLOTS[ck].keys.forEach(function(sk) { _comboSubKeys[sk] = ck; });
+  });
+
+  function getSlotRects() {
+    var rects = [];
+    var seenCombos = {};
+    Object.keys(slotContainers).forEach(function(key) {
+      if (key === 'gomode' || key === 'stats' || key === 'bottles' || key === 'agahnim') return;
+      var val = _appliedItemState[key];
+      if (!val || val <= 0) return;
+      var comboKey = _comboSubKeys[key];
+      if (comboKey) {
+        var subEl = slotContainers[key];
+        if (subEl && subEl.classList && subEl.classList.contains('bcombo-img')) {
+          if (seenCombos[comboKey]) return;
+          var anyCollected = COMBO_SLOTS[comboKey].keys.some(function(sk) {
+            return (_appliedItemState[sk] || 0) > 0;
+          });
+          if (!anyCollected) return;
+          seenCombos[comboKey] = true;
+          var parentEl = subEl.parentElement;
+          if (!parentEl) return;
+          var r = parentEl.getBoundingClientRect();
+          if (r.width >= 4) rects.push({ x: r.left, y: r.top, w: r.width, h: r.height });
+          return;
+        }
+      }
+      var el = slotContainers[key];
+      if (!el) return;
+      // For right-column slots (.bright-slot), trace the inner icon img, not the wide container
+      var targetEl = (el.classList && el.classList.contains('bright-slot'))
+        ? (el.querySelector('img') || el) : el;
+      var r = targetEl.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) return;
+      rects.push({ x: r.left, y: r.top, w: r.width, h: r.height });
+    });
+    var anyBottle = ['bottle1','bottle2','bottle3','bottle4'].some(function(b){ return (_appliedItemState[b]||0) > 0; });
+    if (anyBottle && slotContainers['bottles']) {
+      var r = slotContainers['bottles'].getBoundingClientRect();
+      if (r.width >= 4) rects.push({ x: r.left, y: r.top, w: r.width, h: r.height });
+    }
+    return rects;
+  }
+
+  function makeSparkForRect(rect, tOffset) {
+    return { rect: rect, t: tOffset || 0, trail: [] };
+  }
+
+  function perimPoint(rect, t) {
+    var w = rect.w, h = rect.h;
+    var perim = 2 * (w + h);
+    t = ((t % perim) + perim) % perim;
+    if (t < w)  return { x: rect.x + t,        y: rect.y };
+    t -= w;
+    if (t < h)  return { x: rect.x + w,         y: rect.y + t };
+    t -= h;
+    if (t < w)  return { x: rect.x + w - t,     y: rect.y + h };
+    t -= w;
+                return { x: rect.x,              y: rect.y + h - t };
+  }
+
+  var sparks = [];
+  var rects  = getSlotRects();
+  rects.forEach(function(rect) { sparks.push(makeSparkForRect(rect, 0)); });
+  var frameCount = 0;
+
+  function draw() {
+    if (_gomodeSparkStop) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.classList.remove('active');
+      return;
+    }
+    frameCount++;
+    if (frameCount % 30 === 0) {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+      var newRects = getSlotRects();
+      if (newRects.length !== rects.length) {
+        var syncT = sparks.length > 0 ? sparks[0].t : 0;
+        rects = newRects;
+        sparks = rects.map(function(rect) {
+          var existing = sparks.find(function(s) {
+            return Math.abs(s.rect.x - rect.x) < 2 && Math.abs(s.rect.y - rect.y) < 2;
+          });
+          return existing ? Object.assign(existing, { rect: rect }) : makeSparkForRect(rect, syncT);
+        });
+      } else {
+        rects = newRects;
+        sparks = rects.map(function(rect) {
+          var existing = sparks.find(function(s) {
+            return Math.abs(s.rect.x - rect.x) < 2 && Math.abs(s.rect.y - rect.y) < 2;
+          });
+          return existing ? Object.assign(existing, { rect: rect }) : makeSparkForRect(rect, sparks.length > 0 ? sparks[0].t : 0);
+        });
+      }
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    sparks.forEach(function(spark) {
+      spark.t += SPARK_SPEED;
+      var pos = perimPoint(spark.rect, spark.t);
+      spark.trail.push({ x: pos.x, y: pos.y });
+      if (spark.trail.length > SPARK_TRAIL) spark.trail.shift();
+      var perim = 2 * (spark.rect.w + spark.rect.h);
+      for (var i = 0; i < spark.trail.length; i++) {
+        var alpha = (i + 1) / spark.trail.length;
+        var p = spark.trail[i];
+        var tPos = ((spark.t - (spark.trail.length - i) * SPARK_SPEED) % perim + perim) % perim;
+        var colorIdx = Math.floor((tPos / perim) * SPARK_PALETTE.length) % SPARK_PALETTE.length;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, SPARK_SIZE * alpha, 0, Math.PI * 2);
+        ctx.fillStyle = SPARK_PALETTE[colorIdx];
+        ctx.globalAlpha = alpha * 0.9;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    });
+    _gomodeSparkRaf = requestAnimationFrame(draw);
+  }
+
+  if (_gomodeSparkRaf) cancelAnimationFrame(_gomodeSparkRaf);
+  _gomodeSparkRaf = requestAnimationFrame(draw);
+}
+
+function stopGomodeSparks() {
+  _gomodeSparkStop = true;
+  if (_gomodeSparkRaf) { cancelAnimationFrame(_gomodeSparkRaf); _gomodeSparkRaf = null; }
+  var canvas = document.getElementById('gomode-spark-canvas');
+  if (canvas) {
+    canvas.classList.remove('active');
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+// ── Broadcast scale ──────────────────────────────────────────────────────
+var _bcastScale = parseInt(localStorage.getItem('bcast-scale') || '100', 10);
+function _applyBcastScale() {
+  var el = document.querySelector('.broadcast-container');
+  if (!el) return;
+  el.style.transformOrigin = 'top left';
+  el.style.transform = (_bcastScale === 100) ? '' : 'scale(' + (_bcastScale / 100).toFixed(2) + ')';
+}
+function bcastSizeDown() { _bcastScale = Math.max(10, _bcastScale - 2); localStorage.setItem('bcast-scale', _bcastScale); _applyBcastScale(); }
+function bcastSizeUp()   { _bcastScale = Math.min(300, _bcastScale + 2); localStorage.setItem('bcast-scale', _bcastScale); _applyBcastScale(); }
+
 // ── Init ─────────────────────────────────────────────────────────────────
-loadSettings();
-applyFillVariable();
-applyDungeonColors();
-buildRows();
-applyDungeonVisibility();
-applyBg(SETTINGS.bg);
-wireSettingsHandlers();
-syncAnimSubEnabled();
-if (SETTINGS.animColorPreset !== 'custom') applyAnimColorPreset(SETTINGS.animColorPreset);
-setTimeout(function() {
-  try { new BroadcastChannel('alttp-tracker').postMessage({type:'requestSnap'}); } catch(e) {}
-}, 500);
+function _init() {
+  loadSettings();
+  updateRaceModeUI();
+  applyFillVariable();
+  applyDungeonColors();
+  buildRows();
+  _applyBcastScale();
+  applyDungeonVisibility();
+  applyBg(SETTINGS.bg);
+  wireSettingsHandlers();
+  syncAnimSubEnabled();
+  syncGomodeSparksSubEnabled();
+  buildSparkSwatches();
+  if (SETTINGS.animColorPreset !== 'custom') applyAnimColorPreset(SETTINGS.animColorPreset);
+  setTimeout(function() {
+    try { new BroadcastChannel('alttp-tracker').postMessage({type:'requestSnap'}); } catch(e) {}
+  }, 500);
+}
+
+// If in Electron, resolve the real items path first so BASE is correct before buildRows
+if (window.electronAPI && window.electronAPI.getPaths) {
+  window.electronAPI.getPaths().then(function(paths) {
+    if (paths && paths.itemsUrl) BASE = paths.itemsUrl;
+    _init();
+  }).catch(function() { _init(); });
+} else {
+  _init();
+}
 </script>
 </body>
 </html>

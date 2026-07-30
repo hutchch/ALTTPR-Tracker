@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     if (result && result.ok) cb(result.json);
   },
   openBcastSettings: ()  => ipcRenderer.invoke('open-bcast-settings'),
+  sendApiItems: (snap) => ipcRenderer.send('api-items-update', snap),
   onUpdateStatus:  (cb) => ipcRenderer.on('update-status', (_e, data) => cb(data)),
   isElectron:   true,
 });

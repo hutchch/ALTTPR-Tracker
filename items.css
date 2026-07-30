@@ -449,6 +449,16 @@ html.no-boss-shuffle .boss-circle:hover {
     margin-right: 4px;
 }
 
+.race-label {
+    font-size: 7px;
+    font-weight: bold;
+    color: #ff4444;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    margin-right: 4px;
+}
+.race-label:empty { display: none; }
+
 .newgame-btn {
     height: 13px;
     font-size: 8px;
@@ -747,7 +757,7 @@ html.dfill-on[data-bg="white"] .dungeon-slot.prize-obtained {
     position: absolute;
     inset: 4px;
     border-radius: 6px;
-    background: var(--item-fill-color, #2ecc71);
+    background: linear-gradient(to bottom left, var(--item-fill-color, #2ecc71), var(--item-fill-color2, #5e3d99));
     opacity: 0;
     z-index: 1;
     pointer-events: none;

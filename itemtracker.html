@@ -18,6 +18,7 @@
 <button class="size-btn" id="item-broadcast-btn" title="Open Broadcast View" onclick="(function(){ var bg=localStorage.getItem('alttp-tracker-bg')||'black'; if(window.electronAPI&&window.electronAPI.launch){ window.electronAPI.launch({which:'broadcast',trackerBg:bg}); } else { window.open('broadcast.html?bg='+bg,'alttp-broadcast','width=500,height=230,resizable=yes'); } })()" style="background:#1a2e4a;color:#7ab8f5;border:1px solid #2a4e7a;padding:0 6px;">📡</button>
   </div>
   <div class="connection-status" id="item-conn-status">○ Disconnected</div>
+  <span class="race-label" id="item-race-label"></span>
   <span class="mode-label" id="item-mode-label"></span>
   <button class="reconnect-btn" id="item-reconnect-btn" title="Reconnect to QUsb2Snes" onclick="manualReconnect()">↻</button>
   <button class="newgame-btn" id="item-newgame-btn" title="Reset to new game" onclick="resetItemTracker()">⟳ New Game</button>
@@ -55,13 +56,21 @@
           <label><input type="checkbox" id="item-opt-fill-enabled"> Item Fill</label>
         </div>
         <div class="its-sub" id="item-fill-sub">
-          <div class="its-sub-label">Fill Color</div>
+          <div class="its-sub-label">Fill Color (top-right)</div>
           <div class="its-radios">
             <label><input type="radio" name="its-fill-color" value="green"> Green</label>
             <label><input type="radio" name="its-fill-color" value="blue"> Blue</label>
             <label><input type="radio" name="its-fill-color" value="purple"> Purple</label>
             <label><input type="radio" name="its-fill-color" value="custom"> Custom</label>
             <input type="color" class="its-color-picker" id="item-opt-fill-custom" value="#00aa00">
+          </div>
+          <div class="its-sub-label">Second Color (bottom-left)</div>
+          <div class="its-radios">
+            <label><input type="radio" name="its-fill-color-2" value="green"> Green</label>
+            <label><input type="radio" name="its-fill-color-2" value="blue"> Blue</label>
+            <label><input type="radio" name="its-fill-color-2" value="purple"> Purple</label>
+            <label><input type="radio" name="its-fill-color-2" value="custom"> Custom</label>
+            <input type="color" class="its-color-picker" id="item-opt-fill-custom-2" value="#b675ff">
           </div>
           <div class="its-sub-label">Fill Effect</div>
           <div class="its-radios">
@@ -165,6 +174,9 @@ try {
   // Store dungeonItems mode for reference
   window._dungeonItemsMode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
 
+  // Race Mode flag (shown as a "RACE" label left of the dungeon-mode label).
+  window._raceMode = (p.get('race') || localStorage.getItem('alttp-race-mode') || 'no') === 'yes';
+
   // Boss shuffle flag — when "no" the bosses are vanilla so we hide the boss
   // When boss shuffle is off, circles stay visible but are locked to vanilla
   // assignments (CSS disables interaction; DOMContentLoaded seeds the bosses).
@@ -193,6 +205,8 @@ try {
       var modeLabels = { standard: 'STD', mapcompass: 'MC', mapcompasskeys: 'MCK', keysanity: 'KS', other: 'O' };
       lbl.textContent = modeLabels[window._dungeonItemsMode] || 'STD';
     }
+    var raceLbl = document.getElementById('item-race-label');
+    if (raceLbl) raceLbl.textContent = window._raceMode ? 'RACE' : '';
   });
 
   // Background color — apply data-bg early so there's no flash before the
@@ -322,8 +336,10 @@ var ITEM_SETTINGS = {
   bg:            'black',     // black | grey | white | transparent | image
   bgImage:       '',          // data: URL of an uploaded background image
   fillEnabled:   false,
-  fillColor:     'green',     // green | blue | purple | custom
+  fillColor:     'green',     // green | blue | purple | custom (top-right of diagonal)
   fillCustom:    '#00aa00',
+  fillColor2:    'purple',    // green | blue | purple | custom (bottom-left of diagonal)
+  fillCustom2:   '#b675ff',
   fillEffect:    'none',      // none | falling | starburst
   chestsColor:   'blue',      // blue | green | purple | yellow | custom
   chestsCustom:  '#5a8eff',
@@ -333,7 +349,8 @@ var ITEM_SETTINGS = {
   dungeonBoxEnabled:  true,   // dark slot container shown when true
   showBoss:           true    // false = hide all boss circles (vanilla bosses)
 };
-var ITEM_FILL_COLORS     = { green:'#2ecc71', blue:'#3498db', purple:'#b675ff' };
+var ITEM_FILL_COLORS      = { green:'#2ecc71', blue:'#3498db', purple:'#b675ff' };
+var ITEM_FILL_COLORS_DARK = { green:'#176b3b', blue:'#1c5478', purple:'#5e3d99' };
 var ITEM_DUNGEON_PRESETS = { blue:'#5a8eff', green:'#4dff88', purple:'#b675ff', yellow:'#ffcc44' };
 
 function loadItemSettings() {
@@ -344,6 +361,8 @@ function loadItemSettings() {
     ITEM_SETTINGS.fillEnabled    = localStorage.getItem('alttp-itemtracker-fill-enabled') === 'true';
     ITEM_SETTINGS.fillColor      = localStorage.getItem('alttp-itemtracker-fill-color')   || ITEM_SETTINGS.fillColor;
     ITEM_SETTINGS.fillCustom     = localStorage.getItem('alttp-itemtracker-fill-custom')  || ITEM_SETTINGS.fillCustom;
+    ITEM_SETTINGS.fillColor2     = localStorage.getItem('alttp-itemtracker-fill-color-2')  || ITEM_SETTINGS.fillColor2;
+    ITEM_SETTINGS.fillCustom2    = localStorage.getItem('alttp-itemtracker-fill-custom-2') || ITEM_SETTINGS.fillCustom2;
     ITEM_SETTINGS.fillEffect     = localStorage.getItem('alttp-itemtracker-fill-effect')  || ITEM_SETTINGS.fillEffect;
     ITEM_SETTINGS.chestsColor    = localStorage.getItem('alttp-itemtracker-chests-color') || ITEM_SETTINGS.chestsColor;
     ITEM_SETTINGS.chestsCustom   = localStorage.getItem('alttp-itemtracker-chests-custom')|| ITEM_SETTINGS.chestsCustom;
@@ -373,6 +392,8 @@ function saveItemSettings() {
     localStorage.setItem('alttp-itemtracker-fill-enabled',   ITEM_SETTINGS.fillEnabled ? 'true' : 'false');
     localStorage.setItem('alttp-itemtracker-fill-color',     ITEM_SETTINGS.fillColor);
     localStorage.setItem('alttp-itemtracker-fill-custom',    ITEM_SETTINGS.fillCustom);
+    localStorage.setItem('alttp-itemtracker-fill-color-2',   ITEM_SETTINGS.fillColor2);
+    localStorage.setItem('alttp-itemtracker-fill-custom-2',  ITEM_SETTINGS.fillCustom2);
     localStorage.setItem('alttp-itemtracker-fill-effect',    ITEM_SETTINGS.fillEffect);
     localStorage.setItem('alttp-itemtracker-chests-color',   ITEM_SETTINGS.chestsColor);
     localStorage.setItem('alttp-itemtracker-chests-custom',  ITEM_SETTINGS.chestsCustom);
@@ -407,7 +428,11 @@ function applyItemFillVariable() {
   var c = ITEM_SETTINGS.fillColor === 'custom'
     ? ITEM_SETTINGS.fillCustom
     : (ITEM_FILL_COLORS[ITEM_SETTINGS.fillColor] || ITEM_FILL_COLORS.green);
+  var c2 = ITEM_SETTINGS.fillColor2 === 'custom'
+    ? ITEM_SETTINGS.fillCustom2
+    : (ITEM_FILL_COLORS_DARK[ITEM_SETTINGS.fillColor2] || ITEM_FILL_COLORS_DARK.purple);
   document.documentElement.style.setProperty('--item-fill-color', c);
+  document.documentElement.style.setProperty('--item-fill-color2', c2);
 }
 
 function applyItemDungeonColors() {
@@ -501,8 +526,10 @@ function openItemSettings() {
   document.querySelectorAll('input[name="its-bg"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.bg); });
   document.getElementById('item-opt-fill-enabled').checked = ITEM_SETTINGS.fillEnabled;
   document.querySelectorAll('input[name="its-fill-color"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.fillColor); });
+  document.querySelectorAll('input[name="its-fill-color-2"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.fillColor2); });
   document.querySelectorAll('input[name="its-fill-effect"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.fillEffect); });
   document.getElementById('item-opt-fill-custom').value = ITEM_SETTINGS.fillCustom;
+  document.getElementById('item-opt-fill-custom-2').value = ITEM_SETTINGS.fillCustom2;
   document.querySelectorAll('input[name="its-chests-color"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.chestsColor); });
   document.getElementById('item-opt-chests-custom').value = ITEM_SETTINGS.chestsCustom;
   document.querySelectorAll('input[name="its-complete-color"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.completeColor); });
@@ -542,6 +569,18 @@ function wireItemSettingsHandlers() {
   document.getElementById('item-opt-fill-custom').addEventListener('input', function(e) {
     ITEM_SETTINGS.fillCustom = e.target.value;
     if (ITEM_SETTINGS.fillColor === 'custom') applyItemFillVariable();
+    saveItemSettings();
+  });
+  document.querySelectorAll('input[name="its-fill-color-2"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      ITEM_SETTINGS.fillColor2 = r.value;
+      saveItemSettings(); applyItemFillVariable();
+    });
+  });
+  document.getElementById('item-opt-fill-custom-2').addEventListener('input', function(e) {
+    ITEM_SETTINGS.fillCustom2 = e.target.value;
+    if (ITEM_SETTINGS.fillColor2 === 'custom') applyItemFillVariable();
     saveItemSettings();
   });
   document.querySelectorAll('input[name="its-fill-effect"]').forEach(function(r) {
