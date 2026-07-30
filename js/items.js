@@ -1296,7 +1296,14 @@ function broadcastItemSnap() {
     snap.checks = parseInt((document.getElementById('toh-check-count')||{}).textContent||'0');
     snap.deaths = parseInt((document.getElementById('toh-death-count')||{}).textContent||'0');
     snap.bonks  = parseInt((document.getElementById('toh-bonk-count') ||{}).textContent||'0');
+    snap.raceMode = !!window._raceMode;
     window._itemsBc.postMessage({ type: 'items', data: snap });
+    // Feed the read-only items REST API (Electron main process) if available.
+    try {
+        if (window.electronAPI && window.electronAPI.sendApiItems) {
+            window.electronAPI.sendApiItems(snap);
+        }
+    } catch (e) {}
 }
 window.broadcastItemSnap = broadcastItemSnap;
 
