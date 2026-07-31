@@ -1902,7 +1902,8 @@ function checkLogic(it) {
            // (lamp or gloves), otherwise dark navigation is out of logic (purple).
            if (settings.gamemode === 'open') return (bomb || boots) ? ((lamp || glove) ? 'green' : 'purple') : 'red';
            if (settings.gamemode === 'inverted') return (lwAccess && (lamp || (glove && bomb))) ? 'green' : 'red';
-           return 'green';
+           // Standard world state: the deep Escape Sewers chest needs boots or a bomb.
+           return (boots || bomb) ? 'green' : 'red';
          },
     97:  function() { return 'green'; },
     98:  function() { return 'green'; },
@@ -1933,7 +1934,8 @@ function checkLogic(it) {
     102: function() {
            var rc=window.trackerItems?(window.trackerItems.redCrystal||0):0;
            if (rc<2) return 'red';
-           return (aga||dwEast) ? 'green' : 'red';
+           if (!pearl) return 'red';
+           return ((aga && mirror) || hammer) ? 'green' : 'red';
          },
     103: function() {
            return (it.pendants >= 3) ? 'green' : (book ? 'orange' : 'red');
