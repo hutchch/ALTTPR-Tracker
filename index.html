@@ -87,6 +87,10 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 /* ── Toggles + Presets side-by-side layout ── */
 .toggles-presets-wrap { display: flex; align-items: flex-start; gap: 16px; }
 .toggles-col { display: flex; flex-direction: column; flex: 0 0 auto; }
+/* Bottom row of inline seed-flag checkboxes (Swordless, Pseudo Boots, Mirror Scroll) */
+.toggles-bottom-row { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; margin-top: 12px; }
+.check-row { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 12px; color: #666; user-select: none; }
+.check-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #4dff88; cursor: pointer; margin: 0; }
 .presets-col {
   flex: 1; display: flex; flex-direction: column; gap: 6px;
   padding: 8px 10px; margin-top: 2px;
@@ -283,7 +287,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 
 <h1>⚔ ALTTP Tracker</h1>
   <p style="text-align: center;">
-  <small>Version 1.1.15</small>
+  <small>Version 1.1.16</small>
 </p>
 <div class="section">
   <h2>Display</h2>
@@ -395,14 +399,6 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
     <span class="toggle-label-text" id="enemizer-toggle-label">Yes</span>
   </div>
   <div class="row toggle-row">
-    <label>Swordless</label>
-    <label class="toggle-switch">
-      <input type="checkbox" id="swordless-toggle">
-      <span class="toggle-slider"></span>
-    </label>
-    <span class="toggle-label-text" id="swordless-toggle-label">No</span>
-  </div>
-  <div class="row toggle-row">
     <label>Race Mode</label>
     <label class="toggle-switch">
       <input type="checkbox" id="racemode-toggle">
@@ -422,10 +418,25 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
       <option value="openkeysanity">Open KeySanity</option>
       <option value="crosskeys">CrossKeys</option>
     </select>
-    <button type="button" class="preset-btn" id="preset-apply-btn" onclick="applyPreset()">Preset</button>
+    <button type="button" class="preset-btn" id="preset-apply-btn" onclick="applyPreset()">Load Preset</button>
     <button type="button" class="preset-btn preset-btn-save" id="preset-save-btn" onclick="saveCustomPreset()">Save Preset</button>
     <button type="button" class="preset-btn preset-btn-delete" id="preset-delete-btn" onclick="deleteCustomPreset()" style="display:none">Delete Preset</button>
   </div>
+  </div>
+
+  <div class="toggles-bottom-row">
+    <label class="check-row">
+      <input type="checkbox" id="swordless-toggle">
+      <span>Swordless</span>
+    </label>
+    <label class="check-row">
+      <input type="checkbox" id="pseudoboots-toggle">
+      <span>Pseudo Boots</span>
+    </label>
+    <label class="check-row">
+      <input type="checkbox" id="mirrorscroll-toggle">
+      <span>Mirror Scroll</span>
+    </label>
   </div>
 </div>
 
@@ -501,7 +512,7 @@ function wireToggleLabel(toggleId, labelId) {
   toggle.addEventListener('change', sync);
   sync();
 }
-['entranceshuffle','bossshuffle','enemizer','swordless','racemode'].forEach(function(name) {
+['entranceshuffle','bossshuffle','enemizer','swordless','pseudoboots','mirrorscroll','racemode'].forEach(function(name) {
   wireToggleLabel(name + '-toggle', name + '-toggle-label');
 });
 
@@ -520,6 +531,8 @@ function getSettings() {
     dungeonItems:  document.getElementById('dungeonitems-select') ? document.getElementById('dungeonitems-select').value : 'standard',
     trackerBg:  document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black',
     swordless:  document.getElementById('swordless-toggle') && document.getElementById('swordless-toggle').checked ? 'yes' : 'no',
+    pseudoboots: document.getElementById('pseudoboots-toggle') && document.getElementById('pseudoboots-toggle').checked ? 'yes' : 'no',
+    mirrorscroll: document.getElementById('mirrorscroll-toggle') && document.getElementById('mirrorscroll-toggle').checked ? 'yes' : 'no',
     entranceShuffle: esToggle && esToggle.checked ? 'on' : 'none',
     raceMode:   document.getElementById('racemode-toggle') && document.getElementById('racemode-toggle').checked ? 'yes' : 'no',
     apiEnabled: document.getElementById('api-enabled') && document.getElementById('api-enabled').checked ? 'yes' : 'no',
@@ -546,6 +559,8 @@ function save() {
   if (document.getElementById('timer-color-custom')) localStorage.setItem('alttp-timer-color-custom', document.getElementById('timer-color-custom').value);
   if (document.getElementById('timer-bg-custom'))    localStorage.setItem('alttp-timer-bg-custom',    document.getElementById('timer-bg-custom').value);
   localStorage.setItem('alttp-swordless', s.swordless);
+  localStorage.setItem('alttp-pseudoboots', s.pseudoboots);
+  localStorage.setItem('alttp-mirrorscroll', s.mirrorscroll);
   localStorage.setItem('alttp-entrance-shuffle', s.entranceShuffle === 'none' ? 'no' : 'yes');
   localStorage.setItem('alttp-entrance-shuffle-mode', s.entranceShuffle);
   localStorage.setItem('alttp-race-mode', s.raceMode);
@@ -568,7 +583,7 @@ function launchItems() {
   } else {
     var tbg = document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black';
     var di = s.dungeonItems || 'standard';
-    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle, 'alttp-items', 'width=500,height=390,resizable=yes');
+    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll, 'alttp-items', 'width=500,height=390,resizable=yes');
   }
 }
 
@@ -608,7 +623,7 @@ function launchBoth() {
     var mapH = size + 92;
     var tbg = document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black';
     var di = s.dungeonItems || 'standard';
-    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle, 'alttp-items', 'width=500,height=390,resizable=yes');
+    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll, 'alttp-items', 'width=500,height=390,resizable=yes');
     window.open(mapUrl(s), 'alttp-map', 'width=' + mapW + ',height=' + mapH + ',resizable=yes');
   }
 }
@@ -659,6 +674,14 @@ window.addEventListener('DOMContentLoaded', async function() {
   var swordlessToggle = document.getElementById('swordless-toggle');
   if (swordlessToggle) swordlessToggle.checked = (slVal === 'yes');
 
+  var pbVal = saved.pseudoboots || localStorage.getItem('alttp-pseudoboots') || 'no';
+  var pseudobootsToggle = document.getElementById('pseudoboots-toggle');
+  if (pseudobootsToggle) pseudobootsToggle.checked = (pbVal === 'yes');
+
+  var msVal = saved.mirrorscroll || localStorage.getItem('alttp-mirrorscroll') || 'no';
+  var mirrorscrollToggle = document.getElementById('mirrorscroll-toggle');
+  if (mirrorscrollToggle) mirrorscrollToggle.checked = (msVal === 'yes');
+
   var raceVal = saved.raceMode || localStorage.getItem('alttp-race-mode') || 'no';
   var racemodeToggle = document.getElementById('racemode-toggle');
   if (racemodeToggle) racemodeToggle.checked = (raceVal === 'yes');
@@ -668,7 +691,7 @@ window.addEventListener('DOMContentLoaded', async function() {
   if (esToggleEl) esToggleEl.checked = (esVal !== 'none');
 
   // Re-sync the Yes/No text labels now that toggle states were restored.
-  ['entranceshuffle','bossshuffle','enemizer','swordless','racemode'].forEach(function(name) {
+  ['entranceshuffle','bossshuffle','enemizer','swordless','pseudoboots','mirrorscroll','racemode'].forEach(function(name) {
     var t = document.getElementById(name + '-toggle');
     var l = document.getElementById(name + '-toggle-label');
     if (t && l) l.textContent = t.checked ? 'Yes' : 'No';
@@ -837,7 +860,7 @@ function applyPresetSettings(cfg) {
   if (swToggle && cfg.swordless !== undefined) swToggle.checked = !!cfg.swordless;
 
   // Re-sync the Yes/No text labels and persist the now-applied settings.
-  ['entranceshuffle','bossshuffle','enemizer','swordless','racemode'].forEach(function(name) {
+  ['entranceshuffle','bossshuffle','enemizer','swordless','pseudoboots','mirrorscroll','racemode'].forEach(function(name) {
     var t = document.getElementById(name + '-toggle');
     var l = document.getElementById(name + '-toggle-label');
     if (t && l) l.textContent = t.checked ? 'Yes' : 'No';

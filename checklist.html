@@ -198,7 +198,7 @@ document.getElementById('list').addEventListener('click', function(ev) {
   // Optimistically toggle local state, re-render, then tell the map
   _checkState[id] = !_checkState[id];
   render();
-  bc.postMessage({ type: 'toggle-check', id: id });
+  bc.postMessage({ type: 'toggle-check', id: id, cleared: !!_checkState[id] });
   // Also write to localStorage so map.html can react via storage event
   try { localStorage.setItem('alttp-check-toggle', JSON.stringify({ id: id, cleared: !!_checkState[id], t: Date.now() })); } catch(e) {}
 });

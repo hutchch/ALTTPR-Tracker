@@ -509,6 +509,9 @@ function refreshItemFills() {
     var key = slot.dataset.itemKey;
     if (!key || key === 'stats') return;
     var have = on && items[key] && items[key].currentState > 0;
+    // Seed-flag cosmetics show a variant at state 0 (present from game load), so
+    // fill their slot even before the real item is obtained when the flag is on.
+    if (on && typeof seedFlagOverlay === 'function' && seedFlagOverlay(key, 0)) have = true;
     applyOneItemFill(slot, have);
   });
   var grid = document.querySelector('.bottle-grid');

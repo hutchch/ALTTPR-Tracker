@@ -520,7 +520,7 @@ html[data-bg="transparent"] .bbg-bar * {
 <div class="bbg-bar">
   <button class="bsettings-btn bsize-btn" onclick="bcastSizeDown()">−</button>
   <button class="bsettings-btn bsize-btn" onclick="bcastSizeUp()">+</button>
-  <button class="bsettings-btn" onclick="openSettings()">⚙ Settings</button>
+  <button class="bsettings-btn" onclick="openSettingsPopout()">⚙ Settings</button>
   <button class="bsettings-btn" id="item-sounds-btn" onclick="openItemSounds()">♪ Item Sounds</button>
 </div>
 
@@ -533,348 +533,11 @@ html[data-bg="transparent"] .bbg-bar * {
   <div id="item-anim-label"></div>
 </div>
 
-<div id="settings-overlay" class="hidden" onclick="if(event.target===this)closeSettings()">
-  <div class="settings-modal">
-    <div class="settings-header">
-      <h3>Broadcast Settings</h3>
-      <button class="settings-close" onclick="closeSettings()">×</button>
-    </div>
-    <div class="settings-body">
-      <div class="settings-section">
-        <h4>Main Background</h4>
-        <div class="settings-radios" id="bg-radios">
-          <label><input type="radio" name="bg" value="black"> Black</label>
-          <label><input type="radio" name="bg" value="grey"> Grey</label>
-          <label><input type="radio" name="bg" value="white"> White</label>
-          <label><input type="radio" name="bg" value="transparent"> Transparent</label>
-          <label><input type="radio" name="bg" value="image"> Image</label>
-        </div>
-        <div class="settings-row">
-          <label class="bsettings-btn" style="cursor:pointer; margin:0;">
-            Choose Image...
-            <input type="file" accept="image/*" id="opt-bg-image-file" style="display:none;">
-          </label>
-          <button type="button" class="bsettings-btn" id="opt-bg-image-clear" style="margin:0;">Clear</button>
-          <span class="sub-label" id="bg-image-status" style="font-size:10px;color:#888;">No image</span>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h4>Item Background</h4>
-        <div class="settings-row">
-          <label><input type="checkbox" id="opt-fill-enabled"> Item Fill</label>
-        </div>
-        <div class="settings-sub" id="fill-sub">
-          <div class="sub-label">Fill Color (top-right)</div>
-          <div class="settings-radios">
-            <label><input type="radio" name="fill-color" value="green"> Green</label>
-            <label><input type="radio" name="fill-color" value="blue"> Blue</label>
-            <label><input type="radio" name="fill-color" value="purple"> Purple</label>
-            <label><input type="radio" name="fill-color" value="custom"> Custom</label>
-            <input type="color" class="settings-color-picker" id="opt-fill-custom" value="#00aa00">
-          </div>
-          <div class="sub-label">Second Color (bottom-left)</div>
-          <div class="settings-radios">
-            <label><input type="radio" name="fill-color-2" value="green"> Green</label>
-            <label><input type="radio" name="fill-color-2" value="blue"> Blue</label>
-            <label><input type="radio" name="fill-color-2" value="purple"> Purple</label>
-            <label><input type="radio" name="fill-color-2" value="custom"> Custom</label>
-            <input type="color" class="settings-color-picker" id="opt-fill-custom-2" value="#b675ff">
-          </div>
-          <div class="sub-label">Fill Effect</div>
-          <div class="settings-radios">
-            <label><input type="radio" name="fill-effect" value="none"> No Effects</label>
-            <label><input type="radio" name="fill-effect" value="falling"> Falling</label>
-            <label><input type="radio" name="fill-effect" value="starburst"> Starburst</label>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h4>View Style</h4>
-        <div class="settings-radios">
-          <label><input type="radio" name="view-style" value="modern"> Modern</label>
-          <label><input type="radio" name="view-style" value="classic"> Classic</label>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h4>Item Animation</h4>
-        <div class="settings-row">
-          <label><input type="checkbox" id="opt-item-anim"> Item Animation</label>
-        </div>
-        <div class="settings-sub" id="item-anim-sub">
-          <div class="settings-row">
-            <label><input type="checkbox" id="opt-anim-label"> Show Item Name</label>
-          </div>
-          <div class="sub-label">Animation Background</div>
-          <div class="settings-radios">
-            <label><input type="radio" name="anim-bg" value="none"> None</label>
-            <label><input type="radio" name="anim-bg" value="stars"> Falling Stars</label>
-            <label><input type="radio" name="anim-bg" value="starburst"> Starburst</label>
-            <label><input type="radio" name="anim-bg" value="matrix"> Matrix</label>
-            <label><input type="radio" name="anim-bg" value="image"> Image</label>
-          </div>
-          <div class="settings-sub disabled" id="anim-image-sub">
-            <div class="settings-row">
-              <label class="bsettings-btn" style="cursor:pointer;margin:0;">
-                Browse...
-                <input type="file" accept="image/*" id="opt-anim-bg-image-file" style="display:none;">
-              </label>
-              <span id="anim-bg-image-status" style="font-size:10px;color:#888;">triforce.jpg (default)</span>
-            </div>
-            <div class="settings-row">
-              <button type="button" class="bsettings-btn" id="opt-anim-bg-image-clear" style="margin:0;">Clear</button>
-            </div>
-          </div>
-          <div class="settings-sub" id="anim-colors-sub">
-            <div class="sub-label">Color Theme</div>
-            <div class="settings-radios">
-              <label><input type="radio" name="anim-color-preset" value="blue"> Blue</label>
-              <label><input type="radio" name="anim-color-preset" value="green"> Green</label>
-              <label><input type="radio" name="anim-color-preset" value="purple"> Purple</label>
-              <label><input type="radio" name="anim-color-preset" value="custom"> Custom</label>
-            </div>
-            <div class="settings-sub" id="anim-custom-colors-sub">
-              <div class="sub-label">Color A</div>
-              <div class="settings-row">
-                <input type="color" class="settings-color-picker" id="opt-anim-color-a" value="#3498db">
-                <span id="anim-color-a-hex" style="font-size:10px;color:#888;">#3498db</span>
-              </div>
-              <div class="sub-label">Color B (lighter)</div>
-              <div class="settings-row">
-                <input type="color" class="settings-color-picker" id="opt-anim-color-b" value="#88ccff">
-                <span id="anim-color-b-hex" style="font-size:10px;color:#888;">#88ccff</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h4>Go Mode Sound</h4>
-        <div class="settings-row">
-          <label><input type="checkbox" id="opt-gomode-sound"> Play sound on Go Mode</label>
-        </div>
-        <div class="settings-sub" id="gomode-sound-sub">
-          <div class="settings-row">
-            <label class="bsettings-btn" style="cursor:pointer;margin:0;">
-              Browse...
-              <input type="file" accept="audio/*" id="opt-gomode-sound-file" style="display:none;">
-            </label>
-            <span id="gomode-sound-status" style="font-size:10px;color:#888;">No file</span>
-          </div>
-          <div class="settings-row">
-            <button type="button" class="bsettings-btn" id="opt-gomode-sound-clear" style="margin:0;">Clear</button>
-            <button type="button" class="bsettings-btn" id="opt-gomode-sound-test" style="margin:0;">▶ Test</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Go Mode Spark Lines hidden (Max build only) -->
-
-      <div class="settings-section">
-        <h4>Dungeon Background</h4>
-        <div class="settings-row">
-          <label><input type="checkbox" id="opt-dungeon-fill"> Dungeon Fill</label>
-          <label><input type="checkbox" id="opt-dungeon-box"> Dungeon Box</label>
-        </div>
-        <div class="sub-label">All Chests Collected</div>
-        <div class="settings-radios">
-          <label><input type="radio" name="chests-color" value="blue"> Blue</label>
-          <label><input type="radio" name="chests-color" value="green"> Green</label>
-          <label><input type="radio" name="chests-color" value="purple"> Purple</label>
-          <label><input type="radio" name="chests-color" value="yellow"> Yellow</label>
-          <label><input type="radio" name="chests-color" value="custom"> Custom</label>
-          <input type="color" class="settings-color-picker" id="opt-chests-custom" value="#5a8eff">
-        </div>
-        <div class="sub-label">Dungeon Complete</div>
-        <div class="settings-radios">
-          <label><input type="radio" name="complete-color" value="green"> Green</label>
-          <label><input type="radio" name="complete-color" value="blue"> Blue</label>
-          <label><input type="radio" name="complete-color" value="purple"> Purple</label>
-          <label><input type="radio" name="complete-color" value="yellow"> Yellow</label>
-          <label><input type="radio" name="complete-color" value="custom"> Custom</label>
-          <input type="color" class="settings-color-picker" id="opt-complete-custom" value="#4dff88">
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h4>Dungeon Items</h4>
-        <div class="settings-radios">
-          <label><input type="checkbox" id="opt-show-map">        Map</label>
-          <label><input type="checkbox" id="opt-show-compass">    Compass</label>
-          <label><input type="checkbox" id="opt-show-smallkeys">  Small Keys</label>
-          <label><input type="checkbox" id="opt-show-bigkey">     Big Key</label>
-          <label><input type="checkbox" id="opt-show-chests">     Chests</label>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
+<script src="js/bcast-settings-core.js"></script>
 <script>
 // ── Settings storage ─────────────────────────────────────────────────────
-var SETTINGS = {
-  bg:           'black',
-  bgImage:      '',          // data: URL of uploaded background image
-  fillEnabled:  false,
-  fillColor:    'green',     // green | blue | purple | custom (top-right of diagonal)
-  fillCustom:   '#00aa00',
-  fillColor2:   'purple',    // green | blue | purple | custom (bottom-left of diagonal)
-  fillCustom2:  '#b675ff',
-  fillEffect:   'none',      // none | falling | starburst
-  chestsColor:  'blue',      // blue | green | purple | yellow | custom — All chests collected tint
-  chestsCustom: '#5a8eff',
-  completeColor:'green',     // green | blue | purple | yellow | custom — Dungeon complete tint
-  completeCustom:'#4dff88',
-  showMap:       true,
-  showCompass:   true,
-  showSmallKeys: true,
-  showBigKey:    true,
-  showChests:    true,
-  dungeonFillEnabled: true, // When false the chests-done/prize-done tints are suppressed
-  dungeonBoxEnabled:  true, // When false the default dark slot container is hidden — flat dungeons
-  viewStyle:       'modern',     // 'modern' | 'classic'
-  itemAnimEnabled: false,        // When true, full-screen spin-in animation on item collect
-  animShowLabel:   true,         // Show item name at bottom during animation
-  gomodeSoundEnabled: false,     // Play a sound when Go Mode (level 1) is activated
-  gomodeSoundData:    '',        // data: URL of the audio file
-  sparkColors:      ['#22cc55','#66ff88','#aaffbb','#4488ff','#88bbff','#cc44ff'],  // default
-  gomodeSparksEnabled: false,
-  animBg:           'none',      // 'none' | 'stars' | 'starburst' | 'matrix' | 'image'
-  animBgImage:      '',          // data URL for anim background image (empty = use triforce.jpg)
-  animColorPreset:  'blue',      // 'blue' | 'green' | 'purple' | 'custom'
-  animColorA:       '#3498db',   // color A (primary)
-  animColorB:       '#88ccff'    // color B (lighter complement)
-};
-
-var FILL_COLORS = {
-  green:  '#2ecc71',
-  blue:   '#3498db',
-  purple: '#b675ff'
-};
-// Darker variants used for the second (bottom-left) fill color presets.
-var FILL_COLORS_DARK = {
-  green:  '#176b3b',
-  blue:   '#1c5478',
-  purple: '#5e3d99'
-};
-
-var DUNGEON_PRESETS = {
-  blue:   '#5a8eff',
-  green:  '#4dff88',
-  purple: '#b675ff',
-  yellow: '#ffcc44'
-};
-
-function loadSettings() {
-  try {
-    SETTINGS.bg            = localStorage.getItem('alttp-broadcast-bg') || SETTINGS.bg;
-    SETTINGS.bgImage       = localStorage.getItem('alttp-broadcast-bg-image') || '';
-    SETTINGS.fillEnabled   = localStorage.getItem('alttp-broadcast-fill-enabled') === 'true';
-    SETTINGS.fillColor     = localStorage.getItem('alttp-broadcast-fill-color')   || SETTINGS.fillColor;
-    SETTINGS.fillCustom    = localStorage.getItem('alttp-broadcast-fill-custom')  || SETTINGS.fillCustom;
-    SETTINGS.fillColor2    = localStorage.getItem('alttp-broadcast-fill-color-2')  || SETTINGS.fillColor2;
-    SETTINGS.fillCustom2   = localStorage.getItem('alttp-broadcast-fill-custom-2') || SETTINGS.fillCustom2;
-    SETTINGS.fillEffect    = localStorage.getItem('alttp-broadcast-fill-effect')  || SETTINGS.fillEffect;
-    SETTINGS.chestsColor   = localStorage.getItem('alttp-broadcast-chests-color') || SETTINGS.chestsColor;
-    SETTINGS.chestsCustom  = localStorage.getItem('alttp-broadcast-chests-custom')|| SETTINGS.chestsCustom;
-    SETTINGS.completeColor = localStorage.getItem('alttp-broadcast-complete-color') || SETTINGS.completeColor;
-    SETTINGS.completeCustom= localStorage.getItem('alttp-broadcast-complete-custom')|| SETTINGS.completeCustom;
-    // Default-on flags use !== 'false' so first-run / never-set means visible
-    SETTINGS.showMap       = localStorage.getItem('alttp-broadcast-show-map')        !== 'false';
-    SETTINGS.showCompass   = localStorage.getItem('alttp-broadcast-show-compass')    !== 'false';
-    SETTINGS.showSmallKeys = localStorage.getItem('alttp-broadcast-show-smallkeys')  !== 'false';
-    SETTINGS.showBigKey    = localStorage.getItem('alttp-broadcast-show-bigkey')     !== 'false';
-    SETTINGS.showChests    = localStorage.getItem('alttp-broadcast-show-chests')     !== 'false';
-    SETTINGS.dungeonFillEnabled = localStorage.getItem('alttp-broadcast-dungeon-fill') !== 'false';
-    SETTINGS.dungeonBoxEnabled  = localStorage.getItem('alttp-broadcast-dungeon-box')  !== 'false';
-    SETTINGS.viewStyle       = localStorage.getItem('alttp-broadcast-view-style')        || SETTINGS.viewStyle;
-    SETTINGS.itemAnimEnabled    = localStorage.getItem('alttp-broadcast-item-anim') === 'true';
-    SETTINGS.animShowLabel      = localStorage.getItem('alttp-broadcast-anim-label') !== 'false';
-    SETTINGS.gomodeSoundEnabled = localStorage.getItem('alttp-broadcast-gomode-sound') === 'true';
-    SETTINGS.gomodeSoundData    = localStorage.getItem('alttp-broadcast-gomode-sound-data') || '';
-    var sc = localStorage.getItem('alttp-broadcast-spark-colors');
-    if (sc) try { SETTINGS.sparkColors = JSON.parse(sc); } catch(e2) {}
-    // Spark lines are Max-only — always disabled in this build
-    SETTINGS.gomodeSparksEnabled = false;
-    SETTINGS.animBg          = localStorage.getItem('alttp-broadcast-anim-bg')            || SETTINGS.animBg;
-    SETTINGS.animBgImage     = localStorage.getItem('alttp-broadcast-anim-bg-image')      || '';
-    SETTINGS.animColorPreset = localStorage.getItem('alttp-broadcast-anim-color-preset') || SETTINGS.animColorPreset;
-    SETTINGS.animColorA      = localStorage.getItem('alttp-broadcast-anim-color-a')      || SETTINGS.animColorA;
-    SETTINGS.animColorB      = localStorage.getItem('alttp-broadcast-anim-color-b')      || SETTINGS.animColorB;
-  } catch (e) {}
-  // URL bg overrides stored bg
-  var p = new URLSearchParams(window.location.search);
-  var urlBg = p.get('bg');
-  if (urlBg) SETTINGS.bg = urlBg;
-  // Fall back to black if "image" is selected but we have no stored image
-  if (SETTINGS.bg === 'image' && !SETTINGS.bgImage) SETTINGS.bg = 'black';
-}
-
-function saveSettings() {
-  try {
-    localStorage.setItem('alttp-broadcast-bg',             SETTINGS.bg);
-    localStorage.setItem('alttp-broadcast-fill-enabled',   SETTINGS.fillEnabled ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-fill-color',     SETTINGS.fillColor);
-    localStorage.setItem('alttp-broadcast-fill-custom',    SETTINGS.fillCustom);
-    localStorage.setItem('alttp-broadcast-fill-color-2',   SETTINGS.fillColor2);
-    localStorage.setItem('alttp-broadcast-fill-custom-2',  SETTINGS.fillCustom2);
-    localStorage.setItem('alttp-broadcast-fill-effect',    SETTINGS.fillEffect);
-    localStorage.setItem('alttp-broadcast-chests-color',   SETTINGS.chestsColor);
-    localStorage.setItem('alttp-broadcast-chests-custom',  SETTINGS.chestsCustom);
-    localStorage.setItem('alttp-broadcast-complete-color', SETTINGS.completeColor);
-    localStorage.setItem('alttp-broadcast-complete-custom',SETTINGS.completeCustom);
-    localStorage.setItem('alttp-broadcast-show-map',        SETTINGS.showMap       ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-show-compass',    SETTINGS.showCompass   ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-show-smallkeys',  SETTINGS.showSmallKeys ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-show-bigkey',     SETTINGS.showBigKey    ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-show-chests',     SETTINGS.showChests    ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-dungeon-fill',    SETTINGS.dungeonFillEnabled ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-dungeon-box',     SETTINGS.dungeonBoxEnabled  ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-view-style',      SETTINGS.viewStyle);
-    localStorage.setItem('alttp-broadcast-item-anim',        SETTINGS.itemAnimEnabled    ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-anim-label',      SETTINGS.animShowLabel      ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-gomode-sound',    SETTINGS.gomodeSoundEnabled ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-spark-colors',   JSON.stringify(SETTINGS.sparkColors));
-    localStorage.setItem('alttp-broadcast-gomode-sparks',  SETTINGS.gomodeSparksEnabled ? 'true' : 'false');
-    localStorage.setItem('alttp-broadcast-anim-bg',            SETTINGS.animBg);
-    localStorage.setItem('alttp-broadcast-anim-color-preset', SETTINGS.animColorPreset);
-    localStorage.setItem('alttp-broadcast-anim-color-a',      SETTINGS.animColorA);
-    localStorage.setItem('alttp-broadcast-anim-color-b',      SETTINGS.animColorB);
-  } catch (e) {}
-}
-
-function saveBgImage(dataUrl) {
-  SETTINGS.bgImage = dataUrl || '';
-  try {
-    if (dataUrl) localStorage.setItem('alttp-broadcast-bg-image', dataUrl);
-    else         localStorage.removeItem('alttp-broadcast-bg-image');
-    return true;
-  } catch (e) {
-    alert('Could not store background image — it may be too large. Try a smaller file.');
-    SETTINGS.bgImage = '';
-    return false;
-  }
-}
-
-function saveAnimBgImage(dataUrl) {
-  SETTINGS.animBgImage = dataUrl || '';
-  try {
-    if (dataUrl) localStorage.setItem('alttp-broadcast-anim-bg-image', dataUrl);
-    else         localStorage.removeItem('alttp-broadcast-anim-bg-image');
-    return true;
-  } catch(e) {
-    alert('Could not store animation background image — it may be too large. Try a smaller file.');
-    SETTINGS.animBgImage = '';
-    return false;
-  }
-}
-function updateAnimBgImageStatus() {
-  var el = document.getElementById('anim-bg-image-status');
-  if (el) el.textContent = SETTINGS.animBgImage ? 'Custom image loaded' : 'items/triforce.jpg (default)';
-}
+// SETTINGS schema, FILL_COLORS, FILL_COLORS_DARK, DUNGEON_PRESETS,
+// loadSettings() and saveSettings() live in js/bcast-settings-core.js (shared).
 
 function applyFillVariable() {
   var color = SETTINGS.fillColor === 'custom' ? SETTINGS.fillCustom : (FILL_COLORS[SETTINGS.fillColor] || FILL_COLORS.green);
@@ -990,104 +653,6 @@ function applyBg(bg) {
   if (window.electronAPI && window.electronAPI.setBroadcastBg) window.electronAPI.setBroadcastBg(bg);
 }
 
-function updateBgImageStatus() {
-  var lbl = document.getElementById('bg-image-status');
-  if (lbl) lbl.textContent = SETTINGS.bgImage ? 'Image loaded' : 'No image';
-}
-
-// ── Settings popup ───────────────────────────────────────────────────────
-function openSettings() {
-  // Sync UI from SETTINGS
-  document.querySelectorAll('input[name="bg"]').forEach(function(r) { r.checked = (r.value === SETTINGS.bg); });
-  document.getElementById('opt-fill-enabled').checked = SETTINGS.fillEnabled;
-  document.querySelectorAll('input[name="fill-color"]').forEach(function(r) { r.checked = (r.value === SETTINGS.fillColor); });
-  document.querySelectorAll('input[name="fill-color-2"]').forEach(function(r) { r.checked = (r.value === SETTINGS.fillColor2); });
-  document.querySelectorAll('input[name="fill-effect"]').forEach(function(r) { r.checked = (r.value === SETTINGS.fillEffect); });
-  document.getElementById('opt-fill-custom').value = SETTINGS.fillCustom;
-  document.getElementById('opt-fill-custom-2').value = SETTINGS.fillCustom2;
-  document.querySelectorAll('input[name="chests-color"]').forEach(function(r) { r.checked = (r.value === SETTINGS.chestsColor); });
-  document.getElementById('opt-chests-custom').value = SETTINGS.chestsCustom;
-  document.querySelectorAll('input[name="complete-color"]').forEach(function(r) { r.checked = (r.value === SETTINGS.completeColor); });
-  document.getElementById('opt-complete-custom').value = SETTINGS.completeCustom;
-  document.getElementById('opt-show-map').checked       = SETTINGS.showMap;
-  document.getElementById('opt-show-compass').checked   = SETTINGS.showCompass;
-  document.getElementById('opt-show-smallkeys').checked = SETTINGS.showSmallKeys;
-  document.getElementById('opt-show-bigkey').checked    = SETTINGS.showBigKey;
-  document.getElementById('opt-show-chests').checked    = SETTINGS.showChests;
-  document.getElementById('opt-dungeon-fill').checked   = SETTINGS.dungeonFillEnabled;
-  document.getElementById('opt-dungeon-box').checked    = SETTINGS.dungeonBoxEnabled;
-  document.querySelectorAll('input[name="view-style"]').forEach(function(r) { r.checked = (r.value === SETTINGS.viewStyle); });
-  document.getElementById('opt-item-anim').checked      = SETTINGS.itemAnimEnabled;
-  document.getElementById('opt-anim-label').checked     = SETTINGS.animShowLabel;
-  document.getElementById('opt-gomode-sound').checked   = SETTINGS.gomodeSoundEnabled;
-  updateGomodeSoundStatus();
-  document.querySelectorAll('input[name="anim-bg"]').forEach(function(r) { r.checked = (r.value === SETTINGS.animBg); });
-  document.querySelectorAll('input[name="anim-color-preset"]').forEach(function(r) { r.checked = (r.value === SETTINGS.animColorPreset); });
-  document.getElementById('opt-anim-color-a').value = SETTINGS.animColorA;
-  document.getElementById('anim-color-a-hex').textContent = SETTINGS.animColorA;
-  document.getElementById('opt-anim-color-b').value = SETTINGS.animColorB;
-  document.getElementById('anim-color-b-hex').textContent = SETTINGS.animColorB;
-  syncAnimSubEnabled();
-  syncGomodeSoundSub();
-  // Spark lines disabled in this build — no UI elements to sync
-  syncFillSubEnabled();
-  updateBgImageStatus();
-  updateAnimBgImageStatus();
-  document.getElementById('settings-overlay').classList.remove('hidden');
-}
-function closeSettings() {
-  document.getElementById('settings-overlay').classList.add('hidden');
-}
-function syncFillSubEnabled() {
-  var sub = document.getElementById('fill-sub');
-  if (SETTINGS.fillEnabled) sub.classList.remove('disabled');
-  else                       sub.classList.add('disabled');
-}
-function syncGomodeSoundSub() {
-  var sub = document.getElementById('gomode-sound-sub');
-  if (SETTINGS.gomodeSoundEnabled) sub.classList.remove('disabled');
-  else                              sub.classList.add('disabled');
-}
-function syncGomodeSparksSubEnabled() {
-  var sub = document.getElementById('gomode-sparks-sub');
-  if (sub) {
-    if (SETTINGS.gomodeSparksEnabled) sub.classList.remove('disabled');
-    else                               sub.classList.add('disabled');
-  }
-}
-function buildSparkSwatches() {
-  var container = document.getElementById('spark-color-swatches');
-  if (!container) return;
-  container.innerHTML = '';
-  var colors = SETTINGS.sparkColors;
-  var MAX_COLORS = 6;
-  for (var i = 0; i < MAX_COLORS; i++) {
-    (function(idx) {
-      var wrap = document.createElement('div');
-      wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
-      var picker = document.createElement('input');
-      picker.type = 'color';
-      picker.className = 'settings-color-picker';
-      picker.value = colors[idx] || '#333333';
-      picker.style.opacity = colors[idx] ? '1' : '0.35';
-      picker.addEventListener('input', function(e) {
-        SETTINGS.sparkColors[idx] = e.target.value;
-        picker.style.opacity = '1';
-        saveSettings();
-      });
-      var lbl = document.createElement('span');
-      lbl.style.cssText = 'font-size:9px;color:#666;';
-      lbl.textContent = idx + 1;
-      wrap.appendChild(picker);
-      wrap.appendChild(lbl);
-      container.appendChild(wrap);
-    })(i);
-  }
-}
-function updateGomodeSoundStatus() {
-  var el = document.getElementById('gomode-sound-status');
-  if (el) el.textContent = SETTINGS.gomodeSoundData ? 'File loaded' : 'No file';
-}
 function playGomodeSound() {
   if (RACE_MODE) return; // Race Mode: no Go Mode sound.
   if (!SETTINGS.gomodeSoundEnabled || !SETTINGS.gomodeSoundData) return;
@@ -1097,304 +662,6 @@ function playGomodeSound() {
   } catch(e) {}
 }
 
-// Preset color pairs: [colorA, colorB]
-var ANIM_COLOR_PRESETS = {
-  blue:   ['#3498db', '#88ccff'],
-  green:  ['#2ecc71', '#88ffbb'],
-  purple: ['#b675ff', '#ddb8ff']
-};
-
-function applyAnimColorPreset(preset) {
-  if (preset === 'custom') return; // leave pickers as-is
-  var pair = ANIM_COLOR_PRESETS[preset];
-  if (!pair) return;
-  SETTINGS.animColorA = pair[0];
-  SETTINGS.animColorB = pair[1];
-  document.getElementById('opt-anim-color-a').value = pair[0];
-  document.getElementById('anim-color-a-hex').textContent = pair[0];
-  document.getElementById('opt-anim-color-b').value = pair[1];
-  document.getElementById('anim-color-b-hex').textContent = pair[1];
-}
-
-function syncAnimSubEnabled() {
-  var sub = document.getElementById('item-anim-sub');
-  if (SETTINGS.itemAnimEnabled) sub.classList.remove('disabled');
-  else                           sub.classList.add('disabled');
-
-  var colorsSub = document.getElementById('anim-colors-sub');
-  var showColors = SETTINGS.itemAnimEnabled && SETTINGS.animBg !== 'none' && SETTINGS.animBg !== 'image';
-  if (showColors) colorsSub.classList.remove('disabled');
-  else             colorsSub.classList.add('disabled');
-
-  var customSub = document.getElementById('anim-custom-colors-sub');
-  var showCustom = showColors && SETTINGS.animColorPreset === 'custom';
-  if (showCustom) customSub.classList.remove('disabled');
-  else             customSub.classList.add('disabled');
-
-  var imageSub = document.getElementById('anim-image-sub');
-  if (imageSub) {
-    var showImage = SETTINGS.itemAnimEnabled && SETTINGS.animBg === 'image';
-    if (showImage) imageSub.classList.remove('disabled');
-    else            imageSub.classList.add('disabled');
-  }
-}
-
-function wireSettingsHandlers() {
-  document.querySelectorAll('input[name="bg"]').forEach(function(r) {
-    r.addEventListener('change', function() { if (r.checked) applyBg(r.value); });
-  });
-  document.getElementById('opt-fill-enabled').addEventListener('change', function(e) {
-    SETTINGS.fillEnabled = e.target.checked;
-    saveSettings(); syncFillSubEnabled(); refreshAllFills();
-  });
-  document.querySelectorAll('input[name="fill-color"]').forEach(function(r) {
-    r.addEventListener('change', function() {
-      if (!r.checked) return;
-      SETTINGS.fillColor = r.value;
-      saveSettings(); applyFillVariable();
-    });
-  });
-  document.getElementById('opt-fill-custom').addEventListener('input', function(e) {
-    SETTINGS.fillCustom = e.target.value;
-    if (SETTINGS.fillColor === 'custom') applyFillVariable();
-    saveSettings();
-  });
-  document.querySelectorAll('input[name="fill-color-2"]').forEach(function(r) {
-    r.addEventListener('change', function() {
-      if (!r.checked) return;
-      SETTINGS.fillColor2 = r.value;
-      saveSettings(); applyFillVariable();
-    });
-  });
-  document.getElementById('opt-fill-custom-2').addEventListener('input', function(e) {
-    SETTINGS.fillCustom2 = e.target.value;
-    if (SETTINGS.fillColor2 === 'custom') applyFillVariable();
-    saveSettings();
-  });
-  document.querySelectorAll('input[name="fill-effect"]').forEach(function(r) {
-    r.addEventListener('change', function() {
-      if (!r.checked) return;
-      SETTINGS.fillEffect = r.value;
-      saveSettings();
-    });
-  });
-
-  // Dungeon Background — All Chests Collected
-  document.querySelectorAll('input[name="chests-color"]').forEach(function(r) {
-    r.addEventListener('change', function() {
-      if (!r.checked) return;
-      SETTINGS.chestsColor = r.value;
-      saveSettings(); applyDungeonColors();
-    });
-  });
-  document.getElementById('opt-chests-custom').addEventListener('input', function(e) {
-    SETTINGS.chestsCustom = e.target.value;
-    if (SETTINGS.chestsColor === 'custom') applyDungeonColors();
-    saveSettings();
-  });
-  // Dungeon Background — Dungeon Complete
-  document.querySelectorAll('input[name="complete-color"]').forEach(function(r) {
-    r.addEventListener('change', function() {
-      if (!r.checked) return;
-      SETTINGS.completeColor = r.value;
-      saveSettings(); applyDungeonColors();
-    });
-  });
-  document.getElementById('opt-complete-custom').addEventListener('input', function(e) {
-    SETTINGS.completeCustom = e.target.value;
-    if (SETTINGS.completeColor === 'custom') applyDungeonColors();
-    saveSettings();
-  });
-
-  // Dungeon Items — visibility checkboxes
-  [
-    ['opt-show-map',       'showMap'],
-    ['opt-show-compass',   'showCompass'],
-    ['opt-show-smallkeys', 'showSmallKeys'],
-    ['opt-show-bigkey',    'showBigKey'],
-    ['opt-show-chests',    'showChests']
-  ].forEach(function(pair) {
-    document.getElementById(pair[0]).addEventListener('change', function(e) {
-      SETTINGS[pair[1]] = e.target.checked;
-      saveSettings();
-      applyDungeonVisibility();
-    });
-  });
-
-  // Dungeon Fill master toggle
-  document.getElementById('opt-dungeon-fill').addEventListener('change', function(e) {
-    SETTINGS.dungeonFillEnabled = e.target.checked;
-    saveSettings();
-    applyDungeonFill();
-  });
-
-  // Dungeon Box master toggle
-  document.getElementById('opt-dungeon-box').addEventListener('change', function(e) {
-    SETTINGS.dungeonBoxEnabled = e.target.checked;
-    saveSettings();
-    applyDungeonBox();
-  });
-
-  // Go Mode Sound
-  document.getElementById('opt-gomode-sound').addEventListener('change', function(e) {
-    SETTINGS.gomodeSoundEnabled = e.target.checked;
-    saveSettings(); syncGomodeSoundSub();
-  });
-  document.getElementById('opt-gomode-sound-file').addEventListener('change', function(e) {
-    var file = e.target.files && e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function() {
-      SETTINGS.gomodeSoundData = reader.result;
-      try { localStorage.setItem('alttp-broadcast-gomode-sound-data', reader.result); } catch(err) {
-        alert('Audio file too large to store. Try a smaller file.');
-        SETTINGS.gomodeSoundData = '';
-      }
-      updateGomodeSoundStatus();
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  });
-  document.getElementById('opt-gomode-sound-clear').addEventListener('click', function() {
-    SETTINGS.gomodeSoundData = '';
-    try { localStorage.removeItem('alttp-broadcast-gomode-sound-data'); } catch(e) {}
-    updateGomodeSoundStatus();
-  });
-  document.getElementById('opt-gomode-sound-test').addEventListener('click', function() {
-    playGomodeSound();
-  });
-  // Go Mode Sparklines disabled in this build — no event listeners needed
-  var SPARK_PRESETS = {
-    green:  ['#22cc55','#66ff88','#aaffbb','#448855','#225533','#88aa99'],
-    blue:   ['#4488ff','#88bbff','#aaccff','#667799','#334466','#99aacc'],
-    purple: ['#aa44ff','#cc88ff','#ddaaff','#774499','#442266','#aa99cc']
-  };
-  ['green','blue','purple'].forEach(function(preset) {
-    var btn = document.getElementById('spark-preset-' + preset);
-    if (!btn) return;
-    btn.addEventListener('click', function() {
-      SETTINGS.sparkColors = SPARK_PRESETS[preset].slice();
-      saveSettings();
-      buildSparkSwatches();
-    });
-  });
-  // Item Animation toggle
-  document.getElementById('opt-item-anim').addEventListener('change', function(e) {
-    SETTINGS.itemAnimEnabled = e.target.checked;
-    saveSettings(); syncAnimSubEnabled();
-  });
-  // Show Item Name toggle
-  document.getElementById('opt-anim-label').addEventListener('change', function(e) {
-    SETTINGS.animShowLabel = e.target.checked;
-    saveSettings();
-  });
-  // Animation background
-  document.querySelectorAll('input[name="anim-bg"]').forEach(function(r) {
-    r.addEventListener('change', function() {
-      if (!r.checked) return;
-      SETTINGS.animBg = r.value;
-      saveSettings(); syncAnimSubEnabled();
-    });
-  });
-  // Color preset radios
-  document.querySelectorAll('input[name="anim-color-preset"]').forEach(function(r) {
-    r.addEventListener('change', function() {
-      if (!r.checked) return;
-      SETTINGS.animColorPreset = r.value;
-      applyAnimColorPreset(r.value);
-      saveSettings(); syncAnimSubEnabled();
-    });
-  });
-  // Custom color pickers
-  document.getElementById('opt-anim-color-a').addEventListener('input', function(e) {
-    SETTINGS.animColorA = e.target.value;
-    document.getElementById('anim-color-a-hex').textContent = e.target.value;
-    saveSettings();
-  });
-  document.getElementById('opt-anim-color-b').addEventListener('input', function(e) {
-    SETTINGS.animColorB = e.target.value;
-    document.getElementById('anim-color-b-hex').textContent = e.target.value;
-    saveSettings();
-  });
-  // Anim background image picker
-  var animBgFile = document.getElementById('opt-anim-bg-image-file');
-  if (animBgFile) {
-    animBgFile.addEventListener('change', function(e) {
-      var file = e.target.files && e.target.files[0];
-      if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function() {
-        var ok = saveAnimBgImage(reader.result);
-        if (!ok) return;
-        updateAnimBgImageStatus();
-        SETTINGS.animBg = 'image';
-        saveSettings();
-        document.querySelectorAll('input[name="anim-bg"]').forEach(function(r){ r.checked = (r.value === 'image'); });
-        syncAnimSubEnabled();
-      };
-      reader.onerror = function() { alert('Could not read that file.'); };
-      reader.readAsDataURL(file);
-      animBgFile.value = '';
-    });
-  }
-  var animBgClear = document.getElementById('opt-anim-bg-image-clear');
-  if (animBgClear) {
-    animBgClear.addEventListener('click', function() {
-      saveAnimBgImage('');
-      updateAnimBgImageStatus();
-    });
-  }
-  // View Style — swap Modern / Classic layout
-  document.querySelectorAll('input[name="view-style"]').forEach(function(r) {
-    r.addEventListener('change', function() {
-      if (!r.checked) return;
-      SETTINGS.viewStyle = r.value;
-      saveSettings();
-      rebuildRows();
-    });
-  });
-
-  // Background image picker
-  var fileInput = document.getElementById('opt-bg-image-file');
-  if (fileInput) {
-    fileInput.addEventListener('change', function(e) {
-      var file = e.target.files && e.target.files[0];
-      if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function() {
-        var ok = saveBgImage(reader.result);
-        if (!ok) return;
-        updateBgImageStatus();
-        // Switch to image bg now that we have one
-        applyBg('image');
-        // Sync the radio selection
-        document.querySelectorAll('input[name="bg"]').forEach(function(r){ r.checked = (r.value === 'image'); });
-      };
-      reader.onerror = function() { alert('Could not read that file.'); };
-      reader.readAsDataURL(file);
-      // Reset so re-selecting the same file fires change
-      fileInput.value = '';
-    });
-  }
-  var clearBtn = document.getElementById('opt-bg-image-clear');
-  if (clearBtn) {
-    clearBtn.addEventListener('click', function() {
-      saveBgImage('');
-      updateBgImageStatus();
-      document.documentElement.style.removeProperty('--bg-image');
-      // If image was the active bg, fall back to black
-      if (SETTINGS.bg === 'image') {
-        applyBg('black');
-        document.querySelectorAll('input[name="bg"]').forEach(function(r){ r.checked = (r.value === 'black'); });
-      }
-    });
-  }
-}
-
-// ── Tracker data ─────────────────────────────────────────────────────────
-// BASE is resolved from the approot query param passed by the app.
-// Start with the query-param approot if provided, otherwise 'items' (relative).
-// After init, getPaths() will update BASE and rebuild all img srcs if needed.
 var BASE = (function() {
   var p = new URLSearchParams(window.location.search);
   var approot = p.get('approot');
@@ -1448,6 +715,11 @@ var IMGS = {
 
 function imgSrc(key, st) {
   var arr = IMGS[key]; if (!arr) return '';
+  // Seed-flag cosmetics: starting look when the flag is on and the real item
+  // (state 1) isn't obtained yet. Kept out of the state number so the value stays
+  // 0/1 for the collect animation (obtaining the real item is a 0 -> 1 increase).
+  if (key === 'boots'  && (st||0) === 0 && state.pseudoboots)  return BASE + '/pseudoboots.png';
+  if (key === 'mirror' && (st||0) === 0 && state.mirrorscroll) return BASE + '/mirrorscroll.png';
   return BASE + '/' + arr[Math.min(st||0, arr.length-1)] + '.png';
 }
 
@@ -1493,7 +765,7 @@ var state = {
   flute:0,net:0,gloves:0,shield:0,
   book:0,bottle1:0,bottle2:0,bottle3:0,bottle4:0,
   somaria:0,byrna:0,cape:0,mirror:0,halfmagic:0,
-  boots:0,flippers:0,tunic:0,gomode:0,
+  boots:0,pseudoboots:0,mirrorscroll:0,flippers:0,tunic:0,gomode:0,
   mmMedallion:0,trMedallion:0,checks:0,deaths:0,bonks:0,
 };
 // Combo slot keys — not real state keys, just layout sentinels
@@ -1522,6 +794,7 @@ var _appliedGomode       = -1;
 var _appliedDungeonState = {};   // key -> { chests, max, bigkey, map, compass, smallKeys, maxKeys, prize, obtained, classes }
 var _appliedMedallion    = { mm: -1, tr: -1 };
 var _appliedStats        = { checks: null, deaths: null, bonks: null };
+var _appliedGtBigKey;            // GT big key (no dungeon slot) — tracked for its collect animation
 
 // Snap coalescing — if multiple snap/prizes messages arrive within ~50 ms
 // (e.g. during reset or an autotracker burst), only re-render once with the
@@ -1707,6 +980,7 @@ function rebuildRows() {
   _appliedItemState    = {};
   _appliedGomode       = -1;
   _appliedDungeonState = {};
+  _appliedGtBigKey     = undefined;
   _appliedMedallion    = { mm: -1, tr: -1 };
   _appliedStats        = { checks: null, deaths: null, bonks: null };
   // buildRows() removes/rebuilds the .bcast-row elements wholesale
@@ -1722,6 +996,9 @@ function rebuildRows() {
 function isFilledFor(key, val) {
   if (!SETTINGS.fillEnabled) return false;
   if (key === 'stats' || key === 'gomode' || key === 'agahnim') return false;
+  // Seed-flag cosmetics are present from game load — fill their slot at state 0.
+  if (key === 'boots'  && state.pseudoboots)  return true;
+  if (key === 'mirror' && state.mirrorscroll) return true;
   return (val|0) > 0;
 }
 
@@ -1870,6 +1147,8 @@ function applySnap(snap) {
   allKeys.forEach(function(key) {
     if (key==='bottles') ['bottle1','bottle2','bottle3','bottle4'].forEach(function(bk){updateItem(bk,state[bk]||0);});
     else if (COMBO_SLOTS[key]) COMBO_SLOTS[key].keys.forEach(function(ck){updateItem(ck,state[ck]||0);});
+    // Boots: value stays 0/1 (pseudo look is handled in imgSrc), so the collect
+    // animation fires normally when real boots is obtained (0 -> 1).
     else if (key!=='stats' && !isDungeonKey(key)) updateItem(key,state[key]||0);
   });
   updateMedallions();
@@ -1930,9 +1209,31 @@ function applySnap(snap) {
         applyKeyRowDisplay(d);
       }
     }
-    if (bigkey       !== undefined && bigkey       !== cache.bigkey)  { d.bigkey.src  = BASE+'/bigkey'  + (bigkey       ? '1' : '0') + '.png'; cache.bigkey  = bigkey; }
-    if (mapState     !== undefined && mapState     !== cache.map)     { d.map.src     = BASE+'/map'     + (mapState     ? '1' : '0') + '.png'; cache.map     = mapState; }
-    if (compassState !== undefined && compassState !== cache.compass) { d.compass.src = BASE+'/compass' + (compassState ? '1' : '0') + '.png'; cache.compass = compassState; }
+    if (bigkey       !== undefined && bigkey       !== cache.bigkey)  {
+      var prevBigkey = cache.bigkey;
+      d.bigkey.src  = BASE+'/bigkey'  + (bigkey       ? '1' : '0') + '.png'; cache.bigkey  = bigkey;
+      // Animate when the big key is newly obtained (not on the startup seed).
+      if (bigkey && !prevBigkey && !_animSuppressNext && SETTINGS.itemAnimEnabled && SETTINGS.bigKeyAnimEnabled) {
+        queueItemAnim('_bigkey_' + key, BASE + '/bigkey1.png', (DUNGEON_NAMES[key] || key.toUpperCase()) + ' Big Key');
+        playItemSound('bigkey');
+      }
+    }
+    if (mapState     !== undefined && mapState     !== cache.map)     {
+      var prevMap = cache.map;
+      d.map.src     = BASE+'/map'     + (mapState     ? '1' : '0') + '.png'; cache.map     = mapState;
+      if (mapState && !prevMap && !_animSuppressNext && SETTINGS.itemAnimEnabled && SETTINGS.mapAnimEnabled) {
+        queueItemAnim('_map_' + key, BASE + '/map1.png', (DUNGEON_NAMES[key] || key.toUpperCase()) + ' Map');
+        playItemSound('map');
+      }
+    }
+    if (compassState !== undefined && compassState !== cache.compass) {
+      var prevCompass = cache.compass;
+      d.compass.src = BASE+'/compass' + (compassState ? '1' : '0') + '.png'; cache.compass = compassState;
+      if (compassState && !prevCompass && !_animSuppressNext && SETTINGS.itemAnimEnabled && SETTINGS.compassAnimEnabled) {
+        queueItemAnim('_compass_' + key, BASE + '/compass1.png', (DUNGEON_NAMES[key] || key.toUpperCase()) + ' Compass');
+        playItemSound('compass');
+      }
+    }
     // Update the prize image only if the snap supplied prize info — some snaps
     // (e.g. tracker.js broadcastItems) don't carry prize fields, so we must not
     // wipe out the current image or completion state when they're missing.
@@ -1967,6 +1268,17 @@ function applySnap(snap) {
     if (cache.pendantClass !== wantPrizeOnly) { d.slot.classList.toggle('prize-only', wantPrizeOnly); cache.pendantClass = wantPrizeOnly; }
   });
 
+  // Ganon's Tower big key — GT isn't a ROW4 dungeon slot, so its collect
+  // animation is handled here off the snap flag rather than the dungeon loop.
+  if (snap.gtBigKey !== undefined && snap.gtBigKey !== _appliedGtBigKey) {
+    var prevGtBk = _appliedGtBigKey;
+    _appliedGtBigKey = snap.gtBigKey;
+    if (snap.gtBigKey && !prevGtBk && !_animSuppressNext && SETTINGS.itemAnimEnabled && SETTINGS.bigKeyAnimEnabled) {
+      queueItemAnim('_bigkey_gt', BASE + '/bigkey1.png', "Ganon's Tower Big Key");
+      playItemSound('bigkey');
+    }
+  }
+
   // Recompute item fills against new state
   refreshAllFills();
   // After the first snap the broadcast is fully seeded — allow animations from now on
@@ -1983,6 +1295,7 @@ function resetAll() {
   _appliedItemState    = {};
   _appliedGomode       = -1;
   _appliedDungeonState = {};
+  _appliedGtBigKey     = undefined;
   _appliedMedallion    = { mm: -1, tr: -1 };
   _appliedStats        = { checks: null, deaths: null, bonks: null };
   applySnap(state);
@@ -2177,13 +1490,28 @@ function _playItemAnim(src, label, done) {
   }, 220);
 }
 
+// When the animation background is 'random', pick one of the enabled pool
+// backgrounds fresh for each animation. Falls back to 'none' if none enabled.
+function pickRandomAnimBg() {
+  var p = SETTINGS.animRandomPool || {};
+  var pool = [];
+  if (p.stars)     pool.push('stars');
+  if (p.starburst) pool.push('starburst');
+  if (p.matrix)    pool.push('matrix');
+  if (p.image)     pool.push('image');
+  if (!pool.length) return 'none';
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function _startAnimBg(canvas) {
   var ctx = canvas.getContext('2d');
   var W = canvas.width, H = canvas.height;
   var stopped = false;
   var rafId = null;
+  // Resolve the effective background once per animation (handles 'random').
+  var bg = SETTINGS.animBg === 'random' ? pickRandomAnimBg() : SETTINGS.animBg;
 
-  if (SETTINGS.animBg === 'stars') {
+  if (bg === 'stars') {
     var NUM_STARS = 60;
     var stars = [];
     for (var i = 0; i < NUM_STARS; i++) { stars.push(_makeStarParticle(W, H, true)); }
@@ -2208,7 +1536,7 @@ function _startAnimBg(canvas) {
       rafId = requestAnimationFrame(drawStars);
     }
     drawStars();
-  } else if (SETTINGS.animBg === 'starburst') {
+  } else if (bg === 'starburst') {
     var NUM_BEAMS = 16;
     var startTime = performance.now();
     var cx = W / 2, cy = H / 2;
@@ -2233,7 +1561,7 @@ function _startAnimBg(canvas) {
     }
     rafId = requestAnimationFrame(drawBurst);
 
-  } else if (SETTINGS.animBg === 'matrix') {
+  } else if (bg === 'matrix') {
     var FONT_SIZE = 16;
     var HALF = FONT_SIZE / 2;
     var COLS = Math.floor(W / FONT_SIZE);
@@ -2330,7 +1658,7 @@ function _startAnimBg(canvas) {
     }
     rafId = requestAnimationFrame(drawMatrix);
 
-  } else if (SETTINGS.animBg === 'image') {
+  } else if (bg === 'image') {
     var imgSrc = SETTINGS.animBgImage || 'items/triforce.jpg';
     var bgImg = new Image();
     bgImg.onload = function() {
@@ -2382,8 +1710,21 @@ function playItemSound(key, val) {
 
 function openItemSounds() {
   if (RACE_MODE) return; // disabled in Race Mode
+  if (window.electronAPI && window.electronAPI.openBcastSounds) {
+    window.electronAPI.openBcastSounds();
+  } else {
+    window.open('bcast-sounds.html', 'alttp-bcast-sounds', 'width=480,height=620,resizable=yes');
+  }
+}
+
+// Open the broadcast settings popout (Electron native window, or a browser
+// window as fallback). The popout writes SETTINGS to localStorage and pings
+// this view via the 'bcast-settings-changed' BroadcastChannel message.
+function openSettingsPopout() {
   if (window.electronAPI && window.electronAPI.openBcastSettings) {
     window.electronAPI.openBcastSettings();
+  } else {
+    window.open('bcast-settings.html', 'alttp-bcast-settings', 'width=440,height=820,resizable=yes,scrollbars=yes');
   }
 }
 
@@ -2417,8 +1758,28 @@ try {
       if(slotEls['stat_bonk']) slotEls['stat_bonk'].textContent =e.data.bonks ||0;
     }
     else if (e.data.type==='newgame') resetAll();
+    else if (e.data.type==='bcast-settings-changed') applyAllSettings();
   };
 } catch(err) { console.error('BroadcastChannel error:', err); }
+
+// Re-apply all view-affecting settings after the popout changes them. Reloads
+// SETTINGS from localStorage (shared with the popout) then re-renders. bg is
+// read from the saved value so popout bg changes take effect (the launch URL
+// bg only seeds the initial load).
+function applyAllSettings() {
+  var prevViewStyle = SETTINGS.viewStyle;
+  loadSettings();
+  try {
+    var savedBg = localStorage.getItem('alttp-broadcast-bg');
+    applyBg(savedBg || SETTINGS.bg);
+    applyFillVariable();
+    applyDungeonColors();
+    applyDungeonBox();
+    applyDungeonVisibility();
+    refreshAllFills();
+    if (SETTINGS.viewStyle !== prevViewStyle) rebuildRows();
+  } catch (e) { console.error('applyAllSettings error:', e); }
+}
 
 // ── Go Mode Sparklines ────────────────────────────────────────────────────
 var _gomodeSparkRaf  = null;
@@ -2597,11 +1958,6 @@ function _init() {
   _applyBcastScale();
   applyDungeonVisibility();
   applyBg(SETTINGS.bg);
-  wireSettingsHandlers();
-  syncAnimSubEnabled();
-  syncGomodeSparksSubEnabled();
-  buildSparkSwatches();
-  if (SETTINGS.animColorPreset !== 'custom') applyAnimColorPreset(SETTINGS.animColorPreset);
   setTimeout(function() {
     try { new BroadcastChannel('alttp-tracker').postMessage({type:'requestSnap'}); } catch(e) {}
   }, 500);

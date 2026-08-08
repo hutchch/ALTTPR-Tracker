@@ -1,3 +1,23 @@
+// Cosmetic seed-flag overlays (pseudo boots, mirror scroll). When the seed is
+// generated with one of these, the item shows a variant image as its STARTING
+// state, replaced by the real item once obtained. DISPLAY ONLY — the value used
+// by logic is never changed (map/checks behave exactly as normal).
+function seedFlagFromQueryOrStore(param, storeKey) {
+    var p = new URLSearchParams(window.location.search).get(param);
+    return (p || localStorage.getItem(storeKey) || 'no') === 'yes';
+}
+function pseudoBootsOn()  { return seedFlagFromQueryOrStore('pseudoboots',  'alttp-pseudoboots'); }
+function mirrorScrollOn() { return seedFlagFromQueryOrStore('mirrorscroll', 'alttp-mirrorscroll'); }
+
+// Returns { img, name } to override a slot's display for a seed-flag cosmetic,
+// or null. Shown as the starting state (currentState 0); the real item image is
+// used once obtained. Uses BASE_URL so it stays correct after applyBaseUrl.
+function seedFlagOverlay(itemKey, currentState) {
+    if (itemKey === 'boots'  && currentState === 0 && pseudoBootsOn())  return { img: BASE_URL + '/pseudoboots.png',  name: 'Pseudo Boots' };
+    if (itemKey === 'mirror' && currentState === 0 && mirrorScrollOn()) return { img: BASE_URL + '/mirrorscroll.png', name: 'Mirror Scroll' };
+    return null;
+}
+
 // BASE_URL for item images.
 // In Electron we ask the main process for the real absolute file:// path.
 // In browser we use the normal relative path.
@@ -32,6 +52,11 @@ function applyBaseUrl(newBase) {
     if (key && items[key]) {
       var state = items[key].states[items[key].currentState];
       if (state && state.img) img.src = state.img;
+      // Seed-flag cosmetics: this re-render (Electron base-path resolution) would
+      // otherwise clobber the pseudo/scroll starting image. Re-apply it. BASE_URL
+      // has already been set to newBase above, so seedFlagOverlay resolves right.
+      var _ovB = seedFlagOverlay(key, items[key].currentState);
+      if (_ovB) { img.src = _ovB.img; img.alt = _ovB.name; slot.dataset.itemName = _ovB.name; }
     }
   });
   // Re-render boss circles with the corrected boss/ base path (no-op if the
@@ -808,6 +833,10 @@ function createTracker() {
                     const img = document.createElement('img');
                     img.src = items[itemKey].states[0].img;
                     img.alt = items[itemKey].states[0].name;
+                    // Seed-flag cosmetic (pseudo boots / mirror scroll): show the
+                    // variant as the starting state when the flag is on.
+                    const _ov0 = seedFlagOverlay(itemKey, items[itemKey].currentState);
+                    if (_ov0) { img.src = _ov0.img; img.alt = _ov0.name; itemSlot.dataset.itemName = _ov0.name; }
                     itemSlot.appendChild(img);
                     
                     // Add medallion label container for bombos, ether, quake
@@ -1149,7 +1178,7 @@ function updateDungeonCountDisplay(dungeonKey) {
 function cycleItem(itemKey, slot) {
     const item = items[itemKey];
     item.currentState = (item.currentState + 1) % item.states.length;
-    
+
     const newState = item.states[item.currentState];
     
     if (item.isGoMode) {
@@ -1166,6 +1195,10 @@ function cycleItem(itemKey, slot) {
         img.src = newState.img;
         img.alt = newState.name;
         slot.dataset.itemName = newState.name;
+        // Seed-flag cosmetic (pseudo boots / mirror scroll): starting-state image
+        // until the real item is obtained. Display only — logic value unchanged.
+        const _ov = seedFlagOverlay(itemKey, item.currentState);
+        if (_ov) { img.src = _ov.img; img.alt = _ov.name; slot.dataset.itemName = _ov.name; }
     }
 
     // Broadcast updated item states to map
@@ -1210,6 +1243,10 @@ function broadcastItemSnap() {
     copyKeys.forEach(function(k) {
         if (items[k]) snap[k] = items[k].currentState;
     });
+    // Cosmetic seed-flag overlays only. `boots`/`mirror` keep their real 0/1
+    // values (logic unchanged); these flags just tell views to swap the image.
+    snap.pseudoboots  = pseudoBootsOn()  ? 1 : 0;
+    snap.mirrorscroll = mirrorScrollOn() ? 1 : 0;
     // Derive bottle count for map logic (trackerItems.bottle)
     snap.bottle = ['bottle1','bottle2','bottle3','bottle4'].filter(k => items[k] && items[k].currentState > 0).length;
     // Compute crystal/pendant counts from DOM prize images (same as processInventoryData).
@@ -1607,6 +1644,13 @@ function processRoomData(data) {
             // value within bounds for every dungeon regardless of mode.
             if (items > dungeon.maxItems) items = dungeon.maxItems;
 
+            // High-water mark: the item count never dips mid-game (same guard the
+            // raw chest count above uses). This prevents the cosmetic -1 flicker
+            // when the boss-defeat location, or a map/compass bit, is read a frame
+            // before its paired chest/prize bit registers. Reset to 0 on New Game
+            // (resetItemTracker), so a fresh file still recounts from scratch.
+            items = Math.max(items, dungeon.itemCount || 0);
+
             // Update if changed
             if (items !== dungeon.itemCount) {
                 dungeons[key].itemCount = items;
@@ -1860,6 +1904,9 @@ function processInventoryData(data) {
         copyKeys.forEach(function(k) {
             if (items[k]) snap[k] = items[k].currentState;
         });
+        // Cosmetic overlay flags only — boots/mirror values untouched for logic.
+        snap.pseudoboots  = pseudoBootsOn()  ? 1 : 0;
+        snap.mirrorscroll = mirrorScrollOn() ? 1 : 0;
         snap.bottle = ['bottle1','bottle2','bottle3','bottle4'].filter(k => items[k] && items[k].currentState > 0).length;
         // Crystal count from trackerItems if available, else from items
         snap.crystals = (window.trackerItems && window.trackerItems.crystals) || 0;
@@ -2029,7 +2076,7 @@ function processInventoryData(data) {
 function updateItemState(itemKey, state) {
     const item = items[itemKey];
     if (!item || item.isGoMode) return;
-    
+
     // Ensure state is within valid range
     state = Math.min(state, item.states.length - 1);
     item.currentState = state;
@@ -2042,6 +2089,10 @@ function updateItemState(itemKey, state) {
         img.src = newState.img;
         img.alt = newState.name;
         slot.dataset.itemName = newState.name;
+        // Seed-flag cosmetic (pseudo boots / mirror scroll): starting-state image
+        // until the real item is obtained. Display only — logic value unchanged.
+        const _ov = seedFlagOverlay(itemKey, item.currentState);
+        if (_ov) { img.src = _ov.img; img.alt = _ov.name; slot.dataset.itemName = _ov.name; }
     }
 
     // Autotracker updated an item — re-evaluate boss circle requirement colors
@@ -2065,6 +2116,9 @@ function resetItemTracker() {
         } else {
             const img = slot.querySelector('img');
             if (img) { img.src = items[key].states[0].img; img.alt = items[key].states[0].name; }
+            // Seed-flag cosmetic: restore the pseudo/scroll starting look after reset.
+            const _ovR = img ? seedFlagOverlay(key, 0) : null;
+            if (_ovR) { img.src = _ovR.img; img.alt = _ovR.name; slot.dataset.itemName = _ovR.name; }
         }
         if (['bombos','ether','quake'].includes(key)) {
             items[key].medallionLabel = '';
@@ -2202,6 +2256,17 @@ function ensureBottomBar() {
 function ensureReconnectButton() { ensureBottomBar(); }
 
 function updateConnectionStatus(status) {
+    // Relay the SNI/autotracker connection status to the overlay WebSocket API
+    // (main broadcasts it as the HoellTracker 'sni:connection-status' channel).
+    // Sent before the UI-div guard so it always propagates.
+    if (window.electronAPI && window.electronAPI.sendApiConnection) {
+        window.electronAPI.sendApiConnection({
+            status: status === 'Connected' ? 'connected' : (status === 'Connecting' ? 'connecting' : 'disconnected'),
+            backend: 'qusb2snes',
+            detail: status
+        });
+    }
+
     let statusDiv = document.getElementById('item-conn-status') ||
                     document.querySelector('.connection-status');
     if (!statusDiv) return;

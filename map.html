@@ -1168,8 +1168,10 @@ function dungeonColor(key) {
       // Inverted: DW is home world — no moonpearl, hammer, or titans mitt needed for front entrance
       // Back entrance: DW DM + pearl + (titans+hammer OR hookshot) + somaria + mirror → yellow
       if (!inverted && !it.moonpearl) return 'red';
-      // Must be able to reach LW Death Mountain (gloves to lift rocks, or flute warp)
-      if (!inverted && it.gloves < 1 && it.flute < 1) return 'red';
+      // Must reach the EAST Death Mountain summit to get to the right/east Dark
+      // Death Mountain where TR sits: climb DM (gloves to lift rocks, or flute
+      // warp) AND cross to the east side (hookshot, or mirror + hammer).
+      if (!inverted && !((it.gloves >= 1 || it.flute >= 1) && (it.hookshot || (it.mirror && it.hammer)))) return 'red';
       // Must traverse east DW Death Mountain: hammer + titans mitts
       if (!inverted && (!it.hammer || it.gloves < 2)) return 'red';
       if (!inverted) {

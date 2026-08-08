@@ -33,6 +33,7 @@ let mapWin        = null;
 let timerWin      = null;
 let broadcastWin      = null;
 let checklistWin      = null;
+let bcastSoundsWin    = null;
 let bcastSettingsWin  = null;
 let broadcastBg   = 'black';
 let timerBg       = 'black';
@@ -559,7 +560,7 @@ function toFileUrl(rel) {
 // ── Launcher ──────────────────────────────────────────────────────────────────
 function createLauncher() {
   launcherWin = new BrowserWindow({
-    width: 540, height: 920,
+    width: 540, height: 950,
     minWidth: 540, minHeight: 700,
     resizable: false,
     useContentSize: true,
@@ -577,7 +578,7 @@ function createLauncher() {
   launcherWin.on('closed', () => {
     launcherWin = null;
     // Closing the launcher shuts down the whole app: close every other window
-    // (item, map, timer, broadcast, checklist, bcast-settings) and stop servers.
+    // (item, map, timer, broadcast, checklist, bcast-sounds, bcast-settings) and stop servers.
     BrowserWindow.getAllWindows().forEach((w) => {
       if (w && !w.isDestroyed()) { try { w.close(); } catch (e) {} }
     });
@@ -621,7 +622,9 @@ function createItemTrackerWindow(scale, wsHost, wsPort, bg, dungeonItems, bossSh
   itemWin = new BrowserWindow(opts);
   itemWin.setMenuBarVisibility(false);
   const race = ((store.get('settings', {}) || {}).raceMode) || 'no';
-  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}&bossshuffle=${bossShuffle||'yes'}&race=${race}`;
+  const pseudoboots = ((store.get('settings', {}) || {}).pseudoboots) || 'no';
+  const mirrorscroll = ((store.get('settings', {}) || {}).mirrorscroll) || 'no';
+  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}&bossshuffle=${bossShuffle||'yes'}&race=${race}&pseudoboots=${pseudoboots}&mirrorscroll=${mirrorscroll}`;
   itemWin.loadURL(toFileUrl('itemtracker.html') + q);
   itemWin.on('closed', () => { itemWin = null; });
   itemTrackerBg = bg || 'black';
@@ -812,6 +815,19 @@ ipcMain.on('api-items-update', (event, snap) => {
   wsPushFromSnap(snap);
 });
 
+// ItemTracker relays its SNI/autotracker connection status; re-broadcast it to
+// overlays as the HoellTracker 'sni:connection-status' channel (cached, so it's
+// also included in the full-state snapshot sent to newly connected overlays).
+ipcMain.on('api-connection-status', (event, info) => {
+  if (!info || typeof info !== 'object') return;
+  wsSetChannel('sni:connection-status', {
+    status:  info.status === 'connected' ? 'connected'
+           : info.status === 'connecting' ? 'connecting' : 'disconnected',
+    backend: info.backend || 'qusb2snes',
+    detail:  info.detail || '',
+  });
+});
+
 ipcMain.on('launch', (event, opts) => {
   // Merge into existing settings so a partial launch (e.g. opening the broadcast
   // view from the item tracker button) doesn't wipe the rest of the settings.
@@ -989,12 +1005,29 @@ function checkForUpdates() {
   });
 }
 
+function openBcastSoundsWindow() {
+  if (bcastSoundsWin && !bcastSoundsWin.isDestroyed()) { bcastSoundsWin.focus(); return; }
+  const root = getRoot();
+  bcastSoundsWin = new BrowserWindow({
+    width: 480, height: 620, resizable: true, useContentSize: true,
+    title: 'Broadcast Item Sounds', backgroundColor: '#0d0d0d',
+    webPreferences: {
+      preload: path.join(root, 'preload.js'),
+      contextIsolation: true, nodeIntegration: false, webSecurity: false,
+    },
+  });
+  bcastSoundsWin.setMenuBarVisibility(false);
+  bcastSoundsWin.loadFile(path.join(root, 'bcast-sounds.html'));
+  bcastSoundsWin.on('closed', () => { bcastSoundsWin = null; });
+}
+ipcMain.handle('open-bcast-sounds', () => openBcastSoundsWindow());
+
 function openBcastSettingsWindow() {
   if (bcastSettingsWin && !bcastSettingsWin.isDestroyed()) { bcastSettingsWin.focus(); return; }
   const root = getRoot();
   bcastSettingsWin = new BrowserWindow({
-    width: 480, height: 620, resizable: true, useContentSize: true,
-    title: 'Broadcast Item Sounds', backgroundColor: '#0d0d0d',
+    width: 440, height: 820, minWidth: 360, minHeight: 400, resizable: true, useContentSize: true,
+    title: 'Broadcast Settings', backgroundColor: '#1a1a1a',
     webPreferences: {
       preload: path.join(root, 'preload.js'),
       contextIsolation: true, nodeIntegration: false, webSecurity: false,

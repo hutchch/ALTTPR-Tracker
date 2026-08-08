@@ -19,8 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const result = await ipcRenderer.invoke('load-ent-state');
     if (result && result.ok) cb(result.json);
   },
+  openBcastSounds:   ()  => ipcRenderer.invoke('open-bcast-sounds'),
   openBcastSettings: ()  => ipcRenderer.invoke('open-bcast-settings'),
   sendApiItems: (snap) => ipcRenderer.send('api-items-update', snap),
+  sendApiConnection: (info) => ipcRenderer.send('api-connection-status', info),
   onUpdateStatus:  (cb) => ipcRenderer.on('update-status', (_e, data) => cb(data)),
   isElectron:   true,
 });
