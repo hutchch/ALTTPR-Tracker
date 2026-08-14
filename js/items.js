@@ -90,6 +90,7 @@ let deviceName = null;
 let deviceAttached = false;
 let _deviceRetryTimer = null;
 let _gamemodeValid = false;
+let _currentGamemode = 0;   // latest game-mode byte (0x7E0010) from each read cycle
 const GAMEMODE_SRAM = (0xF50010).toString(16).toUpperCase();
 const GAMEPLAY_MODES = [0x07, 0x09, 0x0B];
 const KNOWN_ALTTP_MODES = [
@@ -388,6 +389,8 @@ const items = {
 };
 
 const dungeons = {
+    hc: { name: 'HC', bossAddr: null, bigkeyAddr: 0x367, bigkeyMask: 0x40, compassAddr: null, compassMask: 0, mapAddr: 0x369, mapMask: 0x40, smallKeyAddr: 0x4e1, maxChests: 8, maxSmallKeys: 1, maxItems: 6, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0, noCompass: true, noPrize: true, noBigKeyItem: true,
+        locations: [[0x022,0x10],[0x022,0x20],[0x022,0x40],[0x0e4,0x10],[0x0e2,0x10],[0x100,0x10],[0x024,0x10],[0x064,0x10]] },
     ep: { name: 'EP', bossAddr: 0x191, bigkeyAddr: 0x367, bigkeyMask: 0x20, compassAddr: 0x365, compassMask: 0x20, mapAddr: 0x369, mapMask: 0x20, smallKeyAddr: 0x4e2, maxChests: 6, maxSmallKeys: 0, maxItems: 3, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0,
         locations: [[0x172,0x10],[0x154,0x10],[0x150,0x10],[0x152,0x10],[0x170,0x10],[0x191,0x08]] },
     dp: { name: 'DP', bossAddr: 0x067, bigkeyAddr: 0x367, bigkeyMask: 0x10, compassAddr: 0x365, compassMask: 0x10, mapAddr: 0x369, mapMask: 0x10, smallKeyAddr: 0x4e3, maxChests: 6, maxSmallKeys: 1, maxItems: 2, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0,
@@ -421,26 +424,36 @@ window.dungeons = dungeons;
     var mode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
     if (mode === 'keysanity') {
         // All dungeon items (map/compass/keys/bigkey) are shuffled — count all chests
-        var KS = { ep:6, dp:6, toh:6, pod:14, sp:10, sw:8, tt:8, ip:8, mm:8, tr:12, gt:27 };
+        var KS = { hc:8, ep:6, dp:6, toh:6, pod:14, sp:10, sw:8, tt:8, ip:8, mm:8, tr:12, gt:27 };
         Object.keys(KS).forEach(function(k) {
             if (dungeons[k]) dungeons[k].maxItems = KS[k];
         });
     } else if (mode === 'mapcompass') {
         // Maps and compasses are shuffled — standard + 2 per dungeon (GT +1, no map)
-        var MC = { ep:5, dp:4, toh:4, pod:7, sp:8, sw:4, tt:6, ip:5, mm:4, tr:7, gt:22 };
+        var MC = { hc:7, ep:5, dp:4, toh:4, pod:7, sp:8, sw:4, tt:6, ip:5, mm:4, tr:7, gt:22 };
         Object.keys(MC).forEach(function(k) {
             if (dungeons[k]) dungeons[k].maxItems = MC[k];
         });
     } else if (mode === 'mapcompasskeys') {
         // Maps, compasses, and small keys shuffled but big key stays — subtract 1 for big key
-        var MCK = { ep:5, dp:5, toh:5, pod:13, sp:9, sw:7, tt:7, ip:7, mm:7, tr:11, gt:26 };
+        var MCK = { hc:8, ep:5, dp:5, toh:5, pod:13, sp:9, sw:7, tt:7, ip:7, mm:7, tr:11, gt:26 };
         Object.keys(MCK).forEach(function(k) {
             if (dungeons[k]) dungeons[k].maxItems = MCK[k];
         });
     }
 })();
 
+// Prize-count widgets on the new top line: prize icon + "current/max". Each
+// spans two item slots so the four fill the row above the item grid.
+const COUNT_WIDGETS = {
+    crystalcount:      { img: 'crystal1.png',      id: 'crystal-count',      max: 5 },
+    redcrystalcount:   { img: 'redcrystal1.png',   id: 'redcrystal-count',   max: 2 },
+    pendantcount:      { img: 'pendant1.png',      id: 'pendant-count',      max: 2 },
+    greenpendantcount: { img: 'greenpendant1.png', id: 'greenpendant-count', max: 1 }
+};
+
 const layout = [
+    ['crystalcount', 'redcrystalcount', 'pendantcount', 'greenpendantcount', 'heartcount', 'checkcount', 'hc'],
     ['bow', 'boomerang', 'hookshot', 'bomb', 'mushroom', 'powder', 'moonpearl', 'sword', 'ep'],
     ['firerod', 'icerod', 'bombos', 'ether', 'quake', 'boots', 'gloves', 'shield', 'dp'],
     ['lamp', 'hammer', 'shovel', 'flute', 'net', 'book', 'flippers', 'tunic', 'toh'],
@@ -460,12 +473,98 @@ function createTracker() {
         // The row holding the (tall) stats box is top-aligned so its 48px
         // items hug the row above instead of floating in the middle.
         if (row.indexOf('stats') !== -1) rowDiv.classList.add('stats-row');
-        // Rows 1-4 are "item rows" — give them all a uniform fixed height so
-        // the spacing between every item row is consistent (row 5 is the
-        // crystal-dungeon row and is left auto-height).
-        if (rowIndex <= 3) rowDiv.classList.add('item-row');
+        // Row 0 is the new prize-count / HC line; rows 1-4 are the item rows
+        // (uniform fixed height); the last row is the DW dungeon row (auto height).
+        if (rowIndex === 0) rowDiv.classList.add('count-row');
+        else if (rowIndex <= 4) rowDiv.classList.add('item-row');
 
         row.forEach(itemKey => {
+            // Prize-count widget (crystal / red crystal / pendant / green pendant)
+            if (COUNT_WIDGETS[itemKey]) {
+                const w = COUNT_WIDGETS[itemKey];
+                const slot = document.createElement('div');
+                slot.className = 'item-slot prize-count-slot';
+                const img = document.createElement('img');
+                img.src = `${BASE_URL}/${w.img}`;
+                img.className = 'prize-count-icon';
+                img.alt = itemKey;
+                const num = document.createElement('span');
+                num.className = 'prize-count-num';
+                num.id = w.id;
+                num.textContent = '0/' + w.max;
+                slot.appendChild(img);
+                slot.appendChild(num);
+                rowDiv.appendChild(slot);
+                return;
+            }
+            // Empty spacer to keep the top row aligned with the grid below.
+            if (itemKey === 'spacer') {
+                const sp = document.createElement('div');
+                sp.className = 'item-slot';
+                rowDiv.appendChild(sp);
+                return;
+            }
+            // Heart-piece widget: a pixel heart that fills one quadrant per piece
+            // (bottom-left, top-left, top-right, bottom-right), matching the game's
+            // heart-piece display. Built from static <rect> cells — setHeartFill only
+            // recolours them, so it renders reliably in Electron (unlike clip-path /
+            // nested-viewport reveals, whose geometry updates didn't repaint).
+            if (itemKey === 'heartcount') {
+                const slot = document.createElement('div');
+                slot.className = 'item-slot heart-count-slot';
+                const G = [
+                    '...XX......XX...',
+                    '..XXXX....XXXX..',
+                    '.XXXXXX..XXXXXX.',
+                    'XXXXXXXXXXXXXXXX',
+                    'XXXXXXXXXXXXXXXX',
+                    'XXXXXXXXXXXXXXXX',
+                    'XXXXXXXXXXXXXXXX',
+                    '.XXXXXXXXXXXXXX.',
+                    '.XXXXXXXXXXXXXX.',
+                    '..XXXXXXXXXXXX..',
+                    '...XXXXXXXXXX...',
+                    '....XXXXXXXX....',
+                    '.....XXXXXX.....',
+                    '......XXXX......',
+                    '.......XX.......'
+                ].map(row => row.split('').map(ch => ch === 'X' ? 1 : 0));
+                const R = G.length, C = G[0].length;
+                const isH = (r, c) => r >= 0 && r < R && c >= 0 && c < C && G[r][c] === 1;
+                // Fill order matches the game: top-left, bottom-left, top-right,
+                // bottom-right (setHeartFill lights quadrants in this index order).
+                const quad = (r, c) => {
+                    const top = r < 7, left = c < 8;
+                    if (top && left)  return 0;   // top-left     (1st piece)
+                    if (!top && left) return 1;   // bottom-left  (2nd)
+                    if (top && !left) return 2;   // top-right    (3rd)
+                    return 3;                     // bottom-right (4th)
+                };
+                let cells = '';
+                for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+                    if (!G[r][c]) continue;
+                    const border = !isH(r-1,c) || !isH(r+1,c) || !isH(r,c-1) || !isH(r,c+1);
+                    // Border cells are a fixed dark outline; interior cells carry the
+                    // quadrant fill (empty maroon → red) toggled by setHeartFill.
+                    const cls = border ? 'hcell hborder' : ('hcell hq' + quad(r, c));
+                    const fill = border ? '#7a1226' : '#43212b';
+                    cells += '<rect class="' + cls + '" x="' + c + '" y="' + r
+                           + '" width="1.02" height="1.02" fill="' + fill + '"/>';
+                }
+                slot.innerHTML = '<svg class="heart-svg" viewBox="-1 -1 18 17" aria-label="Heart pieces">' + cells + '</svg>';
+                rowDiv.appendChild(slot);
+                return;
+            }
+            // Prominent check-count box (mirrors the stats CHECKS value for now).
+            if (itemKey === 'checkcount') {
+                const box = document.createElement('div');
+                box.className = 'check-count-box';
+                box.innerHTML =
+                    '<span class="check-count-label">CHECKS</span>'
+                  + '<span class="check-count-value" id="hdr-check-count">0</span>';
+                rowDiv.appendChild(box);
+                return;
+            }
             // Check if this is a dungeon
             if (dungeons[itemKey]) {
                 const dungeonSlot = document.createElement('div');
@@ -473,7 +572,7 @@ function createTracker() {
                 dungeonSlot.dataset.dungeonKey = itemKey;
                 
                 // Check if this is a pendant dungeon (EP, DP, ToH)
-                const isPendantDungeon = ['ep', 'dp', 'toh'].includes(itemKey);
+                const isPendantDungeon = ['ep', 'dp', 'toh', 'hc'].includes(itemKey);
                 if (isPendantDungeon) {
                     dungeonSlot.classList.add('pendant-dungeon');
                 }
@@ -500,7 +599,7 @@ function createTracker() {
                     label.textContent = dungeons[itemKey].name;
                     dungeonContent.appendChild(label);
 
-                    if (!dungeons[itemKey].bigkeyOnly) {
+                    if (!dungeons[itemKey].bigkeyOnly && !dungeons[itemKey].noPrize) {
                         const prizeImg = document.createElement('img');
                         prizeImg.className = 'prize-img';
                         const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
@@ -525,7 +624,7 @@ function createTracker() {
                     label.textContent = dungeons[itemKey].name;
                     topRow.appendChild(label);
 
-                    if (!dungeons[itemKey].bigkeyOnly) {
+                    if (!dungeons[itemKey].bigkeyOnly && !dungeons[itemKey].noPrize) {
                         const prizeImg = document.createElement('img');
                         prizeImg.className = 'prize-img';
                         const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
@@ -564,6 +663,7 @@ function createTracker() {
                 });
                 itemsContainer.appendChild(bigkeyImg);
 
+                if (!dungeons[itemKey].noCompass) {
                 const compassImg = document.createElement('img');
                 compassImg.className = 'compass-img';
                 compassImg.src = `${BASE_URL}/compass0.png`;
@@ -578,6 +678,7 @@ function createTracker() {
                     if (window.broadcastItemSnap) window.broadcastItemSnap();
                 });
                 itemsContainer.appendChild(compassImg);
+                }
 
                 const mapImg = document.createElement('img');
                 mapImg.className = 'map-img';
@@ -691,8 +792,21 @@ function createTracker() {
                 itemContainer.style.cursor = 'pointer';
                 itemContainer.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    if (deviceAttached) return;
                     const d = dungeons[itemKey];
+                    if (deviceAttached) {
+                        // Autotracking: left-click skips a chest — lowers the target so
+                        // the dungeon can complete without a chest the player can't or
+                        // won't get. Each click skips one more; once the target drops to
+                        // the number already collected the dungeon reads complete, and
+                        // one more click cycles back to the full, un-skipped target.
+                        const collected = Math.min(d.itemCount || 0, d.maxItems);
+                        const maxSkip = d.maxItems - collected;   // never skip a collected chest
+                        d.skipped = (d.skipped || 0) + 1;
+                        if (d.skipped > maxSkip) d.skipped = 0;   // wrap back to full target
+                        updateDungeonCountDisplay(itemKey);
+                        if (window.broadcastItemSnap) window.broadcastItemSnap();
+                        return;
+                    }
                     if (d.itemCount < d.maxItems) {
                         d.itemCount++;
                         updateDungeonCountDisplay(itemKey);
@@ -701,8 +815,15 @@ function createTracker() {
                 itemContainer.addEventListener('contextmenu', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (deviceAttached) return;
                     const d = dungeons[itemKey];
+                    if (deviceAttached) {
+                        // Autotracking: right-click un-skips one chest (raises the target
+                        // back toward full), the inverse of a left-click.
+                        d.skipped = Math.max(0, (d.skipped || 0) - 1);
+                        updateDungeonCountDisplay(itemKey);
+                        if (window.broadcastItemSnap) window.broadcastItemSnap();
+                        return;
+                    }
                     if (d.itemCount > 0) {
                         d.itemCount--;
                         updateDungeonCountDisplay(itemKey);
@@ -713,28 +834,32 @@ function createTracker() {
                 
                 dungeonSlot.appendChild(countsContainer);
 
-                // Boss circle — left of the row for pendant dungeons, underneath for the rest
-                createBossCircle(itemKey, dungeonSlot, isPendantDungeon);
+                // Boss circle — left of the row for pendant dungeons, underneath for the
+                // rest. HC has no boss/prize, so skip it.
+                if (!dungeons[itemKey].noPrize) createBossCircle(itemKey, dungeonSlot, isPendantDungeon);
 
                 rowDiv.appendChild(dungeonSlot);
             } else if (itemKey === 'stats') {
                 const statsSlot = document.createElement('div');
                 statsSlot.className = 'stats-slot';
-                const checkBox = document.createElement('div');
-                checkBox.className = 'stat-box stat-check';
-                checkBox.innerHTML = '<span class="stat-label">CHECKS</span><span class="stat-value" id="toh-check-count">0</span>';
+                // CHECKS and HEARTS were removed from the visible stats box, but their
+                // SRAM counters still drive the header CHECKS box and the heart widget,
+                // so keep those two IDs alive in a hidden holder.
+                const hiddenStats = document.createElement('div');
+                hiddenStats.style.display = 'none';
+                hiddenStats.innerHTML = '<span id="toh-check-count">0</span><span id="toh-heartpiece-count">0/4</span>';
                 const deathBox = document.createElement('div');
                 deathBox.className = 'stat-box stat-death';
                 deathBox.innerHTML = '<span class="stat-label">DEATHS</span><span class="stat-value" id="toh-death-count">0</span>';
                 const bonkBox = document.createElement('div');
                 bonkBox.className = 'stat-box stat-bonk';
                 bonkBox.innerHTML = '<span class="stat-label">BONKS</span><span class="stat-value" id="toh-bonk-count">0</span>';
-                const heartBox = document.createElement('div');
-                heartBox.className = 'stat-box stat-heartpiece';
-                heartBox.innerHTML = '<span class="stat-label">HEARTS</span><span class="stat-value" id="toh-heartpiece-count">0/4</span>';
                 const revivalBox = document.createElement('div');
                 revivalBox.className = 'stat-box stat-revival';
                 revivalBox.innerHTML = '<span class="stat-label">REVIVALS</span><span class="stat-value" id="toh-revival-count">0</span>';
+                const fluteBox = document.createElement('div');
+                fluteBox.className = 'stat-box stat-flute';
+                fluteBox.innerHTML = '<span class="stat-label">FLUTES</span><span class="stat-value" id="toh-flute-count">0</span>';
                 // CT small key counter — Key Sanity only, shown above checks
                 const _ksCheck = ['keysanity','mapcompasskeys'].includes(new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
                 if (_ksCheck) {
@@ -769,11 +894,11 @@ function createTracker() {
                     });
                     statsSlot.appendChild(ctKeyBox);
                 }
-                statsSlot.appendChild(checkBox);
+                statsSlot.appendChild(hiddenStats);
                 statsSlot.appendChild(deathBox);
                 statsSlot.appendChild(bonkBox);
-                statsSlot.appendChild(heartBox);
                 statsSlot.appendChild(revivalBox);
+                statsSlot.appendChild(fluteBox);
                 rowDiv.appendChild(statsSlot);
             } else if (itemKey === 'bottles') {
                 // 2x2 grid of bottle slots, same footprint as a single item slot (48x48)
@@ -1107,13 +1232,41 @@ function closeBossPopup() {
     _bossPopupActiveKey = null;
 }
 
+// Header check box mirrors the stats CHECKS value.
+function setHeaderChecks(n) {
+    const el = document.getElementById('hdr-check-count');
+    if (el) el.textContent = n;
+}
+// Header heart fills bottom-up, 25% per heart piece (0..4). The clipped fill
+// rect lives in a 24-tall viewBox, so y/height slide it up as pieces are found.
+function setHeartFill(pieces) {
+    let p = parseInt(pieces, 10);
+    if (isNaN(p) || p < 0) p = 0;
+    if (p > 4) p = 4;
+    const slot = document.querySelector('.heart-count-slot');
+    if (!slot) return;
+    // Quadrants fill in index order (0=BL, 1=TL, 2=TR, 3=BR); recolour each
+    // quadrant's interior cells red when collected, dark maroon when not. Border
+    // cells (.hborder) keep their fixed outline colour.
+    for (let q = 0; q < 4; q++) {
+        const on = q < p;
+        slot.querySelectorAll('.hq' + q).forEach(function(el) {
+            el.setAttribute('fill', on ? '#ec2f4b' : '#43212b');
+        });
+    }
+}
+
 function updateDungeonCountDisplay(dungeonKey) {
     const dungeon = dungeons[dungeonKey];
     const slot = document.querySelector(`[data-dungeon-key="${dungeonKey}"]`);
     
     if (slot) {
-        // Calculate status first — needed by key count color and completion logic
-        const allItemsCollected = dungeon.itemCount >= dungeon.maxItems;
+        // Calculate status first — needed by key count color and completion logic.
+        // "skipped" chests (right-clicked while autotracking) lower the target so
+        // a dungeon can complete without a chest the player chooses to skip.
+        const effMax = Math.max(0, dungeon.maxItems - (dungeon.skipped || 0));
+        const shownCount = Math.min(dungeon.itemCount, effMax);
+        const allItemsCollected = shownCount >= effMax;
         const allKeysCollected  = dungeon.maxSmallKeys > 0
             ? dungeon.smallKeyCount >= dungeon.maxSmallKeys
             : false;
@@ -1131,11 +1284,11 @@ function updateDungeonCountDisplay(dungeonKey) {
         // Update item count and chest icon
         const itemCountSpan = slot.querySelector('.item-count');
         if (itemCountSpan) {
-            itemCountSpan.textContent = `${dungeon.itemCount}/${dungeon.maxItems}`;
+            itemCountSpan.textContent = `${shownCount}/${effMax}`;
             // Switch chest icon to chest00.png when all items collected
             const chestIcon = slot.querySelector('.count-icon[alt="Items"]');
             if (chestIcon) {
-                chestIcon.src = `${BASE_URL}/${dungeon.itemCount >= dungeon.maxItems ? 'chest00.png' : 'chest0.png'}`;
+                chestIcon.src = `${BASE_URL}/${shownCount >= effMax ? 'chest00.png' : 'chest0.png'}`;
             }
             if (window.broadcastItemSnap) window.broadcastItemSnap();
         }
@@ -1159,6 +1312,16 @@ function updateDungeonCountDisplay(dungeonKey) {
             } else if (prizeCollected) {
                 // Boss defeated but no chest clicked yet — green outline only.
                 slot.classList.add('prize-obtained');
+            }
+        } else if (dungeon.noPrize) {
+            // Prize-less dungeon (HC): there's no boss/prize to obtain, so it counts
+            // as complete once all chests, the big key, and the small key are in.
+            const bkDone = dungeon.bigkeyState > 0;
+            const skDone = dungeon.maxSmallKeys > 0 ? dungeon.smallKeyCount >= dungeon.maxSmallKeys : true;
+            if (allItemsCollected && bkDone && skDone) {
+                slot.classList.add('completed-full');
+            } else if (allItemsCollected) {
+                slot.classList.add('completed-items');
             }
         } else if (allItemsCollected && prizeCollected) {
             // Green — all items + prize collected (both modes)
@@ -1268,6 +1431,16 @@ function broadcastItemSnap() {
         snap.pendants     = pc;
         snap.greenPendant = gpc;
         snap.redCrystal   = rc;
+        // When autotracking, the SRAM crystal/pendant counts (0x37A / 0x374) are
+        // authoritative — the map's Pyramid Fairy (red crystals) and Sahasrahla
+        // (green pendant) checks use these instead of the prize-image tally.
+        // Manual mode (no device) keeps the prize-image counts above.
+        if (deviceAttached && window._sramPrizesValid) {
+            snap.crystals     = window.trackerItems.crystals;
+            snap.pendants     = window.trackerItems.pendants;
+            snap.greenPendant = window.trackerItems.greenPendant;
+            snap.redCrystal   = window.trackerItems.redCrystal;
+        }
     })();
     snap.mmMedallion  = (window.trackerItems && window.trackerItems.mmMedallion)  || 0;
     snap.trMedallion  = (window.trackerItems && window.trackerItems.trMedallion)  || 0;
@@ -1298,8 +1471,12 @@ function broadcastItemSnap() {
     dngKeys.forEach(function(k) {
         var d = window.dungeons && window.dungeons[k];
         if (!d) return;
-        snap[k+'Chests']        = d.itemCount       || 0;
-        snap[k+'MaxChests']     = d.maxItems        || 0;
+        // Reflect the "skip a chest" adjustment (item tracker left-click while
+        // autotracking): send the effective target and capped count so the
+        // broadcast view shows the same reduced count and completion state.
+        var _effMax = Math.max(0, (d.maxItems || 0) - (d.skipped || 0));
+        snap[k+'Chests']        = Math.min(d.itemCount || 0, _effMax);
+        snap[k+'MaxChests']     = _effMax;
         snap[k+'BigKey']        = d.bigkeyState     || 0;
         snap[k+'Map']           = d.mapState        || 0;
         snap[k+'Compass']       = d.compassState    || 0;
@@ -1423,6 +1600,7 @@ function handleWebSocketMessage(event) {
             // If we haven't confirmed gamemode yet, this is a gamemode check response
             if (!_gamemodeValid) {
                 const gm = data[0];
+                _currentGamemode = gm;
                 if (GAMEPLAY_MODES.indexOf(gm) !== -1 || KNOWN_ALTTP_MODES.indexOf(gm) !== -1) {
                     // Valid ALTTP mode (gameplay or menu/startup) — start SRAM reading
                     _gamemodeValid = true;
@@ -1443,6 +1621,7 @@ function handleWebSocketMessage(event) {
             // response is the game-mode read we issue each cycle for the
             // timer window's benefit; everything else goes to processSRAMData.
             if (data.length === 1) {
+                _currentGamemode = data[0];
                 broadcastGamemode(data[0]);
                 return;
             }
@@ -1621,19 +1800,21 @@ function processRoomData(data) {
                 items = chestsOpened;
             } else if (mckMode) {
                 // MCK: map/compass/keys shuffled but big key stays — subtract big key only
-                const bigKey = dungeon.bigkeyState > 0 ? 1 : 0;
+                const bigKey = (!dungeon.noBigKeyItem && dungeon.bigkeyState > 0) ? 1 : 0;
                 items = chestsOpened - bigKey;
             } else {
                 let dungeonItems = 0;
                 if (!mcMode && dungeon.compassState > 0) dungeonItems++; // compass is shuffled in MC+
                 if (!mcMode && dungeon.mapState > 0) dungeonItems++;     // map is shuffled in MC+
-                if (dungeon.bigkeyState > 0) dungeonItems++;
+                if (!dungeon.noBigKeyItem && dungeon.bigkeyState > 0) dungeonItems++;
                 // Use the high-water mark of small keys ever held so that using a key
                 // doesn't cause the chest subtraction to drop and inflate the item count.
                 // In standard/MC mode, cap at maxSmallKeys to prevent over-counting when
                 // the floor item (0x04) also increments the SRAM small key counter.
                 const smallKeys = dungeon.smallKeyMax || dungeon.smallKeyCount;
-                const smallKeySubtract = Math.min(smallKeys, dungeon.maxSmallKeys);
+                // HC's small key is a floor/enemy drop in the sewers, not one of its
+                // counted chests, so it must NOT be subtracted (keysNotInChests).
+                const smallKeySubtract = dungeon.keysNotInChests ? 0 : Math.min(smallKeys, dungeon.maxSmallKeys);
                 items = chestsOpened - dungeonItems - smallKeySubtract;
             }
             if (items < 0) items = 0;
@@ -1665,6 +1846,51 @@ function processRoomData(data) {
     if (window._itemsBc) {
         window._itemsBc.postMessage({ type: 'rooms', data: Array.from(data) });
     }
+}
+
+// Count set bits in a byte.
+function _popcount(n) { n = n & 0xff; var c = 0; while (n) { c += (n & 1); n >>= 1; } return c; }
+
+// Read crystal & pendant counts straight from SRAM and update the top-line
+// widgets. Crystals: 0x37A (offset 0x3A) — 7 bits, reds are crystals 5 (0x04)
+// and 6 (0x01). Pendants: 0x374 (offset 0x34) — g=0x04, b=0x02, r=0x01.
+function updatePrizeCounts(data) {
+    if (!data) return;
+    var cByte = data[0x3A] || 0;
+    var pByte = data[0x34] || 0;
+    var crystals   = _popcount(cByte & 0x7F);   // all 7 (kept for GT logic)
+    var redCrystal = _popcount(cByte & 0x05);   // the 2 red crystals
+    var pendants   = _popcount(pByte & 0x07);   // all 3 (kept for logic)
+    var greenPend  = (pByte & 0x04) ? 1 : 0;    // green pendant
+    // High-water mark: crystals and pendants only ever increase within a seed, so
+    // never let a transient all-zero SRAM read (save & quit / menu) blank them —
+    // the same guard the item states (updateIfBetter) and check/death/bonk stats
+    // use. Reset to 0 on New Game in resetItemTracker so a fresh file recounts.
+    if (!window.trackerItems) window.trackerItems = {};
+    var _ti = window.trackerItems;
+    crystals   = Math.max(crystals,   _ti.crystals     || 0);
+    redCrystal = Math.max(redCrystal, _ti.redCrystal   || 0);
+    pendants   = Math.max(pendants,   _ti.pendants     || 0);
+    greenPend  = Math.max(greenPend,  _ti.greenPendant || 0);
+    var nonRed   = crystals - redCrystal;   // 5 non-red crystals (x/5)
+    var nonGreen = pendants - greenPend;    // 2 non-green pendants (x/2)
+    var vals = {
+        'crystal-count':      [nonRed,     5],
+        'redcrystal-count':   [redCrystal, 2],
+        'pendant-count':      [nonGreen,   2],
+        'greenpendant-count': [greenPend,  1]
+    };
+    Object.keys(vals).forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = vals[id][0] + '/' + vals[id][1];
+    });
+    // Feed the map logic with the authoritative SRAM counts (Pyramid Fairy uses
+    // red crystals, Sahasrahla uses the green pendant, GT uses total crystals).
+    _ti.crystals     = crystals;
+    _ti.redCrystal   = redCrystal;
+    _ti.pendants     = pendants;
+    _ti.greenPendant = greenPend;
+    window._sramPrizesValid = true;
 }
 
 function processInventoryData(data) {
@@ -1791,6 +2017,9 @@ function processInventoryData(data) {
     
     if (changed(0x14)) updateIfBetter('gloves', data[0x14]); // 0x354
     if (newbit(0x15, 0x01)) updateItemState('boots', 1); // 0x355
+
+    // Crystal / pendant counts (SRAM 0x37A / 0x374) → top-line widgets.
+    updatePrizeCounts(data);
     if (newbit(0x16, 0x01)) updateItemState('flippers', 1); // 0x356
     if (newbit(0x17, 0x01)) updateItemState('moonpearl', 1); // 0x357
     if (changed(0x19)) updateIfBetter('sword', data[0x19] === 0xFF ? 0 : data[0x19]); // 0x359
@@ -1968,6 +2197,18 @@ function processInventoryData(data) {
         snap.crystals     = crystalCount;
         snap.pendants     = pendantCount;
         snap.greenPendant = greenPendantCount;
+        // When autotracking, the SRAM prize counts are authoritative. Without this
+        // override, broadcastPrizes keeps sending the manual prize-img tally (0
+        // until a prize is cycled) while broadcastItemSnap sends the real SRAM
+        // totals — the two alternate on every poll and flash the crystal/pendant
+        // checks (Sahasrahla, Master Sword Pedestal, Pyramid Fairy, Ganon's Tower)
+        // green/red. Mirror broadcastItemSnap so SRAM always wins.
+        if (deviceAttached && window._sramPrizesValid && window.trackerItems) {
+            snap.crystals     = window.trackerItems.crystals;
+            snap.pendants     = window.trackerItems.pendants;
+            snap.greenPendant = window.trackerItems.greenPendant;
+            snap.redCrystal   = window.trackerItems.redCrystal;
+        }
         window._itemsBc.postMessage({ type: 'items', data: snap });
     }
 
@@ -1978,6 +2219,7 @@ function processInventoryData(data) {
         const newChecks = data[0xE3];
         if (newChecks >= parseInt(checkEl.textContent || '0')) {
             checkEl.textContent = newChecks;
+            setHeaderChecks(newChecks);
             if (window._itemsBc) window._itemsBc.postMessage({ type: 'stats', checks: newChecks, deaths: parseInt((document.getElementById('toh-death-count')||{}).textContent||'0'), bonks: parseInt((document.getElementById('toh-bonk-count')||{}).textContent||'0') });
         }
     }
@@ -1998,14 +2240,17 @@ function processInventoryData(data) {
         }
     }
     // Heart piece count (SRAM 0xF5F36B = inv offset 0x2B) — pieces toward the
-    // next heart container. Rolls 0..4 so there's no high-water mark; just
-    // clamp to guard against garbage SRAM reads during menus / save & quit.
+    // next heart container. It legitimately rolls 4→0 when a container completes,
+    // so a high-water mark (like the other stats) would wrongly stick it at full.
+    // Instead only accept updates while actually in gameplay, so a save & quit or
+    // menu transition can't blank it — the last value persists like the others.
     const heartEl = document.getElementById('toh-heartpiece-count');
-    if (heartEl && 0x2B < data.length) {
+    if (heartEl && 0x2B < data.length && GAMEPLAY_MODES.indexOf(_currentGamemode) !== -1) {
         let hp = data[0x2B];
         if (hp > 4) hp = 4;
         if (hp < 0) hp = 0;
         heartEl.textContent = hp + '/4';
+        setHeartFill(hp);
     }
     // Revival count (SRAM 0xF5F453 = inv offset 0x113). Cumulative counter, so
     // use a high-water mark like checks/deaths/bonks — only ever increases,
@@ -2015,6 +2260,15 @@ function processInventoryData(data) {
         const newRevivals = data[0x113];
         if (newRevivals >= parseInt(revivalEl.textContent || '0')) {
             revivalEl.textContent = newRevivals;
+        }
+    }
+    // Flute count (SRAM 0xF5F44B = inv offset 0x10B). Cumulative counter, so use a
+    // high-water mark like deaths/bonks/revivals — only ever increases.
+    const fluteEl = document.getElementById('toh-flute-count');
+    if (fluteEl && 0x10B < data.length) {
+        const newFlutes = data[0x10B];
+        if (newFlutes >= parseInt(fluteEl.textContent || '0')) {
+            fluteEl.textContent = newFlutes;
         }
     }
     // CT small key count (SRAM 0xF5F4E4 = inv offset 0x1a4) — Key Sanity only
@@ -2136,6 +2390,7 @@ function resetItemTracker() {
         d.smallKeyMax   = 0;
         d.itemCount     = 0;
         d.chestsMax     = 0;
+        d.skipped       = 0;
         d.bigkeyState   = 0;
         d.compassState  = 0;
         d.mapState      = 0;
@@ -2168,11 +2423,24 @@ function resetItemTracker() {
     var bonkEl  = document.getElementById('toh-bonk-count');
     var heartEl = document.getElementById('toh-heartpiece-count');
     var revivalEl = document.getElementById('toh-revival-count');
+    var fluteEl = document.getElementById('toh-flute-count');
     if (checkEl) checkEl.textContent = '0';
     if (deathEl) deathEl.textContent = '0';
     if (bonkEl)  bonkEl.textContent  = '0';
     if (heartEl) heartEl.textContent = '0/4';
     if (revivalEl) revivalEl.textContent = '0';
+    if (fluteEl) fluteEl.textContent = '0';
+    setHeaderChecks('0');
+    setHeartFill(0);
+    // Top-line crystal/pendant count widgets back to empty. Zeroing
+    // window.trackerItems below resets the high-water base, but the visible spans
+    // keep their old text until the next SRAM read — clear them now so New Game
+    // blanks them immediately like the other counters.
+    var _prizeReset = { 'crystal-count':'0/5', 'redcrystal-count':'0/2', 'pendant-count':'0/2', 'greenpendant-count':'0/1' };
+    Object.keys(_prizeReset).forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = _prizeReset[id];
+    });
 
     // Reset SRAM state so autotracking picks up fresh
     if (_bombClearTimer) { clearTimeout(_bombClearTimer); _bombClearTimer = null; }

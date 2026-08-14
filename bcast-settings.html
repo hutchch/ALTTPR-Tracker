@@ -1272,13 +1272,28 @@ function wireSettingsHandlers() {
       if (!file) return;
       var reader = new FileReader();
       reader.onload = function() {
-        var ok = saveBgImage(reader.result);
-        if (!ok) return;
-        updateBgImageStatus();
-        // Switch to image bg now that we have one
-        applyBg('image');
-        // Sync the radio selection
-        document.querySelectorAll('input[name="bg"]').forEach(function(r){ r.checked = (r.value === 'image'); });
+        var dataUrl = reader.result;
+        var finish = function(ok) {
+          if (!ok) return;
+          updateBgImageStatus();
+          applyBg('image');            // switch to image bg now that we have one
+          document.querySelectorAll('input[name="bg"]').forEach(function(r){ r.checked = (r.value === 'image'); });
+        };
+        // In Electron, persist to disk and reference by file:// URL so large
+        // files / animated GIFs work (localStorage can't hold big data URLs).
+        if (window.electronAPI && window.electronAPI.saveBcastBgImage) {
+          window.electronAPI.saveBcastBgImage(dataUrl).then(function(filePath) {
+            if (filePath) {
+              SETTINGS.bgImage = filePath;
+              try { localStorage.setItem('alttp-broadcast-bg-image', filePath); } catch (e) {}
+              finish(true);
+            } else {
+              finish(saveBgImage(dataUrl));   // fallback: store the data URL
+            }
+          }).catch(function() { finish(saveBgImage(dataUrl)); });
+        } else {
+          finish(saveBgImage(dataUrl));       // browser: data URL only
+        }
       };
       reader.onerror = function() { alert('Could not read that file.'); };
       reader.readAsDataURL(file);
@@ -1290,6 +1305,7 @@ function wireSettingsHandlers() {
   if (clearBtn) {
     clearBtn.addEventListener('click', function() {
       saveBgImage('');
+      if (window.electronAPI && window.electronAPI.clearBcastBgImage) window.electronAPI.clearBcastBgImage();
       updateBgImageStatus();
       document.documentElement.style.removeProperty('--bg-image');
       // If image was the active bg, fall back to black

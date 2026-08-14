@@ -399,6 +399,15 @@ html[data-bg="transparent"] .bbg-bar * {
   width: 100%; height: 100%;
   z-index: 1;
 }
+/* Image background layer — a real <img> so animated GIFs animate (a canvas
+   would only ever show the first frame). Shown only when bg = image. */
+#item-anim-bg-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  z-index: 1;
+  display: none;
+}
 #item-anim-img {
   width: 40px; height: 40px;
   image-rendering: pixelated; image-rendering: crisp-edges;
@@ -529,6 +538,7 @@ html[data-bg="transparent"] .bbg-bar * {
 <!-- Item animation overlay -->
 <div id="item-anim-overlay">
   <canvas id="item-anim-canvas"></canvas>
+  <img id="item-anim-bg-img" src="" alt="">
   <img id="item-anim-img" src="" alt="">
   <div id="item-anim-label"></div>
 </div>
@@ -1493,7 +1503,14 @@ function _playItemAnim(src, label, done) {
 // When the animation background is 'random', pick one of the enabled pool
 // backgrounds fresh for each animation. Falls back to 'none' if none enabled.
 function pickRandomAnimBg() {
+  // Read the pool fresh from localStorage (written by the settings popout before
+  // it notifies) so an unchecked background is honoured immediately, without
+  // depending on the in-memory SETTINGS having been re-loaded yet.
   var p = SETTINGS.animRandomPool || {};
+  try {
+    var raw = localStorage.getItem('alttp-broadcast-anim-random-pool');
+    if (raw) { var j = JSON.parse(raw); if (j && typeof j === 'object') p = j; }
+  } catch (e) {}
   var pool = [];
   if (p.stars)     pool.push('stars');
   if (p.starburst) pool.push('starburst');
@@ -1510,6 +1527,9 @@ function _startAnimBg(canvas) {
   var rafId = null;
   // Resolve the effective background once per animation (handles 'random').
   var bg = SETTINGS.animBg === 'random' ? pickRandomAnimBg() : SETTINGS.animBg;
+  // Image bg uses a real <img> layer (animates GIFs); hide it for other bgs.
+  var bgImgEl = document.getElementById('item-anim-bg-img');
+  if (bgImgEl) bgImgEl.style.display = 'none';
 
   if (bg === 'stars') {
     var NUM_STARS = 60;
@@ -1659,22 +1679,22 @@ function _startAnimBg(canvas) {
     rafId = requestAnimationFrame(drawMatrix);
 
   } else if (bg === 'image') {
-    var imgSrc = SETTINGS.animBgImage || 'items/triforce.jpg';
-    var bgImg = new Image();
-    bgImg.onload = function() {
-      if (stopped) return;
-      var iw = bgImg.naturalWidth, ih = bgImg.naturalHeight;
-      var scale = Math.max(W / iw, H / ih);
-      var dw = iw * scale, dh = ih * scale;
-      ctx.drawImage(bgImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
-    };
-    bgImg.onerror = function() { ctx.clearRect(0, 0, W, H); };
-    bgImg.src = imgSrc;
+    // Show the image via the <img> layer (animated GIFs animate here; a canvas
+    // drawImage would only ever render the first frame).
+    if (bgImgEl) {
+      bgImgEl.src = SETTINGS.animBgImage || 'items/triforce.jpg';
+      bgImgEl.style.display = 'block';
+    }
   } else {
     ctx.clearRect(0, 0, W, H);
   }
 
-  return function stop() { stopped = true; if (rafId) cancelAnimationFrame(rafId); ctx.clearRect(0, 0, W, H); };
+  return function stop() {
+    stopped = true;
+    if (rafId) cancelAnimationFrame(rafId);
+    ctx.clearRect(0, 0, W, H);
+    if (bgImgEl) bgImgEl.style.display = 'none';
+  };
 }
 
 function _makeStarParticle(W, H, scatter) {

@@ -1387,7 +1387,11 @@ function checkLogic(it) {
              return DMlight ? 'green' : 'purple';
            }
            if (!pearl||!hammer||!titan||!somaria||!mirror) return 'red';
-           var m=medColor('tr'); if(m==='red') return 'red';
+           // Mimic is reached by mirroring out from inside Turtle Rock's front, so
+           // it shares TR's medallion gate. Match the TR dungeon exactly: an unknown
+           // TR medallion (without owning all three) is red, not an optimistic
+           // "maybe" yellow — medColor only returns yellow in that unknown case.
+           var m=medColor('tr'); if(m==='red' || m==='yellow') return 'red';
            // No lamp/flute → dark-cave ascent on gloves = out of logic (purple).
            // Otherwise missing firerod is a normal in-logic yellow.
            if (!DMlight) return worst(m,'purple');

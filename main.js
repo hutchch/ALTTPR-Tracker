@@ -156,7 +156,7 @@ function buildOpenApiSpec(host, port) {
     openapi: '3.0.3',
     info: {
       title: 'ALTTPR Tracker Items API',
-      version: app.getVersion ? app.getVersion() : '1.1.15',
+      version: app.getVersion ? app.getVersion() : '1.1.16',
       description: 'Read-only mirror of the item tracker. Each item has its own endpoint. '
                  + 'GET returns the current numeric level; POST is accepted but ignored.',
     },
@@ -594,8 +594,8 @@ function createItemTrackerWindow(scale, wsHost, wsPort, bg, dungeonItems, bossSh
   const isTransparent = bg === 'transparent';
   const bgColors = { black: '#000000', white: '#ffffff', grey: '#2a2a2a', transparent: '#00000000' };
   const opts = {
-    width:  (bounds && bounds.width)  || Math.ceil(480 * s),
-    height: (bounds && bounds.height) || Math.ceil(620 * s),
+    width:  (bounds && bounds.width)  || Math.ceil(460 * s),
+    height: (bounds && bounds.height) || Math.ceil(600 * s),
     resizable: true,
     useContentSize: true,
     title: 'Item Tracker',
@@ -844,6 +844,31 @@ ipcMain.on('launch', (event, opts) => {
 ipcMain.on('open-checklist', () => openCheckList());
 
 ipcMain.handle('load-settings', () => store.get('settings', {}));
+
+// Persist a broadcast background image to disk (userData) and return a file://
+// URL. Lets large images / animated GIFs be used as the view background without
+// hitting localStorage's data-URL size cap. Only one is kept at a time.
+const _BCAST_BG_EXTS = ['gif','png','jpg','webp','bmp','img'];
+ipcMain.handle('save-bcast-bg-image', (event, dataUrl) => {
+  try {
+    const m = /^data:([^;]+);base64,([\s\S]*)$/.exec(dataUrl || '');
+    if (!m) return null;
+    const extByMime = { 'image/gif':'gif','image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/bmp':'bmp' };
+    const ext = extByMime[m[1]] || 'img';
+    const dir = app.getPath('userData');
+    _BCAST_BG_EXTS.forEach((e) => { try { fs.unlinkSync(path.join(dir, 'broadcast-bg.' + e)); } catch (_) {} });
+    const file = path.join(dir, 'broadcast-bg.' + ext);
+    fs.writeFileSync(file, Buffer.from(m[2], 'base64'));
+    return url.pathToFileURL(file).href;
+  } catch (e) { console.error('[bcast-bg] save failed:', e && e.message); return null; }
+});
+ipcMain.handle('clear-bcast-bg-image', () => {
+  try {
+    const dir = app.getPath('userData');
+    _BCAST_BG_EXTS.forEach((e) => { try { fs.unlinkSync(path.join(dir, 'broadcast-bg.' + e)); } catch (_) {} });
+  } catch (e) {}
+  return true;
+});
 
 
 ipcMain.handle('get-paths', () => {
