@@ -23,10 +23,14 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Standard
    - Open
    - Inverted
+   - Retro (v1.1.17 Coming Soon)
  - Entrance Door Shuffle - (v1.1.14)
  - Boss Shuffle (Used to track dungeon bosses) - (v1.1.11)
  - Enemizer or normal mode
  - Sword or Swordless
+ - Shop Sanity (v1.1.17 Coming Soon)
+ - Bonk Shuffle (v1.1.17 Coming Soon)
+ - Pseudo Boots/Mirror Scroll
  - Item Tracker Broadcast View (Customizable)
  - Item marking on the map
  - Automatic Timer 
@@ -34,7 +38,7 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Stops in the Triforce Room
    - Can Only Pause in a menu (This is due to reading the game modes for auto start and stop) 
 
-<i>Each mode takes many hours to build.  I have commited over several hundred hours into this project. There are no current plans to incorporate ShopSanity, or Retro modes.  My apologies. </i>
+<i>Each mode takes many hours to build.  I have committed over several hundred hours into this project. </i>
 ***
 
 ### DOWNLOAD: 
