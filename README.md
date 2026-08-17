@@ -30,9 +30,10 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Sword or Swordless
  - Shop Sanity (v1.1.17 Coming Soon)
  - Bonk Shuffle (v1.1.17 Coming Soon)
- - Pseudo Boots/Mirror Scroll
+ - Pseudo Boots/Mirror Scroll (v1.1.16)
  - Item Tracker Broadcast View (Customizable)
  - Item marking on the map
+ - Read from the meta data from alttpr.com (v1.1.17 Coming Soon)
  - Automatic Timer 
    - Starts when Game Play is detected
    - Stops in the Triforce Room
