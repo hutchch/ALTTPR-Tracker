@@ -57,10 +57,11 @@ Windows Emulator Setup Guides
 - [Windows Bizhawk Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Bizhawk)
 - [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9x%E2%80%90EMUNWA)
 - [Windows SNES9x-RR Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9X%E2%80%90RR)
+- [Windows Mesen2](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen2-(Windows))
 
  macOS Emulator Setup Guide
-- [macOS RetroArch v1.22.2](https://github.com/hutchch/ALTTPR-Tracker/wiki/Retroarch-MacOS-Setup)
-- [macOs Mesen](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen2-%E2%80%90-(MacOS)) Will Work, not fully tested.
+- [macOS RetroArch](https://github.com/hutchch/ALTTPR-Tracker/wiki/Retroarch-MacOS-Setup)
+- [macOs Mesen2](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen2-%E2%80%90-(MacOS)) Will Work, not fully tested.
 
 </p>
 
@@ -68,10 +69,13 @@ Windows Emulator Setup Guides
 
 ### LOGIC
 - [Logic Reference](https://github.com/hutchch/ALTTPR-Tracker/wiki/Logic-Reference)
+= [Entrance Shuffle](https://github.com/hutchch/ALTTPR-Tracker/wiki/Entrance-Shuffle-Logic)
+- [Bonk Shuffle](https://github.com/hutchch/ALTTPR-Tracker/wiki/Bonk-Shuffle-Logic)
 
 ***
 
-<img width="1637" height="1134" alt="image" src="https://github.com/user-attachments/assets/78b1504f-6aac-4815-b0fa-525d6b6e8f17" />
+<img width="1922" height="1455" alt="image" src="https://github.com/user-attachments/assets/3c3805f9-9045-4bfb-98fa-d03a20e47c5b" />
+NOTE: <i>This is v1.1.17, currently in development, some features are coming soon</i>
 
 ***
 ### Alternative Trackers:
