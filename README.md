@@ -57,11 +57,11 @@ Windows Emulator Setup Guides
 - [Windows Bizhawk Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Bizhawk)
 - [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9x%E2%80%90EMUNWA)
 - [Windows SNES9x-RR Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9X%E2%80%90RR)
-- [Windows Mesen2](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen2-(Windows))
+- [Windows Mesen](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen-(Windows))
 
  macOS Emulator Setup Guide
 - [macOS RetroArch](https://github.com/hutchch/ALTTPR-Tracker/wiki/Retroarch-MacOS-Setup)
-- [macOs Mesen2](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen2-%E2%80%90-(MacOS)) Will Work, not fully tested.
+- [macOs Mesen](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen-%E2%80%90-(MacOS)) Will Work, not fully tested.
 
 </p>
 
