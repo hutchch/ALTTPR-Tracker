@@ -61,7 +61,7 @@ Windows Emulator Setup Guides
 
  macOS Emulator Setup Guide
 - [macOS RetroArch](https://github.com/hutchch/ALTTPR-Tracker/wiki/Retroarch-MacOS-Setup)
-- [macOs Mesen](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen-%E2%80%90-(MacOS)) Will Work, not fully tested.
+- [macOs Mesen](https://github.com/hutchch/ALTTPR-Tracker/wiki/Mesen-(MacOS)) 
 
 </p>
 
@@ -69,7 +69,7 @@ Windows Emulator Setup Guides
 
 ### LOGIC
 - [Logic Reference](https://github.com/hutchch/ALTTPR-Tracker/wiki/Logic-Reference)
-= [Entrance Shuffle](https://github.com/hutchch/ALTTPR-Tracker/wiki/Entrance-Shuffle-Logic)
+- [Entrance Shuffle](https://github.com/hutchch/ALTTPR-Tracker/wiki/Entrance-Shuffle-Logic)
 - [Bonk Shuffle](https://github.com/hutchch/ALTTPR-Tracker/wiki/Bonk-Shuffle-Logic)
 
 ***
