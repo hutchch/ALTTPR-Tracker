@@ -76,7 +76,7 @@ Windows Emulator Setup Guides
 
 ***
 
-<img width="1922" height="1455" alt="image" src="https://github.com/user-attachments/assets/3c3805f9-9045-4bfb-98fa-d03a20e47c5b" />
+<img width="2075" height="1837" alt="image" src="https://github.com/user-attachments/assets/35772e6e-61e2-41d6-bf8a-6c86aa69092e" />
 NOTE: <i>This is v1.1.17, currently in development, some features are coming soon</i>
 
 ***
