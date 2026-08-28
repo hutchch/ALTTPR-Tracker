@@ -30,6 +30,8 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Sword or Swordless
  - Shop Sanity (v1.1.17 Coming Soon)
  - Bonk Shuffle (v1.1.17 Coming Soon)
+ - Universal Key (v1.1.17 Coming Soon)
+ - KeyDrop Enemy and Pot (v1.1.17 Coming Soon)
  - Pseudo Boots/Mirror Scroll (v1.1.16)
  - Item Tracker Broadcast View (Customizable)
  - Item marking on the map
