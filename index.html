@@ -549,6 +549,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
       <option value="openkeysanity">Open KeySanity</option>
       <option value="crosskeys">CrossKeys</option>
       <option value="adkeydrop">(AD) KeyDrop</option>
+      <option value="onlyadkd">OnlyADKD</option>
     </select>
     <button type="button" class="preset-btn" id="preset-apply-btn" onclick="applyPreset()">Load Preset</button>
     <button type="button" class="preset-btn preset-btn-save" id="preset-save-btn" onclick="saveCustomPreset()">Save Preset</button>
@@ -1344,13 +1345,34 @@ var BUILTIN_PRESETS = {
     enemizer: false,
     swordless: false,
   },
-  // The only built-in that touches the Other Settings menu, so it is also the
-  // one that proves applyPresetSettings reaches in there — key drop, pseudo
-  // boots and the mirror scroll all live in that popup. keyDrop/enemyKeyDrop
-  // are stated false on purpose: the master covers both, and leaving the two
-  // halves ticked underneath it would resurface the moment it came off.
+  // The two AD presets. Both touch the Other Settings menu, which is what
+  // proves applyPresetSettings reaches into that popup — key drop, pseudo boots
+  // and the mirror scroll all live there.
+  //
+  // keyDrop/enemyKeyDrop are stated false on purpose throughout: the master
+  // covers both, and leaving the two halves ticked underneath it would
+  // resurface the moment it came off.
   adkeydrop: {
     label: '(AD) KeyDrop',
+    dungeonItems: 'standard',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    universalKeys: false,
+    keyDropAll: true,
+    keyDrop: false,
+    enemyKeyDrop: false,
+    pseudoBoots: false,
+    mirrorScroll: false,
+  },
+  // The fuller one: key sanity, entrance shuffle, and the two display flags.
+  // Was itself called "(AD) KeyDrop" until Aug 2026, when Chris renamed it to
+  // free that name for the plain key-drop preset above.
+  onlyadkd: {
+    label: 'OnlyADKD',
     dungeonItems: 'keysanity',
     gtCrystals: '7',
     gamemode: 'open',
