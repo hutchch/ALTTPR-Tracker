@@ -9,6 +9,11 @@ const Store = require('electron-store');
 
 const store = new Store();
 
+// Single source of truth for the app version — Electron reads it from
+// package.json, so bumping that file is the only place a release number needs
+// to change. Everything that displays or compares a version uses this.
+const APP_VERSION = app.getVersion();
+
 // ── Single instance ──────────────────────────────────────────────────────────
 // Prevent a second copy of the app from launching (which spawns duplicate
 // windows and can race on the settings store). If another instance is already
@@ -156,7 +161,7 @@ function buildOpenApiSpec(host, port) {
     openapi: '3.0.3',
     info: {
       title: 'ALTTPR Tracker Items API',
-      version: app.getVersion ? app.getVersion() : '1.1.16',
+      version: APP_VERSION,
       description: 'Read-only mirror of the item tracker. Each item has its own endpoint. '
                  + 'GET returns the current numeric level; POST is accepted but ignored.',
     },
@@ -624,7 +629,14 @@ function createItemTrackerWindow(scale, wsHost, wsPort, bg, dungeonItems, bossSh
   const race = ((store.get('settings', {}) || {}).raceMode) || 'no';
   const pseudoboots = ((store.get('settings', {}) || {}).pseudoboots) || 'no';
   const mirrorscroll = ((store.get('settings', {}) || {}).mirrorscroll) || 'no';
-  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}&bossshuffle=${bossShuffle||'yes'}&race=${race}&pseudoboots=${pseudoboots}&mirrorscroll=${mirrorscroll}`;
+  // Read from the store rather than a parameter so the recreate-on-bg-change
+  // path below picks it up too. Retro raises every dungeon's chest count.
+  const gamemode = ((store.get('settings', {}) || {}).gamemode) || 'standard';
+  const universalKeys = ((store.get('settings', {}) || {}).universalKeys) || 'no';
+  const keyDrop = ((store.get('settings', {}) || {}).keyDrop) || 'no';
+  const enemyKeyDrop = ((store.get('settings', {}) || {}).enemyKeyDrop) || 'no';
+  const keyDropAll = ((store.get('settings', {}) || {}).keyDropAll) || 'no';
+  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}&bossshuffle=${bossShuffle||'yes'}&race=${race}&pseudoboots=${pseudoboots}&mirrorscroll=${mirrorscroll}&gamemode=${gamemode}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}`;
   itemWin.loadURL(toFileUrl('itemtracker.html') + q);
   itemWin.on('closed', () => { itemWin = null; });
   itemTrackerBg = bg || 'black';
@@ -660,7 +672,15 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
     }
   });
   mapWin.setMenuBarVisibility(false);
-  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}&bossshuffle=${bossShuffle||'yes'}&entranceshuffle=${entranceShuffle||'no'}&entrancemode=${entranceMode||'none'}`;
+  // Read from the store rather than adding another positional parameter to an
+  // already long signature — same approach gamemode uses in the item tracker.
+  const universalKeys = ((store.get('settings', {}) || {}).universalKeys) || 'no';
+  const keyDrop = ((store.get('settings', {}) || {}).keyDrop) || 'no';
+  const enemyKeyDrop = ((store.get('settings', {}) || {}).enemyKeyDrop) || 'no';
+  const keyDropAll = ((store.get('settings', {}) || {}).keyDropAll) || 'no';
+  const shopsanity = ((store.get('settings', {}) || {}).shopsanity) || 'no';
+  const bonkShuffle = ((store.get('settings', {}) || {}).bonkShuffle) || 'no';
+  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}&bossshuffle=${bossShuffle||'yes'}&entranceshuffle=${entranceShuffle||'no'}&entrancemode=${entranceMode||'none'}&shopsanity=${shopsanity}&bonkshuffle=${bonkShuffle}`;
   mapWin.loadURL(toFileUrl('map.html') + q);
   mapWin.on('closed', () => { mapWin = null; });
 }
@@ -971,7 +991,7 @@ ipcMain.handle('set-itemtracker-bg', (event, bg) => {
 });
 
 // ── Update checker (notification-only, no auto-download) ─────────────────────
-const CURRENT_VERSION = app.getVersion();
+const CURRENT_VERSION = APP_VERSION;
 const RELEASES_URL    = 'https://github.com/hutchch/ALTTPR-Tracker/releases';
 const API_URL         = 'https://api.github.com/repos/hutchch/ALTTPR-Tracker/releases/latest';
 
@@ -1065,6 +1085,8 @@ function openBcastSettingsWindow() {
 ipcMain.handle('open-bcast-settings', () => openBcastSettingsWindow());
 
 ipcMain.handle('check-for-updates', () => checkForUpdates());
+// Lets the launcher render the real version instead of a hardcoded string.
+ipcMain.handle('get-app-version', () => APP_VERSION);
 ipcMain.handle('install-update', () => {
   const { shell } = require('electron');
   shell.openExternal(RELEASES_URL);

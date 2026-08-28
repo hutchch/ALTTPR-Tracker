@@ -64,6 +64,10 @@
   }
   .dot.green   { background: #44cc44; }
   .dot.yellow  { background: #cccc22; }
+  /* Out of logic — matches the 'ool' swatch in map.html (#9333ea). Without
+     this rule purple rows rendered with no background at all, i.e. an
+     invisible swatch. */
+  .dot.purple  { background: #9333ea; }
   .dot.orange  { background: #cc7700; }
   .dot.red     { background: #cc2222; }
   .dot.cleared { background: #444; }
@@ -170,7 +174,11 @@ var CHECKS_DEF = [
   [102, 47.00, 48.50, "Pyramid Fairy (2)",      "dw"],
 ];
 
-var COLOR_ORDER = { green: 0, yellow: 1, orange: 2, red: 3 };
+// Sort rank, best first. Mirrors the ORD ranking in map.html
+// (red < orange < purple < yellow < green), so an out-of-logic check —
+// reachable with a trick — sorts above a merely-visible one. Purple was
+// missing here, which dropped those rows below red at the very bottom.
+var COLOR_ORDER = { green: 0, yellow: 1, purple: 2, orange: 3, red: 4 };
 
 var _checks   = null;
 var _checkState = {};
@@ -214,16 +222,23 @@ function render() {
   }
 
   var lw = [], dw = [];
-  var totalAvail = 0, totalVisible = 0, totalRemain = 0;
+  var totalAvail = 0, totalVisible = 0, totalOol = 0, totalRemain = 0;
 
   CHECKS_DEF.forEach(function(c) {
     var id = c[0], label = c[3], world = c[4];
     var cleared = !!_checkState[id];
-    var color = cleared ? 'cleared' : (_checks[id] || 'red');
+    // The map sends null for checks it hides entirely (e.g. CT - Room 03 and
+    // CT - Dark Maze outside keysanity, or in entrance shuffle). Those rows
+    // were falling through `|| 'red'` and showing as unavailable checks that
+    // don't exist in this seed — skip them so the list matches the map.
+    var raw = _checks[id];
+    if (!cleared && raw === null) return;
+    var color = cleared ? 'cleared' : (raw || 'red');
     if (!cleared) {
       totalRemain++;
       if (color === 'green') totalAvail++;
       if (color === 'yellow' || color === 'orange') totalVisible++;
+      if (color === 'purple') totalOol++;
     }
     (world === 'lw' ? lw : dw).push({ id: id, label: label, color: color, cleared: cleared });
   });
@@ -258,7 +273,10 @@ function render() {
       '</div>';
   }
 
-  summary.textContent = totalAvail + ' avail · ' + totalVisible + ' visible · ' + totalRemain + ' remaining';
+  // Out-of-logic only appears when the seed actually has some, so the summary
+  // keeps its original shape for runs that never produce a purple check.
+  summary.textContent = totalAvail + ' avail · ' + totalVisible + ' visible · ' +
+    (totalOol ? totalOol + ' out of logic · ' : '') + totalRemain + ' remaining';
 
   list.innerHTML =
     '<div class="section-header">Light World</div>' + buildTwoCol(lw) +

@@ -126,6 +126,11 @@
           <label><input type="radio" name="its-complete-color" value="custom"> Custom</label>
           <input type="color" class="its-color-picker" id="item-opt-complete-custom" value="#4dff88">
         </div>
+        <div class="its-sub-label">Default Dungeon Prize</div>
+        <div class="its-radios">
+          <label><input type="radio" name="its-default-prize" value="crystal"> Crystal</label>
+          <label><input type="radio" name="its-default-prize" value="unknown"> Unknown (?)</label>
+        </div>
       </div>
 
       <div class="its-section">
@@ -154,6 +159,45 @@ try {
   _itemsReceiveBc.onmessage = function(e) {
     if (e.data && e.data.type === 'requestSnap') {
       if (typeof broadcastItemSnap === 'function') broadcastItemSnap();
+      return;
+    }
+    // Swordless toggled in the map's settings menu. The storage event in
+    // items.js covers this too; both paths are here because BroadcastChannel
+    // is unreliable across Electron windows and storage events don't fire in
+    // the window that wrote the value. applySwordlessMode is idempotent, so
+    // whichever arrives first wins and the other is a no-op.
+    // World State changed in the map's settings menu (Retro in particular
+    // changes chest counts and the key readouts). applyWorldStateChange is
+    // idempotent, so the storage-event path arriving too is a no-op.
+    if (e.data && e.data.type === 'worldstate') {
+      if (typeof window.applyWorldStateChange === 'function') {
+        window.applyWorldStateChange(e.data.data);
+      }
+      return;
+    }
+    // Generic settings relay from the map's gear menu. The storage-event path
+    // in items.js covers the same keys; both apply functions are idempotent.
+    if (e.data && e.data.type === 'setting') {
+      var _k = e.data.key, _v = e.data.value;
+      if (_k === 'alttp-dungeon-items' && typeof window.applyDungeonItemsChange === 'function') {
+        window.applyDungeonItemsChange(_v);
+      } else if (_k === 'alttp-bossshuffle' && typeof window.applyBossShuffleChange === 'function') {
+        window.applyBossShuffleChange(_v);
+      } else if (_k === 'alttp-universal-keys' && typeof window.applyUniversalKeysChange === 'function') {
+        window.applyUniversalKeysChange(_v);
+      } else if (_k === 'alttp-keydrop' && typeof window.applyKeyDropChange === 'function') {
+        window.applyKeyDropChange(_v);
+      } else if (_k === 'alttp-enemy-keydrop' && typeof window.applyEnemyKeyDropChange === 'function') {
+        window.applyEnemyKeyDropChange(_v);
+      } else if (_k === 'alttp-keydrop-all' && typeof window.applyKeyDropAllChange === 'function') {
+        window.applyKeyDropAllChange(_v);
+      }
+      return;
+    }
+    if (e.data && e.data.type === 'swordless') {
+      if (typeof window.applySwordlessMode === 'function') {
+        window.applySwordlessMode(e.data.data === 'yes');
+      }
       return;
     }
     if (e.data && e.data.type === 'newgame') {
@@ -370,6 +414,7 @@ var ITEM_SETTINGS = {
   dungeonFillEnabled: true,   // completion tints shown when true
   dungeonBoxEnabled:  true,   // dark slot container shown when true
   showBoss:           true,   // false = hide all boss circles (vanilla bosses)
+  defaultPrize:  'crystal',   // crystal | unknown — starting dungeon prize
   checksColor:   'white',     // white | black | grey | custom (CHECKS number)
   checksCustom:  '#ffffff'
 };
@@ -382,6 +427,10 @@ function loadItemSettings() {
   try {
     // bg reuses the launcher's key so the two stay in sync
     ITEM_SETTINGS.bg             = localStorage.getItem('alttp-tracker-bg') || 'black';
+    // Follows the seed's Dungeon Item Shuffle setting. Session-only — never
+    // read from or written to storage, so each launch starts fresh.
+    ITEM_SETTINGS.defaultPrize   = (window.defaultPrizeSetting ? window.defaultPrizeSetting()
+                                   : ITEM_SETTINGS.defaultPrize);
     ITEM_SETTINGS.bgImage        = localStorage.getItem('alttp-itemtracker-bg-image') || '';
     ITEM_SETTINGS.fillEnabled    = localStorage.getItem('alttp-itemtracker-fill-enabled') === 'true';
     ITEM_SETTINGS.fillColor      = localStorage.getItem('alttp-itemtracker-fill-color')   || ITEM_SETTINGS.fillColor;
@@ -573,6 +622,9 @@ function openItemSettings() {
   document.getElementById('item-opt-chests-custom').value = ITEM_SETTINGS.chestsCustom;
   document.querySelectorAll('input[name="its-complete-color"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.completeColor); });
   document.getElementById('item-opt-complete-custom').value = ITEM_SETTINGS.completeCustom;
+  var _dpNow = (window.defaultPrizeSetting ? window.defaultPrizeSetting() : ITEM_SETTINGS.defaultPrize);
+  ITEM_SETTINGS.defaultPrize = _dpNow;
+  document.querySelectorAll('input[name="its-default-prize"]').forEach(function(r){ r.checked = (r.value === _dpNow); });
   document.querySelectorAll('input[name="its-checks-color"]').forEach(function(r){ r.checked = (r.value === ITEM_SETTINGS.checksColor); });
   document.getElementById('item-opt-checks-custom').value = ITEM_SETTINGS.checksCustom;
   document.getElementById('item-opt-dungeon-fill').checked = ITEM_SETTINGS.dungeonFillEnabled;
@@ -642,6 +694,17 @@ function wireItemSettingsHandlers() {
     ITEM_SETTINGS.chestsCustom = e.target.value;
     if (ITEM_SETTINGS.chestsColor === 'custom') applyItemDungeonColors();
     saveItemSettings();
+  });
+  document.querySelectorAll('input[name="its-default-prize"]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (!r.checked) return;
+      ITEM_SETTINGS.defaultPrize = r.value;
+      // Session-only, on purpose: the next launch goes back to the default for
+      // the seed's dungeon item shuffle setting.
+      window._prizeOverride = r.value;
+      saveItemSettings();
+      if (window.applyDefaultPrizeToAll) window.applyDefaultPrizeToAll();
+    });
   });
   document.querySelectorAll('input[name="its-complete-color"]').forEach(function(r) {
     r.addEventListener('change', function() {

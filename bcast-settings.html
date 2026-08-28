@@ -595,6 +595,8 @@ html, body { margin: 0; background: #1a1a1a; height: auto; min-height: 100%; wid
             <label><input type="radio" name="anim-bg" value="stars"> Falling Stars</label>
             <label><input type="radio" name="anim-bg" value="starburst"> Starburst</label>
             <label><input type="radio" name="anim-bg" value="matrix"> Matrix</label>
+            <label><input type="radio" name="anim-bg" value="triforce"> Triforce</label>
+            <label><input type="radio" name="anim-bg" value="lightning"> Lightning</label>
             <label><input type="radio" name="anim-bg" value="image"> Image</label>
             <label><input type="radio" name="anim-bg" value="random"> Random</label>
           </div>
@@ -603,6 +605,8 @@ html, body { margin: 0; background: #1a1a1a; height: auto; min-height: 100%; wid
             <div class="settings-row"><label><input type="checkbox" id="opt-rand-stars"> Falling Stars</label></div>
             <div class="settings-row"><label><input type="checkbox" id="opt-rand-starburst"> Starburst</label></div>
             <div class="settings-row"><label><input type="checkbox" id="opt-rand-matrix"> Matrix</label></div>
+            <div class="settings-row"><label><input type="checkbox" id="opt-rand-triforce"> Triforce</label></div>
+            <div class="settings-row"><label><input type="checkbox" id="opt-rand-lightning"> Lightning</label></div>
             <div class="settings-row"><label><input type="checkbox" id="opt-rand-image"> Image</label></div>
           </div>
           <div class="settings-sub disabled" id="anim-image-sub">
@@ -618,11 +622,12 @@ html, body { margin: 0; background: #1a1a1a; height: auto; min-height: 100%; wid
             </div>
           </div>
           <div class="settings-sub" id="anim-colors-sub">
-            <div class="sub-label">Color Theme</div>
+            <div class="sub-label" id="anim-colors-label">Color Theme</div>
             <div class="settings-radios">
               <label><input type="radio" name="anim-color-preset" value="blue"> Blue</label>
               <label><input type="radio" name="anim-color-preset" value="green"> Green</label>
               <label><input type="radio" name="anim-color-preset" value="purple"> Purple</label>
+              <label><input type="radio" name="anim-color-preset" value="yellow"> Yellow</label>
               <label><input type="radio" name="anim-color-preset" value="custom"> Custom</label>
             </div>
             <div class="settings-sub" id="anim-custom-colors-sub">
@@ -898,14 +903,11 @@ function openSettings() {
   updateGomodeSoundStatus();
   document.querySelectorAll('input[name="anim-bg"]').forEach(function(r) { r.checked = (r.value === SETTINGS.animBg); });
   var _rp2 = SETTINGS.animRandomPool || {};
-  [['opt-rand-stars','stars'],['opt-rand-starburst','starburst'],['opt-rand-matrix','matrix'],['opt-rand-image','image']].forEach(function(pair){
+  [['opt-rand-stars','stars'],['opt-rand-starburst','starburst'],['opt-rand-matrix','matrix'],['opt-rand-triforce','triforce'],['opt-rand-lightning','lightning'],['opt-rand-image','image']].forEach(function(pair){
     var el = document.getElementById(pair[0]); if (el) el.checked = !!_rp2[pair[1]];
   });
-  document.querySelectorAll('input[name="anim-color-preset"]').forEach(function(r) { r.checked = (r.value === SETTINGS.animColorPreset); });
-  document.getElementById('opt-anim-color-a').value = SETTINGS.animColorA;
-  document.getElementById('anim-color-a-hex').textContent = SETTINGS.animColorA;
-  document.getElementById('opt-anim-color-b').value = SETTINGS.animColorB;
-  document.getElementById('anim-color-b-hex').textContent = SETTINGS.animColorB;
+  if (ANIM_COLOR_KEYS.indexOf(SETTINGS.animBg) !== -1) applyAnimColorsFor(SETTINGS.animBg);
+  refreshAnimColorUI();
   syncAnimSubEnabled();
   syncGomodeSoundSub();
   // Spark lines disabled in this build — no UI elements to sync
@@ -980,7 +982,8 @@ function playGomodeSound() {
 var ANIM_COLOR_PRESETS = {
   blue:   ['#3498db', '#88ccff'],
   green:  ['#2ecc71', '#88ffbb'],
-  purple: ['#b675ff', '#ddb8ff']
+  purple: ['#b675ff', '#ddb8ff'],
+  yellow: ['#ffcc44', '#fff3c4']
 };
 
 function applyAnimColorPreset(preset) {
@@ -995,15 +998,37 @@ function applyAnimColorPreset(preset) {
   document.getElementById('anim-color-b-hex').textContent = pair[1];
 }
 
+// Push the live colour values into the preset radios and the pickers.
+function refreshAnimColorUI() {
+  document.querySelectorAll('input[name="anim-color-preset"]').forEach(function(r) { r.checked = (r.value === SETTINGS.animColorPreset); });
+  document.getElementById('opt-anim-color-a').value = SETTINGS.animColorA;
+  document.getElementById('anim-color-a-hex').textContent = SETTINGS.animColorA;
+  document.getElementById('opt-anim-color-b').value = SETTINGS.animColorB;
+  document.getElementById('anim-color-b-hex').textContent = SETTINGS.animColorB;
+}
+
+var ANIM_BG_LABELS = {
+  stars: 'Falling Stars', starburst: 'Starburst', matrix: 'Matrix',
+  triforce: 'Triforce', lightning: 'Lightning'
+};
+
 function syncAnimSubEnabled() {
   var sub = document.getElementById('item-anim-sub');
   if (SETTINGS.itemAnimEnabled) sub.classList.remove('disabled');
   else                           sub.classList.add('disabled');
 
   var colorsSub = document.getElementById('anim-colors-sub');
-  var showColors = SETTINGS.itemAnimEnabled && SETTINGS.animBg !== 'none' && SETTINGS.animBg !== 'image';
+  // Each animation owns its own theme, so the colour block only applies when a
+  // specific animation is selected — not for None, Image or Random.
+  var showColors = SETTINGS.itemAnimEnabled && ANIM_COLOR_KEYS.indexOf(SETTINGS.animBg) !== -1;
   if (showColors) colorsSub.classList.remove('disabled');
   else             colorsSub.classList.add('disabled');
+  var colorsLabel = document.getElementById('anim-colors-label');
+  if (colorsLabel) {
+    colorsLabel.textContent = showColors
+      ? 'Color Theme \u2014 ' + (ANIM_BG_LABELS[SETTINGS.animBg] || SETTINGS.animBg)
+      : 'Color Theme (per animation)';
+  }
 
   var customSub = document.getElementById('anim-custom-colors-sub');
   var showCustom = showColors && SETTINGS.animColorPreset === 'custom';
@@ -1194,11 +1219,13 @@ function wireSettingsHandlers() {
     r.addEventListener('change', function() {
       if (!r.checked) return;
       SETTINGS.animBg = r.value;
+      // Swap the pickers over to the newly selected animation's own theme.
+      if (ANIM_COLOR_KEYS.indexOf(r.value) !== -1) { applyAnimColorsFor(r.value); refreshAnimColorUI(); }
       saveSettings(); syncAnimSubEnabled();
     });
   });
   // Random background pool checkboxes
-  [['opt-rand-stars','stars'],['opt-rand-starburst','starburst'],['opt-rand-matrix','matrix'],['opt-rand-image','image']].forEach(function(pair){
+  [['opt-rand-stars','stars'],['opt-rand-starburst','starburst'],['opt-rand-matrix','matrix'],['opt-rand-triforce','triforce'],['opt-rand-lightning','lightning'],['opt-rand-image','image']].forEach(function(pair){
     var el = document.getElementById(pair[0]);
     if (el) el.addEventListener('change', function(e){
       if (!SETTINGS.animRandomPool) SETTINGS.animRandomPool = {};
@@ -1212,6 +1239,7 @@ function wireSettingsHandlers() {
       if (!r.checked) return;
       SETTINGS.animColorPreset = r.value;
       applyAnimColorPreset(r.value);
+      storeAnimColorsFor(SETTINGS.animBg);
       saveSettings(); syncAnimSubEnabled();
     });
   });
@@ -1219,11 +1247,13 @@ function wireSettingsHandlers() {
   document.getElementById('opt-anim-color-a').addEventListener('input', function(e) {
     SETTINGS.animColorA = e.target.value;
     document.getElementById('anim-color-a-hex').textContent = e.target.value;
+    storeAnimColorsFor(SETTINGS.animBg);
     saveSettings();
   });
   document.getElementById('opt-anim-color-b').addEventListener('input', function(e) {
     SETTINGS.animColorB = e.target.value;
     document.getElementById('anim-color-b-hex').textContent = e.target.value;
+    storeAnimColorsFor(SETTINGS.animBg);
     saveSettings();
   });
   // Anim background image picker

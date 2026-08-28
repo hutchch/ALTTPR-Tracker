@@ -92,6 +92,28 @@ let _deviceRetryTimer = null;
 let _gamemodeValid = false;
 let _currentGamemode = 0;   // latest game-mode byte (0x7E0010) from each read cycle
 const GAMEMODE_SRAM = (0xF50010).toString(16).toUpperCase();
+// ── Connection retry timings ─────────────────────────────────────────────────
+// v1.1.17, added after a report of the tracker taking ~10 seconds to pick up
+// the game (SNI + snes9x). Grouped here so the whole change can be reverted in
+// one place if it causes trouble.
+//
+// Previously: DeviceList retried on a flat 3s; the first SRAM read waited a
+// full second because setInterval doesn't fire immediately; and an
+// unrecognised game-mode byte re-sent DeviceList, whose handler is skipped
+// once deviceAttached is true — so nothing ever re-checked and the tracker
+// could sit there until the socket dropped.
+//
+// To revert: set DEVICE_RETRY_FAST_TRIES to 0 and drop the immediate
+// _sramReadOnce() call in startSRAMReading(). Keep the game-mode retry — that
+// one is a straight bug fix, not a tuning change.
+const DEVICE_RETRY_FAST_MS    = 750;   // early DeviceList retries, while the emulator is still coming up
+const DEVICE_RETRY_SLOW_MS    = 3000;  // steady-state, so we don't hammer SNI forever
+const DEVICE_RETRY_FAST_TRIES = 8;     // ~6s of fast polling before backing off
+const GAMEMODE_RETRY_MS       = 750;   // re-read the mode byte while it's unrecognised
+
+let _deviceRetryCount = 0;
+let _gamemodeRetryTimer = null;
+
 const GAMEPLAY_MODES = [0x07, 0x09, 0x0B];
 const KNOWN_ALTTP_MODES = [
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
@@ -389,7 +411,7 @@ const items = {
 };
 
 const dungeons = {
-    hc: { name: 'HC', bossAddr: null, bigkeyAddr: 0x367, bigkeyMask: 0x40, compassAddr: null, compassMask: 0, mapAddr: 0x369, mapMask: 0x40, smallKeyAddr: 0x4e1, maxChests: 8, maxSmallKeys: 1, maxItems: 6, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0, noCompass: true, noPrize: true, noBigKeyItem: true,
+    hc: { name: 'HC', bossAddr: null, bigkeyAddr: 0x367, bigkeyMask: 0x40, compassAddr: null, compassMask: 0, mapAddr: 0x369, mapMask: 0x40, smallKeyAddr: 0x4e0, maxChests: 8, maxSmallKeys: 1, maxItems: 6, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0, noCompass: true, noPrize: true, noBigKeyItem: true,
         locations: [[0x022,0x10],[0x022,0x20],[0x022,0x40],[0x0e4,0x10],[0x0e2,0x10],[0x100,0x10],[0x024,0x10],[0x064,0x10]] },
     ep: { name: 'EP', bossAddr: 0x191, bigkeyAddr: 0x367, bigkeyMask: 0x20, compassAddr: 0x365, compassMask: 0x20, mapAddr: 0x369, mapMask: 0x20, smallKeyAddr: 0x4e2, maxChests: 6, maxSmallKeys: 0, maxItems: 3, smallKeyCount: 0, itemCount: 0, prizeState: 0, bigkeyState: 0, compassState: 0, mapState: 0,
         locations: [[0x172,0x10],[0x154,0x10],[0x150,0x10],[0x152,0x10],[0x170,0x10],[0x191,0x08]] },
@@ -415,33 +437,723 @@ const dungeons = {
         locations: [[0x119,0x04],[0xf6,0x10],[0xf6,0x20],[0xf6,0x40],[0xf6,0x80],[0x116,0x10],[0xfa,0x10],[0xf8,0x10],[0xf8,0x20],[0xf8,0x40],[0xf8,0x80],[0x118,0x10],[0x118,0x20],[0x118,0x40],[0x118,0x80],[0x38,0x10],[0x38,0x20],[0x38,0x40],[0x11a,0x10],[0x13a,0x10],[0x13a,0x20],[0x13a,0x40],[0x13a,0x80],[0x7a,0x10],[0x7a,0x20],[0x7a,0x40],[0x9a,0x10]] }
 };
 
+// ── Key Drop Shuffle ─────────────────────────────────────────────────────────
+// The keys normally found under pots and dropped by enemies become shuffled
+// item locations: +33 across the dungeons, and the same number of extra small
+// keys. Same [room, bitmask] shape as `locations`, but these bits do NOT live
+// in the room data — pot keys are flagged in one SRAM region and enemy drops in
+// another (see KEYDROP_START in the autotracking section), so they are stored
+// and read separately.
+//
+// Ported from alttptracker-main/data/data_objects.js. CT is in this table even
+// though it isn't in `dungeons` — its two key drops raise the CT key count from
+// 2 to 4, which the CT key box and the map both read.
+window.KEYDROP_DATA = {
+    // HC follows the general rule: 12 locations = 9 items + 1 key + map + big key.
+    //
+    // It carried a hand-written `extra` of 11/1/8 for a while, read off a
+    // mid-run HUD while the small-key slot bug was still live. That override
+    // cost real locations two ways: it capped `keyDropCount` at 3 when HC has
+    // FOUR drop bits, so the Boomerang Guard drop was silently discarded, and
+    // it capped maxItems at 8 when HC has 9 — hiding the last chest collected.
+    // Chris hit both (Aug 2026): the guard drop, Zelda's Cell and the Sewers
+    // chests all failing to register. Derived, everything counts.
+    //
+    // If HC ever needs stating again, get the numbers from a FRESH dungeon's
+    // HUD, not from a partly-cleared one.
+    hc:  { keypots: [],
+           keydrops: [[0x0e5,0x80],[0x0e3,0x40],[0x101,0x20],[0x043,0x80]],
+           bigkeydrop: true },
+    // EP: 7 locations = 3 items + 1 key + map + compass + big key. Its Dark
+    // Square Pot Key is the new location; the Dark Eyegore drop stays a key.
+    ep:  { keypots: [[0x175,0x08]], keydrops: [[0x133,0x10]] },
+    dp:  { keypots: [[0x0c7,0x04],[0x0a7,0x20],[0x087,0x01]], keydrops: [] },
+    toh: { keypots: [], keydrops: [] },
+    pod: { keypots: [], keydrops: [] },
+    sp:  { keypots: [[0x071,0x10],[0x06f,0x80],[0x06d,0x08],[0x06b,0x80],[0x02c,0x80]], keydrops: [] },
+    sw:  { keypots: [[0x0ac,0x04]], keydrops: [[0x073,0x40]] },
+    tt:  { keypots: [[0x179,0x40],[0x157,0x80]], keydrops: [] },
+    // IP: 10 locations = 3 items + 4 keys + map + compass + big key. Its two
+    // pot keys are the new locations; Conveyor / Hammer Block / Jelly stay keys.
+    ip:  { keypots: [[0x07f,0x02],[0x13f,0x08]], keydrops: [[0x01d,0x10],[0x07c,0x80]] },
+    mm:  { keypots: [[0x167,0x80],[0x143,0x80]], keydrops: [[0x182,0x40]] },
+    tr:  { keypots: [], keydrops: [[0x16d,0x04],[0x027,0x02]] },
+    gt:  { keypots: [[0x117,0x40],[0x137,0x40],[0x0f7,0x08]], keydrops: [[0x07b,0x20]] },
+    ct:  { keypots: [], keydrops: [[0x181,0x10],[0x160,0x20]] }
+};
+
+// Merge the arrays onto the dungeon objects so the autotracker can walk one
+// structure. Done here rather than in the literals above to keep those lines
+// readable and to leave CT (which has no dungeon object) out of it.
+Object.keys(window.KEYDROP_DATA).forEach(function(k) {
+    if (!dungeons[k]) return;
+    dungeons[k].keypots    = window.KEYDROP_DATA[k].keypots  || [];
+    dungeons[k].keydrops   = window.KEYDROP_DATA[k].keydrops || [];
+    dungeons[k].bigkeydrop = !!window.KEYDROP_DATA[k].bigkeydrop;
+});
+
 // Expose dungeons globally so itemtracker.html can read/update them
 window.dungeons = dungeons;
 
+// ── Dungeon prize cycle ──────────────────────────────────────────────────────
+// One cycle for every dungeon-item mode. "?" used to be offered only in the
+// shuffled modes, but some seeds place dungeon prizes out in the overworld, so
+// it has to be reachable in Standard too. Keeping a single cycle also keeps the
+// index meaning stable and matches map.html, whose prizeIndexByName() would
+// otherwise silently resolve an unknown prize to crystal.
+window.PRIZE_IMAGE_CYCLE = ['unknown0.png', 'crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png'];
+window.PRIZE_INDEX_UNKNOWN = 0;
+window.PRIZE_INDEX_CRYSTAL = 1;
+
+// The seed's Dungeon Item Shuffle setting: standard | mapcompass |
+// mapcompasskeys | keysanity | other.
+// Live override, set when the map's settings menu changes the mode under an
+// open window. A live change never rewrites the URL, so this has to beat the
+// URL param the window was launched with.
+window._dungeonItemsOverride = null;
+
+window.dungeonItemsMode = function() {
+    if (window._dungeonItemsOverride) return window._dungeonItemsOverride;
+    try {
+        return new URLSearchParams(window.location.search).get('dungeonitems')
+            || localStorage.getItem('alttp-dungeon-items')
+            || 'standard';
+    } catch (e) { return 'standard'; }
+};
+
+// What a fresh board starts on for a given Dungeon Item Shuffle setting.
+// Standard keeps the crystals, because the prizes are where they always are.
+// Every shuffled setting starts on ? instead — the prizes move, so showing a
+// crystal would be asserting something the player doesn't know yet.
+window.defaultPrizeForMode = function(mode) {
+    return (mode || window.dungeonItemsMode()) === 'standard' ? 'crystal' : 'unknown';
+};
+
+// A change made in the item tracker's settings panel. Deliberately held in
+// memory and NOT persisted: every launch starts from the seed's Dungeon Item
+// Shuffle setting, and the player's change lasts only for that session. Chris
+// asked for exactly this — a standard seed must always open on crystals, no
+// matter what was picked last time.
+window._prizeOverride = null;
+
+// Drop the keys older builds persisted, so a stale choice can't survive a
+// relaunch and reintroduce the behaviour above.
+try {
+    localStorage.removeItem('alttp-itemtracker-default-prize');
+    localStorage.removeItem('alttp-itemtracker-default-prize-mode');
+} catch (e) {}
+
+// Which prize every dungeon starts on: derived from the seed's Dungeon Item
+// Shuffle setting, unless overridden for this session.
+window.defaultPrizeIndex = function() {
+    var pref = window._prizeOverride;
+    if (pref !== 'crystal' && pref !== 'unknown') pref = window.defaultPrizeForMode();
+    return pref === 'unknown' ? window.PRIZE_INDEX_UNKNOWN : window.PRIZE_INDEX_CRYSTAL;
+};
+
+// The effective setting as a name, for the settings panel radios.
+window.defaultPrizeSetting = function() {
+    return window.defaultPrizeIndex() === window.PRIZE_INDEX_UNKNOWN ? 'unknown' : 'crystal';
+};
+
+// Seed every dungeon's prizeState to match the image it will be drawn with.
+// If these disagree the first click appears to do nothing, because cycling
+// advances the index onto the entry already being displayed.
+Object.keys(dungeons).forEach(function(k) { dungeons[k].prizeState = window.defaultPrizeIndex(); });
+
+// Re-apply the default prize to every dungeon right now. Called when the
+// setting is changed so the board updates immediately rather than only on the
+// next launch — flipping a setting and seeing nothing happen reads as broken.
+// Prizes are reset to un-obtained, same as New Game does.
+window.applyDefaultPrizeToAll = function() {
+    var idx = window.defaultPrizeIndex();
+    var img = window.PRIZE_IMAGE_CYCLE[idx];
+    Object.keys(dungeons).forEach(function(k) {
+        dungeons[k].prizeState = idx;
+        var slot = document.querySelector('[data-dungeon-key="' + k + '"]');
+        if (!slot) return;
+        var prizeImg = slot.querySelector('.prize-img');
+        if (prizeImg) prizeImg.src = (typeof BASE_URL !== 'undefined' ? BASE_URL + '/' : '') + img;
+        if (typeof updateBossCircle === 'function') updateBossCircle(k);
+        if (typeof updateDungeonCountDisplay === 'function') updateDungeonCountDisplay(k);
+    });
+    if (typeof window.onPrizeCycled === 'function') window.onPrizeCycled();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+};
+
+// The world state can be changed from the map's settings menu while the item
+// tracker is open, so anything derived from it has to be recomputable rather
+// than resolved once at load. Held in memory; a live change never rewrites the
+// URL, so this override has to beat the URL param that seeded the window.
+window._worldStateOverride = null;
+
+window.currentWorldState = function() {
+    if (window._worldStateOverride) return window._worldStateOverride;
+    try {
+        return new URLSearchParams(window.location.search).get('gamemode')
+            || localStorage.getItem('alttp-gamemode')
+            || 'standard';
+    } catch (e) { return 'standard'; }
+};
+
+// ── Key-source helpers ───────────────────────────────────────────────────────
+// Defined HERE, above applyDungeonItemMaxes, because that function runs
+// immediately at load and calls keysAreUniversal(). Defining these further down
+// (next to the other Retro helpers, where they read more naturally) throws
+// "keysAreUniversal is not a function" during load and aborts the rest of
+// items.js — the tracker then half-initialises with no visible error.
+window.isRetroMode = function() { return window.currentWorldState() === 'retro'; };
+
+// Universal Keys — a seed flag of its own, set from the map's gear menu.
+// Retro *implies* it, but a seed can use universal keys under any world state,
+// which is why this isn't just isRetroMode(). Live override, same reason as the
+// others: a change from the map never rewrites this window's URL.
+window._universalKeysOverride = null;
+
+window.universalKeysFlag = function() {
+    if (window._universalKeysOverride) return window._universalKeysOverride === 'yes';
+    try {
+        return (new URLSearchParams(window.location.search).get('universalkeys')
+             || localStorage.getItem('alttp-universal-keys')
+             || 'no') === 'yes';
+    } catch (e) { return false; }
+};
+
+// True when small keys are bought rather than found — the Universal Keys flag
+// or the Retro world state, unless a key-shuffling dungeon item mode has put
+// them back into the dungeon pool. Anything that waits for a key to be
+// *collected* has to account for this.
+window.keysAreUniversal = function() {
+    try {
+        if (!(window.universalKeysFlag() || window.isRetroMode())) return false;
+        return ['keysanity','mapcompasskeys'].indexOf(window.dungeonItemsMode()) === -1;
+    } catch (e) { return false; }
+};
+
+// ── The Key Drop Shuffle flag ────────────────────────────────────────────────
+// Defined HERE, above applyDungeonItemMaxes, because that runs at load and
+// calls into it. Putting these lower down throws and silently aborts the rest
+// of the file — the same trap universal keys fell into.
+window._keyDropOverride = null;   // set by a live settings change; beats the URL
+
+// "Key Drop" — the combined mode, pot keys AND enemy drops. Kept as a flag of
+// its own rather than just ticking the other two, so a player's individual
+// choices survive underneath it and a reload can tell the two states apart.
+window._keyDropAllOverride = null;
+
+window.keyDropAllFlag = function() {
+    if (window._keyDropAllOverride) return window._keyDropAllOverride === 'yes';
+    try {
+        return (new URLSearchParams(window.location.search).get('keydropall')
+             || localStorage.getItem('alttp-keydrop-all')
+             || 'no') === 'yes';
+    } catch (e) { return false; }
+};
+
+window.keyDropFlag = function() {
+    if (window.keyDropAllFlag()) return true;
+    if (window._keyDropOverride) return window._keyDropOverride === 'yes';
+    try {
+        return (new URLSearchParams(window.location.search).get('keydrop')
+             || localStorage.getItem('alttp-keydrop')
+             || 'no') === 'yes';
+    } catch (e) { return false; }
+};
+
+// Enemy Key Drop — the separate option that shuffles the keys dropped by
+// enemies, the mirror of the pottery flag above. Each enemy drop becomes a
+// location holding one of the dungeon's small keys, exactly as a pot key does.
+// The two are independent; either, both or neither can be on.
+window._enemyKeyDropOverride = null;
+
+window.enemyKeyDropFlag = function() {
+    if (window.keyDropAllFlag()) return true;
+    if (window._enemyKeyDropOverride) return window._enemyKeyDropOverride === 'yes';
+    try {
+        return (new URLSearchParams(window.location.search).get('enemykeydrop')
+             || localStorage.getItem('alttp-enemy-keydrop')
+             || 'no') === 'yes';
+    } catch (e) { return false; }
+};
+
+// Either flag means the key-drop SRAM block is worth reading.
+window.anyKeyDropFlag = function() {
+    return window.keyDropFlag() || window.enemyKeyDropFlag();
+};
+
+// What key drop adds to one dungeon. Returns zeroes when the flag is off, so
+// callers can add unconditionally.
+//
+// **Each flag brings in its own half, and only its own half.** What the two
+// halves HOLD differs:
+//
+//   Pot Key Drop Only  ->  pot locations, holding the dungeon's extra SMALL KEYS
+//   Enemy Key Drop     ->  enemy-drop locations, also holding SMALL KEYS
+//                          (plus HC's big key drop, which is an enemy drop)
+//
+// The master Key Drop flag is simply both at once — keyDropFlag() and
+// enemyKeyDropFlag() each return true when it is set.
+//
+// Every consumer must ask the flag that matches the half it is dealing with:
+// pot counts on keyDropFlag, enemy/big-key on enemyKeyDropFlag, and "is any of
+// this live at all" on anyKeyDropFlag. Two separate defects came from reaching
+// for keyDropFlag as a general on/off switch — under Enemy Key Drop alone it is
+// false, so the counts moved but the collected tallies did not.
+//
+// **Settled against the randomizer's own tables** (Chris, Aug 2026). A live
+// key-drop seed was dumped with keyprobe.html, which reads the two tables the
+// ROM writes at $F65410 (max locations per dungeon, 16-bit little-endian) and
+// $F65430 (max small keys per dungeon):
+//
+//            ROM loc / keys      ROM loc / keys
+//   HC          12 / 4        SP     15 / 6
+//   EP           8 / 2        POD    14 / 6
+//   DP           9 / 4        MM     11 / 6
+//   CT           4 / 4        SW     10 / 5
+//   ToH          6 / 1        IP     12 / 6
+//   TT          10 / 3        TR     14 / 6
+//   GT          31 / 8
+//
+// Max locations matched this file exactly for all fourteen slots, and max keys
+// came back as base + pots + drops for all fourteen. That is the whole rule,
+// and there is no longer anything to infer:
+//
+//   EP  1 pot + 1 enemy drop ->  8 locations, 2 keys, 3 items
+//   DP  3 pots + 0 drops     ->  9 locations, 4 keys, 2 items
+//   TR  0 pots + 2 drops     -> 14 locations, 6 keys, 5 items
+//   HC  0 pots + 4 drops     -> 12 locations, 4 keys, 6 items
+//
+// Before believing any argument that moves a count between the key and item
+// columns, dump a seed with keyprobe.html. Four rounds of in-game readings and
+// one reference tracker all failed to settle this; the ROM settled it once.
+window.keyDropExtras = function(key) {
+    var kd = window.KEYDROP_DATA[key];
+    if (!kd) return { locations: 0, keys: 0, items: 0, nonBigKey: 0 };
+
+    var potOn   = window.keyDropFlag();
+    var enemyOn = window.enemyKeyDropFlag();
+    if (!potOn && !enemyOn) return { locations: 0, keys: 0, items: 0, nonBigKey: 0 };
+
+    var bigdrop = kd.bigkeydrop ? 1 : 0;
+    // Each half brings in its own locations, and EVERY one of them holds a
+    // small key — pots and enemy drops alike. See the ROM table above.
+    //
+    // The "a guard dropped an ITEM" report that pushed this the other way for a
+    // while was about one location's contents in one seed. Key drop shuffle
+    // randomizes what sits in each spot, so it says nothing about the counts.
+    var pots  = potOn   ? (kd.keypots  || []).length : 0;
+    var drops = enemyOn ? ((kd.keydrops || []).length - bigdrop) : 0;
+    // HC's big key drop is itself an enemy drop, so it rides with that half.
+    var bigLoc = (enemyOn && bigdrop) ? 1 : 0;
+
+    // A dungeon may state its own figures where the general rule doesn't hold.
+    // **Nothing uses this now** — HC did, and its stated numbers turned out to
+    // be a mid-run misreading that silently discarded locations. Prefer fixing
+    // the rule over adding an entry here; if you must, take the figures from a
+    // dungeon nobody has touched yet.
+    if (kd.extra && potOn && enemyOn) {
+        return {
+            locations: kd.extra.locations,
+            keys:      kd.extra.keys,
+            items:     kd.extra.items,
+            nonBigKey: kd.extra.locations - bigLoc
+        };
+    }
+    return {
+        locations: pots + drops + bigLoc,   // every new location
+        keys:      pots + drops,            // ...and every one of them holds a key
+        items:     0,                       // so none of them holds an item
+        nonBigKey: pots + drops             // every new location bar a big key one
+    };
+};
+
+// CT's small key count: 2 normally, 4 under key drop. CT has no dungeon object,
+// so its max lives here rather than on `dungeons`.
+window.ctMaxSmallKeys = function() {
+    var seed = window.seedCountsFor('ct');
+    if (seed) return seed.keys;
+    return 2 + window.keyDropExtras('ct').keys;
+};
+
+// ── The seed's own counts ────────────────────────────────────────────────────
+//
+// The randomizer writes two per-dungeon tables that say exactly how many
+// locations and how many small keys THIS seed put in each dungeon:
+//
+//     $F65410   0x20   max locations, 16-bit LITTLE-endian at 2i
+//     $F65430   0x10   max small keys, one byte at i
+//
+// They are contiguous, so one 0x30 read at $F65410 covers both — and 0x30 is a
+// free length for processSRAMData, which routes purely by response size.
+//
+// Slot order is the 0x4E0 small-key order. Slot 0 is the Sewers alone (max 1
+// key); slot 1 is Hyrule Castle including them, which is the one that matches
+// the combined counter at 0x4E0 and so the one we use for `hc`.
+//
+// **This is the authority for the key/item split.** The hand-kept KEYDROP_DATA
+// figures took four rounds of in-game readings to get right and were still
+// wrong; these two rows settled it in one go. See key-drop-shuffle.md.
+window.SEED_COUNT_SLOT = {
+    hc:1, ep:2, dp:3, ct:4, sp:5, pod:6, mm:7, sw:8, ip:9, toh:10, tt:11, tr:12, gt:13
+};
+window._seedCountRaw = null;      // { hc: {locations, keys}, ... }, straight from SRAM
+window._seedCountUsed = null;     // the subset applyDungeonItemMaxes actually trusted
+
+// Which of the parsed rows we are willing to believe.
+//
+// The location total is used as a **checksum**, not as data: we only take a
+// dungeon's key count when its location total already agrees with what the
+// tracker computed. That does three things at once —
+//
+//   * it proves the block is real and correctly indexed (this region is
+//     arbitrary WRAM in a ROM that doesn't write it, so it can hold anything);
+//   * it proves the seed's settings match the flags the player ticked, since a
+//     key-drop seed read with key drop off would disagree everywhere;
+//   * it keeps the collected side honest — processRoomData can only count the
+//     drop bits its flags tell it to read, so accepting a location total we
+//     can't actually track would leave the dungeon permanently unfinishable.
+//
+// A whole-block sanity gate comes first, so a stray coincidence in one dungeon
+// can't drag a junk row in on its own.
+window.seedCountsUsable = function(raw) {
+    if (!raw) return false;
+    var keys = Object.keys(raw), sane = 0;
+    for (var i = 0; i < keys.length; i++) {
+        var r = raw[keys[i]];
+        if (!(r.locations >= 1 && r.locations <= 60)) return false;
+        if (!(r.keys >= 0 && r.keys <= r.locations)) return false;
+        if (dungeons[keys[i]] && r.locations === dungeons[keys[i]].maxChests) sane++;
+    }
+    // 12 dungeons carry a `dungeons` entry; require most of them to line up.
+    return sane >= 8;
+};
+
+// The trusted row for one dungeon, or null to fall back to the table.
+window.seedCountsFor = function(key) {
+    var raw = window._seedCountRaw;
+    if (!raw || !raw[key] || !window.seedCountsUsable(raw)) return null;
+    var row = raw[key];
+    var have = dungeons[key]
+        ? dungeons[key].maxChests
+        : 2 + window.keyDropExtras('ct').locations;   // CT has no dungeon object
+    return (row.locations === have) ? row : null;
+};
+
+// How many of a dungeon's locations are taken by its map, compass and big key.
+// Matches processRoomData's own `bigKeyIsALocation`, so the two never disagree
+// about whether HC's big key drop counts.
+window.dungeonItemSlots = function(key) {
+    var d = dungeons[key];
+    if (!d) return { map: 0, compass: 0, bigKey: 0 };
+    var kd = window.KEYDROP_DATA[key] || {};
+    return {
+        map:     d.mapAddr ? 1 : 0,
+        compass: (d.compassAddr && !d.noCompass) ? 1 : 0,
+        bigKey:  (!d.noBigKeyItem || (window.enemyKeyDropFlag() && kd.bigkeydrop)) ? 1 : 0
+    };
+};
+
+// Items = locations, less whatever the current mode leaves sitting in the
+// dungeon. Reproduces the four hard-coded mode tables exactly when handed the
+// tracker's own figures — `seedcounts.js` asserts that for every dungeon in
+// every mode, which is what makes it safe to let the seed drive it.
+window.itemsFromCounts = function(key, locations, smallKeys, mode) {
+    var s = window.dungeonItemSlots(key);
+    if (mode === 'keysanity')      return locations;                        // all shuffled out
+    if (mode === 'mapcompasskeys') return locations - s.bigKey;             // big key stays
+    if (mode === 'mapcompass')     return locations - smallKeys - s.bigKey; // keys stay too
+    return locations - smallKeys - s.map - s.compass - s.bigKey;            // standard
+};
+
+// Base counts straight from the dungeon literals, captured before any mode
+// override touches them. applyDungeonItemMaxes() always recomputes from these,
+// so calling it repeatedly can't compound.
+var _BASE_MAX_ITEMS = {}, _BASE_MAX_CHESTS = {}, _BASE_MAX_SMALL_KEYS = {};
+Object.keys(dungeons).forEach(function(k) {
+    _BASE_MAX_ITEMS[k]      = dungeons[k].maxItems;
+    _BASE_MAX_CHESTS[k]     = dungeons[k].maxChests;
+    _BASE_MAX_SMALL_KEYS[k] = dungeons[k].maxSmallKeys;
+});
+
 // Apply dungeon item shuffle maxItems overrides based on mode
-(function() {
-    var p = new URLSearchParams(window.location.search);
-    var mode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
+window.applyDungeonItemMaxes = function() {
+    var mode = window.dungeonItemsMode();
+    Object.keys(_BASE_MAX_ITEMS).forEach(function(k) {
+        if (!dungeons[k]) return;
+        dungeons[k].maxItems     = _BASE_MAX_ITEMS[k];
+        dungeons[k].maxChests    = _BASE_MAX_CHESTS[k];
+        dungeons[k].maxSmallKeys = _BASE_MAX_SMALL_KEYS[k];
+    });
+
+    // ── Key Drop Shuffle ──
+    // Applied before the mode tables so those can be stated as deltas on top.
+    //
+    // Every key-drop location holds a small key, so in Standard and Map/Compass
+    // the whole bump lands on maxSmallKeys and `items` is 0. The two modes that
+    // shuffle keys into the general pool take `nonBigKey` / `locations`
+    // instead, and there the same locations do count as item locations.
+    var _kdExtra = {};
+    Object.keys(dungeons).forEach(function(k) {
+        var x = window.keyDropExtras(k);
+        _kdExtra[k] = x;
+        dungeons[k].maxChests    += x.locations;
+        dungeons[k].maxSmallKeys += x.keys;
+        dungeons[k].maxItems     += x.items;   // Standard; the mode tables below override
+    });
+    // Key Sanity counts every new location. MCK counts every new location
+    // except a big key one, because it doesn't shuffle big keys — which only
+    // affects HC, the one dungeon whose key drops include its big key.
+    var kdLoc   = function(k) { return (_kdExtra[k] && _kdExtra[k].locations) || 0; };
+    var kdMck   = function(k) { return (_kdExtra[k] && _kdExtra[k].nonBigKey) || 0; };
+    var kdItems = function(k) { return (_kdExtra[k] && _kdExtra[k].items)     || 0; };
+
     if (mode === 'keysanity') {
         // All dungeon items (map/compass/keys/bigkey) are shuffled — count all chests
         var KS = { hc:8, ep:6, dp:6, toh:6, pod:14, sp:10, sw:8, tt:8, ip:8, mm:8, tr:12, gt:27 };
         Object.keys(KS).forEach(function(k) {
-            if (dungeons[k]) dungeons[k].maxItems = KS[k];
+            if (dungeons[k]) dungeons[k].maxItems = KS[k] + kdLoc(k);
         });
     } else if (mode === 'mapcompass') {
         // Maps and compasses are shuffled — standard + 2 per dungeon (GT +1, no map)
         var MC = { hc:7, ep:5, dp:4, toh:4, pod:7, sp:8, sw:4, tt:6, ip:5, mm:4, tr:7, gt:22 };
         Object.keys(MC).forEach(function(k) {
-            if (dungeons[k]) dungeons[k].maxItems = MC[k];
+            if (dungeons[k]) dungeons[k].maxItems = MC[k] + kdItems(k);
         });
     } else if (mode === 'mapcompasskeys') {
         // Maps, compasses, and small keys shuffled but big key stays — subtract 1 for big key
         var MCK = { hc:8, ep:5, dp:5, toh:5, pod:13, sp:9, sw:7, tt:7, ip:7, mm:7, tr:11, gt:26 };
         Object.keys(MCK).forEach(function(k) {
-            if (dungeons[k]) dungeons[k].maxItems = MCK[k];
+            if (dungeons[k]) dungeons[k].maxItems = MCK[k] + kdMck(k);
         });
     }
-})();
+
+    // ── the seed's own key counts, where they agree with ours ──
+    // Everything above is the fallback: a hand-kept table of what key drop does
+    // to each dungeon. When a device is attached and the randomizer's tables
+    // read back cleanly, the seed itself supplies the key count and the item
+    // count falls out of it. Runs before the Universal Keys layer, which sums
+    // the two columns and so has to see the final split.
+    window._seedCountUsed = null;
+    Object.keys(dungeons).forEach(function(k) {
+        var seed = window.seedCountsFor(k);
+        if (!seed) return;
+        dungeons[k].maxSmallKeys = seed.keys;
+        dungeons[k].maxItems     = window.itemsFromCounts(k, seed.locations, seed.keys, mode);
+        if (!window._seedCountUsed) window._seedCountUsed = {};
+        window._seedCountUsed[k] = seed;
+    });
+
+    // Retro world state: small keys become universal and are bought from shops,
+    // so every small-key chest now holds a real item and counts toward the
+    // dungeon total. Layered on top of whatever the shuffle mode above set.
+    //
+    // Only Standard and Map/Compass need this. Map/Compass/Keys and Key Sanity
+    // already shuffle small keys into the pool, so their counts include those
+    // chests — adding again would double-count them (e.g. DP would read 6,
+    // wrongly counting the un-shuffled big key chest).
+    //
+    // On Standard this yields exactly: HC 7, EP 3, DP 3, ToH 3, POD 11, SP 7,
+    // SW 5, TT 5, IP 5, MM 5, TR 9, GT 24.
+    // Keeping the explicit standard/mapcompass test alongside the predicate:
+    // keysAreUniversal() also allows 'other', which has its own display rules
+    // and never had this bump.
+    if (window.keysAreUniversal() && (mode === 'standard' || mode === 'mapcompass')) {
+        Object.keys(dungeons).forEach(function(k) {
+            var d = dungeons[k];
+            if (!d) return;
+            // maxChests is a hard ceiling — a dungeon can never hold more.
+            d.maxItems = Math.min(d.maxItems + (d.maxSmallKeys || 0), d.maxChests);
+        });
+    }
+};
+window.applyDungeonItemMaxes();
+
+// ── Retro small keys ──────────────────────────────────────────────────────────
+// When small keys are bought from a shop they aren't tied to a dungeon, so a
+// "collected of max" tally means nothing. The key row instead just states how
+// many key doors the dungeon has — POD reads "6", not "0/6".
+// The CT key box shows a plain "2" reference rather than a live tally in
+// exactly those seeds.
+window.ctKeyBoxIsStatic = function() { return window.keysAreUniversal(); };
+
+// Show/hide and label the CT key box for the current mode.
+// boxEl is passed while the tracker is still being built — the box isn't in the
+// document yet at that point, so getElementById would miss it and the box would
+// keep its default (visible) styling.
+window.updateCtKeyBox = function(boxEl) {
+    var box = boxEl || document.querySelector('.stat-ctkey');
+    if (!box) return;
+    var el = box.querySelector('#toh-ctkey-count') || document.getElementById('toh-ctkey-count');
+    if (!el) return;
+    var mode = '';
+    try {
+        mode = window.dungeonItemsMode();
+    } catch (e) { mode = 'standard'; }
+    var ks     = ['keysanity','mapcompasskeys'].indexOf(mode) !== -1;
+    var static_ = window.ctKeyBoxIsStatic();
+    box.style.display = (ks || static_) ? '' : 'none';
+    box.style.cursor  = static_ ? 'default' : 'pointer';
+    var ctMax = window.ctMaxSmallKeys();   // 2 normally, 4 under key drop
+    if (static_) {
+        el.textContent = String(ctMax);
+        el.style.color = '';
+    } else {
+        var n = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
+        el.textContent = n + '/' + ctMax;
+        el.style.color = n >= ctMax ? '#2ecc71' : '';
+    }
+};
+
+// Repaint every dungeon slot — counts, key rows, tints.
+window.repaintAllDungeons = function() {
+    Object.keys(dungeons).forEach(function(k) {
+        if (typeof updateDungeonCountDisplay === 'function') updateDungeonCountDisplay(k);
+    });
+};
+
+// Dungeon Item Shuffle changed from the map's settings menu.
+window.applyDungeonItemsChange = function(mode) {
+    if (!mode) return;
+    window._dungeonItemsOverride = mode;
+    window._dungeonItemsMode = mode;
+    try { localStorage.setItem('alttp-dungeon-items', mode); } catch (e) {}
+    // Bottom-bar mode label.
+    var lbl = document.getElementById('item-mode-label');
+    if (lbl) {
+        var modeLabels = { standard: 'STD', mapcompass: 'MC', mapcompasskeys: 'MCK', keysanity: 'KS', other: 'O' };
+        lbl.textContent = modeLabels[mode] || 'STD';
+    }
+    if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
+    window.repaintAllDungeons();
+    window.updateCtKeyBox();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+};
+
+// Boss Shuffle changed from the map's settings menu.
+//   off -> the bosses are vanilla, so seed the real assignments and lock the
+//          circles (a CSS class kills interaction)
+//   on  -> the bosses are shuffled and unknown, so clear every circle back to
+//          unassigned for the player to fill in as they find them
+// Turning it on used to only remove the lock, which left the vanilla bosses
+// sitting there looking authoritative until some other setting forced a
+// repaint. Chris reported exactly that.
+window.VANILLA_BOSSES = { ep:1, dp:2, toh:3, pod:4, sp:5, sw:6, tt:7, ip:8, mm:9, tr:10 };
+window.applyBossShuffleChange = function(v) {
+    var next = (v === 'no') ? 'no' : 'yes';
+    var prev = window._bossShuffle || 'yes';
+    window._bossShuffle = next;
+    try { localStorage.setItem('alttp-bossshuffle', next); } catch (e) {}
+    document.documentElement.classList.toggle('no-boss-shuffle', next === 'no');
+    // Only act on a real transition. Both delivery paths fire for one change,
+    // and re-clearing on the second would wipe assignments the player had just
+    // started making.
+    if (next !== prev && typeof setBoss === 'function') {
+        Object.keys(window.VANILLA_BOSSES).forEach(function(k) {
+            setBoss(k, next === 'no' ? window.VANILLA_BOSSES[k] : 0);
+        });
+    }
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+};
+
+// Universal Keys changed from the map's settings menu. Same recompute as a
+// world-state change: chest totals, key rows and the CT box all hang off it.
+window.applyUniversalKeysChange = function(v) {
+    window._universalKeysOverride = (v === 'yes') ? 'yes' : 'no';
+    try { localStorage.setItem('alttp-universal-keys', window._universalKeysOverride); } catch (e) {}
+    if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
+    window.repaintAllDungeons();
+    window.updateCtKeyBox();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+};
+
+// Key Drop Shuffle changed from the map's settings menu. Same shape as
+// universal keys, plus a reset of the per-dungeon key-drop tallies: those come
+// from a separate SRAM read that isn't issued at all while the flag is off, so
+// a stale count would otherwise survive a toggle.
+window.applyKeyDropChange = function(v) {
+    window._keyDropOverride = (v === 'yes') ? 'yes' : 'no';
+    try { localStorage.setItem('alttp-keydrop', window._keyDropOverride); } catch (e) {}
+    _resetKeyDropTallies();
+    if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
+    window.repaintAllDungeons();
+    window.updateCtKeyBox();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+};
+
+// The combined Key Drop mode changed from the map's settings menu.
+window.applyKeyDropAllChange = function(v) {
+    window._keyDropAllOverride = (v === 'yes') ? 'yes' : 'no';
+    try { localStorage.setItem('alttp-keydrop-all', window._keyDropAllOverride); } catch (e) {}
+    _resetKeyDropTallies();
+    if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
+    window.repaintAllDungeons();
+    window.updateCtKeyBox();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+};
+
+// Enemy Key Drop changed from the map's settings menu. Same shape.
+window.applyEnemyKeyDropChange = function(v) {
+    window._enemyKeyDropOverride = (v === 'yes') ? 'yes' : 'no';
+    try { localStorage.setItem('alttp-enemy-keydrop', window._enemyKeyDropOverride); } catch (e) {}
+    _resetKeyDropTallies();
+    if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
+    window.repaintAllDungeons();
+    window.updateCtKeyBox();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+};
+
+// Reset the autotracking tallies so the next SRAM read recounts from scratch.
+// chestsMax and itemCount are high-water marks that never fall on their own, so
+// without this the key drops stay counted after a flag goes off.
+//
+// Only when a device is attached: with no autotracking, itemCount is the
+// player's own manual tally and clearing it would throw their run away.
+function _resetKeyDropTallies() {
+    Object.keys(dungeons).forEach(function(k) {
+        dungeons[k].keyDropCount = 0;
+        if (typeof deviceAttached !== 'undefined' && deviceAttached) {
+            dungeons[k].chestsMax = 0;
+            dungeons[k].itemCount = 0;
+        }
+    });
+    window._ctKeyDropCount = 0;
+}
+
+window.addEventListener('storage', function(ev) {
+    if (ev.key === 'alttp-dungeon-items')   window.applyDungeonItemsChange(ev.newValue);
+    if (ev.key === 'alttp-bossshuffle')     window.applyBossShuffleChange(ev.newValue);
+    if (ev.key === 'alttp-universal-keys')  window.applyUniversalKeysChange(ev.newValue);
+    if (ev.key === 'alttp-keydrop')         window.applyKeyDropChange(ev.newValue);
+    if (ev.key === 'alttp-enemy-keydrop')   window.applyEnemyKeyDropChange(ev.newValue);
+    if (ev.key === 'alttp-keydrop-all')     window.applyKeyDropAllChange(ev.newValue);
+});
+
+// The world state changed while this window was open — from the map's settings
+// menu. Recompute everything derived from it and repaint.
+window.applyWorldStateChange = function(mode) {
+    if (!mode) return;
+    window._worldStateOverride = mode;
+    try { localStorage.setItem('alttp-gamemode', mode); } catch (e) {}
+    if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
+    window.repaintAllDungeons();
+    window.updateCtKeyBox();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+};
+
+// The map writes alttp-gamemode from another window; same dual delivery as the
+// swordless flag (see swordless-mode notes) because neither storage events nor
+// BroadcastChannel are reliable on their own across Electron windows.
+window.addEventListener('storage', function(ev) {
+    if (ev.key !== 'alttp-gamemode') return;
+    window.applyWorldStateChange(ev.newValue);
+});
+
+// The text for a dungeon's small-key readout, in whichever world state is live.
+window.smallKeyLabel = function(d) {
+    if (!d) return '';
+    var max = d.maxSmallKeys || 0;
+    return window.keysAreUniversal() ? String(max) : (d.smallKeyCount || 0) + '/' + max;
+};
 
 // Prize-count widgets on the new top line: prize icon + "current/max". Each
 // spans two item slots so the four fill the row above the item grid.
@@ -582,7 +1294,7 @@ function createTracker() {
                 // counter) and overflows down far enough to overlap GT — drop GT
                 // to the bottom of its row in those modes so it clears the overflow.
                 if (itemKey === 'gt') {
-                    const _gtMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+                    const _gtMode = window.dungeonItemsMode();
                     if (['keysanity', 'mapcompasskeys'].includes(_gtMode)) {
                         dungeonSlot.classList.add('gt-bottom');
                     }
@@ -602,9 +1314,9 @@ function createTracker() {
                     if (!dungeons[itemKey].bigkeyOnly && !dungeons[itemKey].noPrize) {
                         const prizeImg = document.createElement('img');
                         prizeImg.className = 'prize-img';
-                        const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+                        const _ksMode = window.dungeonItemsMode();
                         const _isShuffled = ['keysanity','mapcompass','mapcompasskeys','other'].includes(_ksMode);
-                        prizeImg.src = `${BASE_URL}/${_isShuffled ? 'unknown0.png' : 'crystal0.png'}`;
+                        prizeImg.src = `${BASE_URL}/${window.PRIZE_IMAGE_CYCLE[window.defaultPrizeIndex()]}`;
                         prizeImg.alt = 'Prize';
                         prizeImg.addEventListener('contextmenu', function(e) {
                             e.preventDefault();
@@ -627,9 +1339,9 @@ function createTracker() {
                     if (!dungeons[itemKey].bigkeyOnly && !dungeons[itemKey].noPrize) {
                         const prizeImg = document.createElement('img');
                         prizeImg.className = 'prize-img';
-                        const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+                        const _ksMode = window.dungeonItemsMode();
                         const _isShuffled = ['keysanity','mapcompass','mapcompasskeys','other'].includes(_ksMode);
-                        prizeImg.src = `${BASE_URL}/${_isShuffled ? 'unknown0.png' : 'crystal0.png'}`;
+                        prizeImg.src = `${BASE_URL}/${window.PRIZE_IMAGE_CYCLE[window.defaultPrizeIndex()]}`;
                         prizeImg.alt = 'Prize';
                         prizeImg.addEventListener('contextmenu', function(e) {
                             e.preventDefault();
@@ -699,15 +1411,24 @@ function createTracker() {
                 dungeonSlot.appendChild(itemsContainer);
                 
                 // Add small key and item count displays
-                const _diModeSlot = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+                const _diModeSlot = window.dungeonItemsMode();
                 const _isOtherMode = _diModeSlot === 'other';
                 const countsContainer = document.createElement('div');
                 countsContainer.className = isPendantDungeon ? 'dungeon-counts-pendant' : 'dungeon-counts';
                 
-                // Small key count with icon (only if maxSmallKeys > 0 and not Other mode)
-                if (!_isOtherMode && dungeons[itemKey].maxSmallKeys > 0) {
+                // Small key count with icon.
+                //
+                // **Built whenever the mode allows one at all, then shown or
+                // hidden.** It used to be built only when maxSmallKeys > 0 at
+                // render time, which meant EP — the one dungeon with no small
+                // keys in a normal seed — had no key row to update when key
+                // drop was switched on later from the map. Its two pot/drop
+                // keys were counted and simply never displayed. Third instance
+                // of this rule; see cross-window-settings.md.
+                if (!_isOtherMode) {
                     const keyContainer = document.createElement('div');
-                    keyContainer.className = 'count-item';
+                    keyContainer.className = 'count-item key-count-item';
+                    keyContainer.style.display = dungeons[itemKey].maxSmallKeys > 0 ? '' : 'none';
                     
                     const keyImg = document.createElement('img');
                     keyImg.className = 'count-icon';
@@ -716,7 +1437,7 @@ function createTracker() {
                     
                     const keyCount = document.createElement('span');
                     keyCount.className = 'key-count';
-                    keyCount.textContent = `0/${dungeons[itemKey].maxSmallKeys}`;
+                    keyCount.textContent = window.smallKeyLabel(dungeons[itemKey]);
                     keyCount.dataset.dungeonKey = itemKey;
                     
                     keyContainer.appendChild(keyImg);
@@ -860,22 +1581,26 @@ function createTracker() {
                 const fluteBox = document.createElement('div');
                 fluteBox.className = 'stat-box stat-flute';
                 fluteBox.innerHTML = '<span class="stat-label">FLUTES</span><span class="stat-value" id="toh-flute-count">0</span>';
-                // CT small key counter — Key Sanity only, shown above checks
-                const _ksCheck = ['keysanity','mapcompasskeys'].includes(new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
-                if (_ksCheck) {
+                // CT small key counter. Always built; updateCtKeyBox() decides
+                // whether it is shown at all (key-shuffling modes and Retro),
+                // and whether it is a live tally or a plain, non-clickable "2"
+                // (Retro buys keys from shops, so there is nothing to tally).
+                // It re-runs when the world state changes under an open window.
+                {
                     const ctKeyBox = document.createElement('div');
                     ctKeyBox.className = 'stat-box stat-ctkey';
                     ctKeyBox.innerHTML = `<span class="stat-label">CT</span><img src="${BASE_URL}/smallkey0.png" class="stat-icon" alt="Key"><span class="stat-value" id="toh-ctkey-count">0/2</span>`;
-                    ctKeyBox.style.cursor = 'pointer';
                     ctKeyBox.addEventListener('click', function(e) {
                         e.stopPropagation();
                         if (deviceAttached) return;
+                        if (window.ctKeyBoxIsStatic()) return;   // informational in Retro
                         if (!window.trackerItems) window.trackerItems = {};
                         var cur = window.trackerItems.ctSmallKeys || 0;
-                        if (cur < 2) {
+                        var ctMax = window.ctMaxSmallKeys();   // 2, or 4 under key drop
+                        if (cur < ctMax) {
                             window.trackerItems.ctSmallKeys = cur + 1;
                             var el = document.getElementById('toh-ctkey-count');
-                            if (el) { el.textContent = window.trackerItems.ctSmallKeys + '/2'; el.style.color = window.trackerItems.ctSmallKeys >= 2 ? '#2ecc71' : ''; }
+                            if (el) { el.textContent = window.trackerItems.ctSmallKeys + '/' + ctMax; el.style.color = window.trackerItems.ctSmallKeys >= ctMax ? '#2ecc71' : ''; }
                             if (window.broadcastItemSnap) window.broadcastItemSnap();
                         }
                     });
@@ -883,16 +1608,19 @@ function createTracker() {
                         e.preventDefault();
                         e.stopPropagation();
                         if (deviceAttached) return;
+                        if (window.ctKeyBoxIsStatic()) return;   // informational in Retro
                         if (!window.trackerItems) window.trackerItems = {};
                         var cur = window.trackerItems.ctSmallKeys || 0;
                         if (cur > 0) {
                             window.trackerItems.ctSmallKeys = cur - 1;
                             var el = document.getElementById('toh-ctkey-count');
-                            if (el) { el.textContent = window.trackerItems.ctSmallKeys + '/2'; el.style.color = window.trackerItems.ctSmallKeys >= 2 ? '#2ecc71' : ''; }
+                            var ctMax = window.ctMaxSmallKeys();
+                            if (el) { el.textContent = window.trackerItems.ctSmallKeys + '/' + ctMax; el.style.color = window.trackerItems.ctSmallKeys >= ctMax ? '#2ecc71' : ''; }
                             if (window.broadcastItemSnap) window.broadcastItemSnap();
                         }
                     });
                     statsSlot.appendChild(ctKeyBox);
+                    if (window.updateCtKeyBox) window.updateCtKeyBox(ctKeyBox);
                 }
                 statsSlot.appendChild(hiddenStats);
                 statsSlot.appendChild(deathBox);
@@ -1008,12 +1736,8 @@ function togglePrizeObtained(dungeonKey, slot) {
 
 function cycleDungeonPrize(dungeonKey, slot) {
     const dungeon = dungeons[dungeonKey];
-    const _diMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
-    const ksMode = ['keysanity','mapcompass','mapcompasskeys','other'].includes(_diMode);
-    const prizeImages = ksMode
-        ? ['unknown0.png', 'crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png']
-        : ['crystal0.png', 'redcrystal0.png', 'pendant0.png', 'greenpendant0.png'];
-    
+    const prizeImages = window.PRIZE_IMAGE_CYCLE;
+
     dungeon.prizeState = (dungeon.prizeState + 1) % prizeImages.length;
     
     const prizeImg = slot.querySelector('.prize-img');
@@ -1271,13 +1995,20 @@ function updateDungeonCountDisplay(dungeonKey) {
             ? dungeon.smallKeyCount >= dungeon.maxSmallKeys
             : false;
 
-        // Update small key count
+        // Update small key count. The row exists in every mode that has one at
+        // all; whether this dungeon currently has keys decides if it is shown.
+        const keyItem = slot.querySelector('.key-count-item');
+        if (keyItem) keyItem.style.display = dungeon.maxSmallKeys > 0 ? '' : 'none';
         if (dungeon.maxSmallKeys > 0) {
             const keyCountSpan = slot.querySelector('.key-count');
             if (keyCountSpan) {
-                keyCountSpan.textContent = `${dungeon.smallKeyCount}/${dungeon.maxSmallKeys}`;
-                const _ksForKey = ['keysanity','mapcompasskeys'].includes(new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
-                keyCountSpan.style.color = (_ksForKey && allKeysCollected) ? '#2ecc71' : '';
+                keyCountSpan.textContent = window.smallKeyLabel(dungeon);
+                // All small keys found turns the row green — in EVERY mode, not
+                // just the key-shuffling ones. Under universal keys the row is a
+                // static "how many doors" label with nothing to collect, so
+                // there is no "all found" state to colour.
+                keyCountSpan.style.color =
+                    (allKeysCollected && !window.keysAreUniversal()) ? '#2ecc71' : '';
             }
         }
         
@@ -1297,8 +2028,8 @@ function updateDungeonCountDisplay(dungeonKey) {
         const prizeImg = slot.querySelector('.prize-img');
         const prizeCollected = prizeImg && prizeImg.src.includes('1.png');
 
-        const ksMode2 = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'keysanity';
-        const _isOther = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard') === 'other';
+        const ksMode2 = window.dungeonItemsMode() === 'keysanity';
+        const _isOther = window.dungeonItemsMode() === 'other';
 
         // Remove all completion classes first
         slot.classList.remove('completed-items', 'completed-full', 'prize-obtained');
@@ -1313,15 +2044,28 @@ function updateDungeonCountDisplay(dungeonKey) {
                 // Boss defeated but no chest clicked yet — green outline only.
                 slot.classList.add('prize-obtained');
             }
-        } else if (dungeon.noPrize) {
-            // Prize-less dungeon (HC): there's no boss/prize to obtain, so it counts
-            // as complete once all chests, the big key, and the small key are in.
-            const bkDone = dungeon.bigkeyState > 0;
-            const skDone = dungeon.maxSmallKeys > 0 ? dungeon.smallKeyCount >= dungeon.maxSmallKeys : true;
-            if (allItemsCollected && bkDone && skDone) {
+        } else if (dungeon.noPrize || dungeon.bigkeyOnly) {
+            // Prize-less dungeons — HC (`noPrize`, no boss at all) and GT
+            // (`bigkeyOnly`, whose boss is Agahnim 2 and gives no crystal).
+            // Neither has a prize image, so `prizeCollected` can never become
+            // true for them and the normal rule below would leave them stuck on
+            // the all-chests colour forever. All chests IS complete here, in
+            // every mode.
+            //
+            // GT is not gated on Agahnim 2 because **Aga2 isn't tracked**: the
+            // map derives `agahnim2` FROM GT's cleared state, so gating on it
+            // would be circular. Nothing leaks the other way either —
+            // broadcastPrizes skips `bigkeyOnly` dungeons, so GT completing
+            // here does not tell the map that Aga2 is dead.
+            //
+            // Deliberately NOT gated on the big key or the small key. One of
+            // HC's chests is behind the big key, so having them all already
+            // implies the big key; and Retro's small keys are bought rather
+            // than found, so that one is never collected at all. Gating on
+            // either left HC permanently short of the complete colour. Chris's
+            // call — don't reintroduce the key checks.
+            if (allItemsCollected) {
                 slot.classList.add('completed-full');
-            } else if (allItemsCollected) {
-                slot.classList.add('completed-items');
             }
         } else if (allItemsCollected && prizeCollected) {
             // Green — all items + prize collected (both modes)
@@ -1444,6 +2188,7 @@ function broadcastItemSnap() {
     })();
     snap.mmMedallion  = (window.trackerItems && window.trackerItems.mmMedallion)  || 0;
     snap.trMedallion  = (window.trackerItems && window.trackerItems.trMedallion)  || 0;
+    snap.hcSmallKeys  = (window.trackerItems && window.trackerItems.hcSmallKeys)  || 0;
     snap.ctSmallKeys  = (window.trackerItems && window.trackerItems.ctSmallKeys)  || 0;
     snap.spSmallKeys  = (window.trackerItems && window.trackerItems.spSmallKeys)  || 0;
     snap.dpSmallKeys  = (window.trackerItems && window.trackerItems.dpSmallKeys)  || 0;
@@ -1534,6 +2279,31 @@ function cycleMedallionLabel(itemKey, slot) {
 
 const SAVEDATA_START = 0xF5F000;
 
+// ── Key Drop Shuffle autotracking ────────────────────────────────────────────
+// Pot keys and enemy-drop keys are NOT flagged in the room data we already
+// read. The randomizer puts them in two blocks of its own in WRAM bank $7F:
+//
+//   pot keys     $7F6018  (0x250 bytes)   = SAVEDATA_START + 0x7018
+//   enemy drops  $7F6268  (0x250 bytes)   = SAVEDATA_START + 0x7268
+//
+// They are contiguous, so one 0x4A0 read covers both — which also keeps
+// processSRAMData's length-based routing unambiguous. Two separate 0x250 reads
+// would be indistinguishable from each other in the response handler.
+//
+// These blocks only mean anything in a ROM built with key drop shuffle on, so
+// the read is only issued when the flag is set.
+const KEYDROP_START = SAVEDATA_START + 0x7018;   // 0xF66018
+const KEYDROP_LEN   = 0x4a0;
+const KEYDROP_SPRITE_OFFSET = 0x250;             // where the enemy-drop half starts
+
+// The randomizer's own per-dungeon totals. Two contiguous tables, so one read
+// covers both: max locations (0x20, 16-bit little-endian) then max small keys
+// (0x10, one byte each). 0x30 is a length nothing else uses, which matters
+// because processSRAMData routes responses purely by size.
+const SEEDCOUNT_START = 0xf65410;
+const SEEDCOUNT_LEN   = 0x30;
+const SEEDCOUNT_KEYS_OFFSET = 0x20;
+
 function connectWebSocket() {
     // Close any existing socket cleanly before opening a new one
     if (ws) {
@@ -1553,6 +2323,8 @@ function connectWebSocket() {
             console.log('WebSocket connected - requesting device list');
             updateConnectionStatus('Connecting');
             _stopReconnect();
+            // Fresh socket, fresh budget of fast device polls.
+            _deviceRetryCount = 0;
             ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
         };
 
@@ -1570,6 +2342,9 @@ function connectWebSocket() {
             deviceAttached = false;
             _gamemodeValid = false;
             if (readTimer) { clearInterval(readTimer); readTimer = null; }
+            // Don't leave a game-mode re-read pending against a dead socket.
+            clearTimeout(_gamemodeRetryTimer); _gamemodeRetryTimer = null;
+            clearTimeout(_deviceRetryTimer);
             _scheduleReconnect();
         };
     } catch (e) {
@@ -1607,13 +2382,20 @@ function handleWebSocketMessage(event) {
                     updateConnectionStatus('Connected');
                     startSRAMReading();
                 } else {
-                    // Unknown value — RetroArch not ready yet, retry DeviceList after 2s
+                    // Unknown value — the emulator isn't running the game yet
+                    // (still booting, or paused because its window lost focus;
+                    // snes9x stops the frame loop then, which stalls the Lua
+                    // bridge / NWA that SNI reads through).
+                    //
+                    // Re-read the mode byte. This used to re-send DeviceList,
+                    // but that response is ignored once deviceAttached is true,
+                    // so checkGamemode() never ran again and the tracker hung.
                     updateConnectionStatus('No device found');
-                    setTimeout(() => {
-                        if (ws && ws.readyState === WebSocket.OPEN) {
-                            ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
-                        }
-                    }, 2000);
+                    clearTimeout(_gamemodeRetryTimer);
+                    _gamemodeRetryTimer = setTimeout(() => {
+                        _gamemodeRetryTimer = null;
+                        checkGamemode();
+                    }, GAMEMODE_RETRY_MS);
                 }
                 return;
             }
@@ -1648,19 +2430,26 @@ function handleWebSocketMessage(event) {
                     
                     deviceAttached = true;
                     _gamemodeValid = false;
+                    _deviceRetryCount = 0;
                     updateConnectionStatus('Connected');
 
                     // Check gamemode first — wait for game to be running before reading SRAM
                     checkGamemode();
                 } else {
                     updateConnectionStatus('No device found');
-                    // Retry DeviceList automatically
+                    // Retry DeviceList automatically. Poll quickly at first —
+                    // the common case is the emulator simply not being up yet,
+                    // and a flat 3s meant the player waited up to 3s past the
+                    // moment it became available — then back off.
+                    _deviceRetryCount++;
+                    var _wait = (_deviceRetryCount <= DEVICE_RETRY_FAST_TRIES)
+                        ? DEVICE_RETRY_FAST_MS : DEVICE_RETRY_SLOW_MS;
                     clearTimeout(_deviceRetryTimer);
                     _deviceRetryTimer = setTimeout(() => {
                         if (ws && ws.readyState === WebSocket.OPEN) {
                             ws.send(JSON.stringify({ Opcode: 'DeviceList', Space: 'SNES' }));
                         }
-                    }, 3000);
+                    }, _wait);
                 }
             }
         }
@@ -1678,38 +2467,64 @@ function checkGamemode() {
     }));
 }
 
+// One full read cycle: game mode, inventory, rooms.
+function _sramReadOnce() {
+    if (!(ws && ws.readyState === WebSocket.OPEN && deviceAttached)) return;
+    // Game mode (1 byte). Read first so we can broadcast to the timer
+    // window each cycle (lets the timer skip its own SNES poll when
+    // the item tracker is feeding fresh data over BroadcastChannel).
+    ws.send(JSON.stringify({
+        Opcode: 'GetAddress',
+        Space: 'SNES',
+        Operands: ['F50010', '01']
+    }));
+
+    // Read inventory data (0x1ae bytes from F5F340)
+    ws.send(JSON.stringify({
+        Opcode: 'GetAddress',
+        Space: 'SNES',
+        Operands: [(SAVEDATA_START + 0x340).toString(16), '1ae']
+    }));
+
+    // Read full room/event data as single 0x500 read to guarantee ordering
+    ws.send(JSON.stringify({
+        Opcode: 'GetAddress',
+        Space: 'SNES',
+        Operands: [(SAVEDATA_START).toString(16), '500']
+    }));
+
+    // Key drop shuffle: pot keys + enemy drops, one read covering both blocks.
+    // Skipped entirely when the flag is off — the region is meaningless in a
+    // ROM without key drop, and there's no reason to pay for the read.
+    if (window.anyKeyDropFlag()) {
+        ws.send(JSON.stringify({
+            Opcode: 'GetAddress',
+            Space: 'SNES',
+            Operands: [KEYDROP_START.toString(16), KEYDROP_LEN.toString(16)]
+        }));
+    }
+
+    // The seed's own per-dungeon totals. Read in every mode, not just key drop:
+    // it costs 48 bytes and it is the only thing that knows how a given seed
+    // split its locations between keys and items. processSeedCounts ignores it
+    // unless it reads back cleanly, so a ROM that doesn't write this region
+    // simply leaves the tracker on its table.
+    ws.send(JSON.stringify({
+        Opcode: 'GetAddress',
+        Space: 'SNES',
+        Operands: [SEEDCOUNT_START.toString(16), SEEDCOUNT_LEN.toString(16)]
+    }));
+}
+
 function startSRAMReading() {
     if (readTimer) {
         clearInterval(readTimer);
     }
-
-    // Read SRAM every second
-    readTimer = setInterval(() => {
-        if (ws && ws.readyState === WebSocket.OPEN && deviceAttached) {
-            // Game mode (1 byte). Read first so we can broadcast to the timer
-            // window each cycle (lets the timer skip its own SNES poll when
-            // the item tracker is feeding fresh data over BroadcastChannel).
-            ws.send(JSON.stringify({
-                Opcode: 'GetAddress',
-                Space: 'SNES',
-                Operands: ['F50010', '01']
-            }));
-
-            // Read inventory data (0x1ae bytes from F5F340)
-            ws.send(JSON.stringify({
-                Opcode: 'GetAddress',
-                Space: 'SNES',
-                Operands: [(SAVEDATA_START + 0x340).toString(16), '1ae']
-            }));
-
-            // Read full room/event data as single 0x500 read to guarantee ordering
-            ws.send(JSON.stringify({
-                Opcode: 'GetAddress',
-                Space: 'SNES',
-                Operands: [(SAVEDATA_START).toString(16), '500']
-            }));
-        }
-    }, 1000);
+    // Read once straight away — setInterval waits a full period before its
+    // first tick, which put an extra second on every connect.
+    _sramReadOnce();
+    // ...then every second.
+    readTimer = setInterval(_sramReadOnce, 1000);
 }
 
 // Push the latest game mode byte to any subscribers (timer window) so they
@@ -1742,9 +2557,72 @@ function processSRAMData(data) {
             roomChunk1Time = 0;
             processRoomData(merged);
         }
+    } else if (data.length === KEYDROP_LEN) {
+        processKeyDropData(data);
+    } else if (data.length === SEEDCOUNT_LEN) {
+        processSeedCounts(data);
     } else if (data.length === 0x400 || data.length === 0x420 || data.length === 0x500) {
         processRoomData(data);
     }
+}
+
+// Count the pot keys and enemy drops collected in each dungeon. Stored on the
+// dungeon rather than applied directly, because this arrives in a separate
+// response from the room data and the two can land in either order —
+// processRoomData adds whatever the last key-drop read produced.
+function processKeyDropData(data) {
+    var found = (list, base) => {
+        var n = 0;
+        for (var i = 0; i < list.length; i++) {
+            var room = base + list[i][0], mask = list[i][1];
+            if (room < data.length && (data[room] & mask) !== 0) n++;
+        }
+        return n;
+    };
+    var potOn   = window.keyDropFlag();
+    var enemyOn = window.enemyKeyDropFlag();
+    Object.keys(dungeons).forEach(function(k) {
+        var d = dungeons[k];
+        // Pot locations only exist under the pottery flag; enemy-drop locations
+        // exist under either, matching keyDropExtras.
+        var n = potOn   ? found(d.keypots  || [], 0) : 0;
+        if (enemyOn) n += found(d.keydrops || [], KEYDROP_SPRITE_OFFSET);
+        // The cap matters for HC, whose stated figures are fewer than its bits.
+        d.keyDropCount = Math.min(n, window.keyDropExtras(k).locations);
+    });
+    // CT has no pot keys, so key drop adds it no locations.
+    window._ctKeyDropCount = 0;
+}
+
+// The randomizer's per-dungeon totals, straight from the seed.
+//
+// Parsed unconditionally and stored raw; whether any of it is believed is
+// decided later by seedCountsFor(), against the flags in force at the time.
+// Keeping the raw block means a flag change re-evaluates it without waiting for
+// another read.
+//
+// Only re-applies when the numbers actually change, so this can sit in the
+// poll loop without repainting the dungeon rows several times a second.
+function processSeedCounts(data) {
+    if (!data || data.length < SEEDCOUNT_LEN) return;
+    var raw = {};
+    Object.keys(window.SEED_COUNT_SLOT).forEach(function(k) {
+        var i = window.SEED_COUNT_SLOT[k];
+        raw[k] = {
+            locations: data[2 * i] + (data[2 * i + 1] << 8),   // 16-bit little-endian
+            keys:      data[SEEDCOUNT_KEYS_OFFSET + i]
+        };
+    });
+
+    var sig = JSON.stringify(raw);
+    if (sig === window._seedCountSig) return;
+    window._seedCountSig = sig;
+    window._seedCountRaw = raw;
+
+    if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
+    if (window.repaintAllDungeons) window.repaintAllDungeons();
+    if (window.updateCtKeyBox) window.updateCtKeyBox();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
 }
 
 function processRoomData(data) {
@@ -1784,29 +2662,56 @@ function processRoomData(data) {
                 }
             }
 
+            // Key drop shuffle: pot keys and enemy drops are locations too, but
+            // their bits come from a different SRAM block, so they're counted
+            // in processKeyDropData and folded in here. The flag is re-read
+            // rather than trusted, so a stale tally can't leak in after a
+            // toggle-off before the next read cycle.
+            //
+            // **anyKeyDropFlag, not keyDropFlag.** processKeyDropData already
+            // counts each half against its own flag, so all that is asked here
+            // is "is either half live?". Gating on the pottery flag alone let
+            // Enemy Key Drop raise maxChests by its drop locations while never
+            // counting a single drop bit — HC sat at 6 of 9 on a dungeon that
+            // had been cleared out. It read correctly under the master flag
+            // only because that turns the pottery flag on as well.
+            if (window.anyKeyDropFlag()) chestsOpened += dungeon.keyDropCount || 0;
+
             // High-water mark: chest count never goes down (handles flickering SRAM on BizHawk etc.)
             chestsOpened = Math.max(chestsOpened, dungeons[key].chestsMax || 0);
             dungeons[key].chestsMax = chestsOpened;
             
             // Calculate items = total chests - dungeon items - small keys
             // Subtract only items that are NOT shuffled into the general pool for this mode
-            const diMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+            const diMode = window.dungeonItemsMode();
             const ksMode = diMode === 'keysanity';
             const mcMode = diMode === 'mapcompass';
             const mckMode = diMode === 'mapcompasskeys';
+            // Does this dungeon have a big key sitting in one of the locations we
+            // count? Normally yes. HC is the exception (noBigKeyItem) — it has no
+            // big key of its own... UNTIL key drop shuffle, which gives it
+            // "Hyrule Castle - Big Key Drop", a real location that IS counted in
+            // chestsOpened. Without this, HC reads one too high the moment the
+            // big key is found, and hits "complete" with an item still out there.
+            // The big key drop is itself an ENEMY drop, so it has to be gated on
+            // the same flag keyDropExtras uses for its `bigLoc` — otherwise
+            // maxChests counts that location and this doesn't, or the reverse.
+            const bigKeyIsALocation = !dungeon.noBigKeyItem
+                || (window.enemyKeyDropFlag() && dungeon.bigkeydrop);
+
             let items;
             if (ksMode) {
                 // KS: everything shuffled — count all chests raw
                 items = chestsOpened;
             } else if (mckMode) {
                 // MCK: map/compass/keys shuffled but big key stays — subtract big key only
-                const bigKey = (!dungeon.noBigKeyItem && dungeon.bigkeyState > 0) ? 1 : 0;
+                const bigKey = (bigKeyIsALocation && dungeon.bigkeyState > 0) ? 1 : 0;
                 items = chestsOpened - bigKey;
             } else {
                 let dungeonItems = 0;
                 if (!mcMode && dungeon.compassState > 0) dungeonItems++; // compass is shuffled in MC+
                 if (!mcMode && dungeon.mapState > 0) dungeonItems++;     // map is shuffled in MC+
-                if (!dungeon.noBigKeyItem && dungeon.bigkeyState > 0) dungeonItems++;
+                if (bigKeyIsALocation && dungeon.bigkeyState > 0) dungeonItems++;
                 // Use the high-water mark of small keys ever held so that using a key
                 // doesn't cause the chest subtraction to drop and inflate the item count.
                 // In standard/MC mode, cap at maxSmallKeys to prevent over-counting when
@@ -2141,6 +3046,7 @@ function processInventoryData(data) {
         snap.crystals = (window.trackerItems && window.trackerItems.crystals) || 0;
         snap.mmMedallion = (window.trackerItems && window.trackerItems.mmMedallion) || 0;
         snap.trMedallion = (window.trackerItems && window.trackerItems.trMedallion) || 0;
+        snap.hcSmallKeys = (window.trackerItems && window.trackerItems.hcSmallKeys) || 0;
         snap.ctSmallKeys = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
         snap.spSmallKeys = (window.trackerItems && window.trackerItems.spSmallKeys) || 0;
         snap.dpSmallKeys  = (window.trackerItems && window.trackerItems.dpSmallKeys)  || 0;
@@ -2213,10 +3119,16 @@ function processInventoryData(data) {
     }
 
     // Check count (SRAM 0xF5F423 = inv offset 0xE3) and death count (0xF5F449 = inv offset 0x109)
+    //
+    // TotalItemCounter is **two bytes**, little-endian, per the randomizer's own
+    // sram.asm ($7EF423 TotalItemCounter, 2 bytes). Reading only the low byte
+    // capped the display at 255, and the high-water guard below then rejected
+    // the wrap to 0 — so it stuck there for the rest of the run. Seeds with
+    // more than 255 checks are common enough that Chris hit it in testing.
     const checkEl = document.getElementById('toh-check-count');
     const deathEl = document.getElementById('toh-death-count');
-    if (checkEl && 0xE3 < data.length) {
-        const newChecks = data[0xE3];
+    if (checkEl && 0xE4 < data.length) {
+        const newChecks = data[0xE3] | (data[0xE4] << 8);
         if (newChecks >= parseInt(checkEl.textContent || '0')) {
             checkEl.textContent = newChecks;
             setHeaderChecks(newChecks);
@@ -2281,9 +3193,12 @@ function processInventoryData(data) {
         const ctKeys = Math.max(ctKeysRaw, prev);
         window.trackerItems.ctSmallKeysMax = ctKeys;
         window.trackerItems.ctSmallKeys = ctKeys;
-        if (ctKeyEl) {
-            ctKeyEl.textContent = ctKeys + '/2';
-            ctKeyEl.style.color = ctKeys >= 2 ? '#2ecc71' : '';
+        // trackerItems is still updated above so the map's key logic keeps
+        // working; only the visible label is left alone in Retro.
+        if (ctKeyEl && !(window.ctKeyBoxIsStatic && window.ctKeyBoxIsStatic())) {
+            const ctMax = window.ctMaxSmallKeys();   // 2 normally, 4 under key drop
+            ctKeyEl.textContent = ctKeys + '/' + ctMax;
+            ctKeyEl.style.color = ctKeys >= ctMax ? '#2ecc71' : '';
         }
     }
     // SP small key count (SRAM 0xF5F4E5 = inv offset 0x1a5) — KS/MCK map logic
@@ -2297,6 +3212,18 @@ function processInventoryData(data) {
     }
     // Remaining dungeon small key counts — KS/MCK map logic (high water mark)
     const _skDungeons = [
+        // HC's key is used by the Escape Sewers side-room logic on the map.
+        // Inventory offset = smallKeyAddr - 0x340.
+        //
+        // HC reads slot **0x4E0**, not 0x4E1. The game's per-dungeon key array
+        // is indexed by dungeon id, and ALTTPR treats Hyrule Castle and the
+        // Sewers as one dungeon occupying slot 0 — 0x4E1 is a slot nothing ever
+        // writes. Reading it meant hcSmallKeys was permanently 0: the Escape
+        // Sewers check never went green, and under key drop every key HC
+        // collected was counted as an item instead (nothing to subtract).
+        // Confirmed against alttptracker-main's dungeonDataMem, which is the
+        // only dungeon where our address disagreed with theirs.
+        { key: 'hc',  offset: 0x1a0 },
         { key: 'dp',  offset: 0x1a3 },
         { key: 'toh', offset: 0x1aa },
         { key: 'pod', offset: 0x1a6 },
@@ -2382,7 +3309,7 @@ function resetItemTracker() {
     });
 
     // Reset all dungeon states
-    const _ksMode = (new URLSearchParams(window.location.search).get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard');
+    const _ksMode = window.dungeonItemsMode();
     const _isShuffled = ['keysanity','mapcompass','mapcompasskeys','other'].includes(_ksMode);
     Object.keys(dungeons).forEach(function(key) {
         const d = dungeons[key];
@@ -2394,14 +3321,14 @@ function resetItemTracker() {
         d.bigkeyState   = 0;
         d.compassState  = 0;
         d.mapState      = 0;
-        d.prizeState    = 0;
+        d.prizeState    = window.defaultPrizeIndex();
         d.bossState     = 0;
         d.otherCleared  = false;
         const slot = document.querySelector(`[data-dungeon-key="${key}"]`);
         if (!slot) return;
         // Reset prize image
         const prizeImg = slot.querySelector('.prize-img');
-        if (prizeImg) prizeImg.src = `${BASE_URL}/${_isShuffled ? 'unknown0.png' : 'crystal0.png'}`;
+        if (prizeImg) prizeImg.src = `${BASE_URL}/${window.PRIZE_IMAGE_CYCLE[window.defaultPrizeIndex()]}`;
         // Reset bigkey/compass/map icons
         const bigkeyImg = slot.querySelector('.bigkey-img');
         if (bigkeyImg) bigkeyImg.src = `${BASE_URL}/bigkey0.png`;
@@ -2559,23 +3486,53 @@ function updateConnectionStatus(status) {
     statusDiv.style.color = statusColor[status] || '#95a5a6';
 }
 
+// ── Swordless mode ────────────────────────────────────────────────────────────
+// Swaps the *empty* sword slot between sword0.png and swordno.png. Only state 0
+// changes — a player who already has a sword keeps seeing it, and the higher
+// states stay intact so nothing breaks if the flag is turned back off.
+//
+// Reversible and idempotent on purpose: the map's settings menu can toggle
+// swordless at any time and this gets called again with the new value.
+var _swordBaseImg = null;   // the original state-0 image, captured once
+
+window.applySwordlessMode = function(on) {
+    if (!items['sword'] || !items['sword'].states || !items['sword'].states[0]) return;
+    var st0 = items['sword'].states[0];
+    if (_swordBaseImg === null) _swordBaseImg = st0.img;
+
+    var want = on ? _swordBaseImg.replace(/sword\d\.png/, 'swordno.png') : _swordBaseImg;
+    if (st0.img === want) return;   // nothing to do
+    st0.img = want;
+
+    // Repaint the slot only if it is actually showing state 0.
+    if ((items['sword'].currentState || 0) === 0) {
+        var swordSlot = document.querySelector('[data-item-key="sword"]');
+        var swordImg  = swordSlot && swordSlot.querySelector('img');
+        if (swordImg) swordImg.src = want;
+    }
+};
+
+// The seed's swordless flag right now: URL param first, then localStorage.
+window.swordlessFlag = function() {
+    try {
+        return (new URLSearchParams(window.location.search).get('swordless')
+             || localStorage.getItem('alttp-swordless')
+             || 'no') === 'yes';
+    } catch (e) { return false; }
+};
+
+// The map's settings menu writes alttp-swordless from another window, which
+// fires a storage event here. (The checklist bridge relies on the same
+// mechanism — BroadcastChannel isn't reliable across Electron windows.)
+window.addEventListener('storage', function(ev) {
+    if (ev.key !== 'alttp-swordless') return;
+    window.applySwordlessMode(ev.newValue === 'yes');
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     try {
         createTracker();
-        // If swordless mode, replace sword slot image with swordno.png
-        var p = new URLSearchParams(window.location.search);
-        var _swordless = p.get('swordless') || localStorage.getItem('alttp-swordless') || 'no';
-        if (_swordless === 'yes') {
-            var swordSlot = document.querySelector('[data-item-key="sword"]');
-            if (swordSlot) {
-                var swordImg = swordSlot.querySelector('img');
-                if (swordImg) swordImg.src = swordImg.src.replace(/sword\d\.png/, 'swordno.png');
-                // Also update the items definition so cycling keeps swordno as state 0
-                if (items['sword'] && items['sword'].states) {
-                    items['sword'].states[0].img = items['sword'].states[0].img.replace(/sword\d\.png/, 'swordno.png');
-                }
-            }
-        }
+        window.applySwordlessMode(window.swordlessFlag());
         // WebSocket is managed by tracker.js / itemtracker.html
     } catch (error) {
         console.error('Error initializing tracker:', error);

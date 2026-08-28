@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   registerNewgameHotkey:   (accel) => ipcRenderer.invoke('register-newgame-hotkey', accel),
   unregisterNewgameHotkey: ()      => ipcRenderer.invoke('unregister-newgame-hotkey'),
   onNewgame: (cb) => ipcRenderer.on('newgame', cb),
+  getAppVersion:   ()  => ipcRenderer.invoke('get-app-version'),
   checkForUpdates: ()  => ipcRenderer.invoke('check-for-updates'),
   installUpdate:   ()  => ipcRenderer.invoke('install-update'),
   openExternal:    (url) => ipcRenderer.invoke('open-external', url),

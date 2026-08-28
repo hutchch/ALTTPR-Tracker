@@ -723,6 +723,20 @@ var IMGS = {
   gomode:    ['gomode0','gomode1'],
 };
 
+// Swordless: the EMPTY sword slot shows swordno.png instead of sword0.png, the
+// same swap the item tracker makes in applySwordlessMode(). Only state 0 is
+// affected — a player who somehow has a sword keeps seeing it.
+// Read from localStorage (the broadcast window is launched with bg/approot/race
+// only, so there is no URL param to compete with) and re-read on every settings
+// change, per the in-memory-override rule in cross-window-settings.md.
+var _bcastSwordless = false;
+function readSwordlessFlag() {
+  try { _bcastSwordless = (localStorage.getItem('alttp-swordless') || 'no') === 'yes'; }
+  catch (e) { _bcastSwordless = false; }
+  return _bcastSwordless;
+}
+readSwordlessFlag();
+
 function imgSrc(key, st) {
   var arr = IMGS[key]; if (!arr) return '';
   // Seed-flag cosmetics: starting look when the flag is on and the real item
@@ -730,6 +744,7 @@ function imgSrc(key, st) {
   // 0/1 for the collect animation (obtaining the real item is a 0 -> 1 increase).
   if (key === 'boots'  && (st||0) === 0 && state.pseudoboots)  return BASE + '/pseudoboots.png';
   if (key === 'mirror' && (st||0) === 0 && state.mirrorscroll) return BASE + '/mirrorscroll.png';
+  if (key === 'sword'  && (st||0) === 0 && _bcastSwordless)    return BASE + '/swordno.png';
   return BASE + '/' + arr[Math.min(st||0, arr.length-1)] + '.png';
 }
 
@@ -845,6 +860,54 @@ function _flushSnap() {
   }
   if (_pendingPrizes) { var p = _pendingPrizes; _pendingPrizes = null; applyPrizes(p); }
 }
+
+// ── Seed settings → re-render ────────────────────────────────────────────────
+// The broadcast view only repaints a field when its VALUE changes (every write
+// is diffed against _appliedDungeonState). A seed setting changes how the SAME
+// value is *displayed* — e.g. universal keys turns "0/6" into "6" — so nothing
+// repaints on its own and the view sits stale until the next real item change.
+// Clearing the cache and re-applying the last snapshot fixes that.
+var _bcastLastSnap   = {};
+var _suppressItemAnim = false;
+
+// Items whose LOOK depends on a seed flag rather than on their own value.
+// Repainted by writing the src directly, NOT by clearing _appliedItemState:
+// the state number hasn't changed, so clearing the cache would make every item
+// look newly obtained and fire the whole inventory's collect sounds.
+var _SEED_COSMETIC_KEYS = ['sword', 'boots', 'mirror'];
+function repaintSeedCosmetics() {
+  _SEED_COSMETIC_KEYS.forEach(function(key) {
+    var el = slotEls[key]; if (!el) return;
+    var want = imgSrc(key, state[key] || 0);
+    if (want && el.getAttribute('src') !== want) el.setAttribute('src', want);
+  });
+}
+
+function refreshSeedSettings() {
+  _suppressItemAnim = true;      // a re-render is not a collect
+  try {
+    readSwordlessFlag();
+    _appliedDungeonState = {};
+    if (Object.keys(_bcastLastSnap).length) applySnap(_bcastLastSnap);
+    repaintSeedCosmetics();
+  } catch (e) {
+    console.error('refreshSeedSettings failed:', e);
+  } finally {
+    _suppressItemAnim = false;
+  }
+}
+
+// Seed settings the broadcast view renders. Written by the map's gear menu and
+// by the launcher; this window gets a storage event either way.
+var _SEED_SETTING_KEYS = {
+  'alttp-gamemode': 1, 'alttp-universal-keys': 1, 'alttp-dungeon-items': 1,
+  'alttp-bossshuffle': 1, 'alttp-swordless': 1, 'alttp-enemizer': 1,
+  'alttp-gt-crystals': 1, 'alttp-keydrop': 1, 'alttp-enemy-keydrop': 1, 'alttp-keydrop-all': 1
+};
+window.addEventListener('storage', function(ev) {
+  if (ev.key && _SEED_SETTING_KEYS[ev.key]) refreshSeedSettings();
+});
+window.refreshSeedSettings = refreshSeedSettings;
 
 function buildDungeonSlot(key) {
   var slot = document.createElement('div');
@@ -1138,6 +1201,10 @@ function updateMedallions() {
 }
 
 function applySnap(snap) {
+  // Keep a running merge of everything we've ever been sent, so a settings
+  // change can re-render the current state without waiting for the next poll.
+  // Done here rather than in the coalescer so every entry point populates it.
+  if (snap && snap !== _bcastLastSnap) Object.assign(_bcastLastSnap, snap);
   Object.keys(snap).forEach(function(k) {
     if (!(k in state)) return;
     var v = snap[k];
@@ -1211,8 +1278,17 @@ function applySnap(snap) {
       sc = Math.floor(sc) || 0;
       sm = Math.floor(sm) || 0;
       if (sc !== cache.smallKeys || sm !== cache.maxSmallKeys) {
-        d.keyVal.textContent = sc + '/' + sm;
-        var sfull = sc >= sm && sm > 0;
+        // Retro buys keys from shops, so there is no per-dungeon progress to
+        // show — the row states how many key doors the dungeon has instead.
+        // Universal keys (the seed option, or the Retro world state that implies
+        // it) means there is no per-dungeon progress to show.
+        var _retro = false;
+        try {
+          _retro = (localStorage.getItem('alttp-gamemode') || 'standard') === 'retro'
+                || (localStorage.getItem('alttp-universal-keys') || 'no') === 'yes';
+        } catch (e) {}
+        d.keyVal.textContent = _retro ? String(sm) : sc + '/' + sm;
+        var sfull = !_retro && sc >= sm && sm > 0;
         d.keyVal.classList.toggle('full', sfull);
         cache.smallKeys = sc; cache.maxSmallKeys = sm;
         d._maxSmallKeys = sm;
@@ -1397,6 +1473,7 @@ var _animStopBgFn   = null; // active background stop function, if any
 
 function queueItemAnim(key, imgSrcUrl, label) {
   if (!SETTINGS.itemAnimEnabled) return;
+  if (_suppressItemAnim) return;   // re-render after a settings change
   // Cap the queue at 3 total — if already at/over the limit, drop the oldest
   // pending items so we only show the most recent ones.
   if (_animQueue.length >= 3) _animQueue = _animQueue.slice(-2);
@@ -1515,6 +1592,8 @@ function pickRandomAnimBg() {
   if (p.stars)     pool.push('stars');
   if (p.starburst) pool.push('starburst');
   if (p.matrix)    pool.push('matrix');
+  if (p.triforce)  pool.push('triforce');
+  if (p.lightning) pool.push('lightning');
   if (p.image)     pool.push('image');
   if (!pool.length) return 'none';
   return pool[Math.floor(Math.random() * pool.length)];
@@ -1527,6 +1606,10 @@ function _startAnimBg(canvas) {
   var rafId = null;
   // Resolve the effective background once per animation (handles 'random').
   var bg = SETTINGS.animBg === 'random' ? pickRandomAnimBg() : SETTINGS.animBg;
+  // Each animation carries its own colour theme, so pull the live colours from
+  // whichever background actually won — this is what makes 'random' use the
+  // right pair rather than the last one edited.
+  if (typeof applyAnimColorsFor === 'function') applyAnimColorsFor(bg);
   // Image bg uses a real <img> layer (animates GIFs); hide it for other bgs.
   var bgImgEl = document.getElementById('item-anim-bg-img');
   if (bgImgEl) bgImgEl.style.display = 'none';
@@ -1678,6 +1761,207 @@ function _startAnimBg(canvas) {
     }
     rafId = requestAnimationFrame(drawMatrix);
 
+  } else if (bg === 'triforce') {
+    // Triforces drifting UP with a slow spin and a lateral sway. The upward,
+    // rotating motion is what keeps it from reading like Falling Stars, which
+    // is a downward diagonal streak; these are solid shapes that turn.
+    var NUM_TRI = 20;
+    var tris = [];
+    function makeTri(scatter) {
+      return {
+        x:         Math.random() * W,
+        y:         scatter ? Math.random() * H : H + 30 + Math.random() * 80,
+        size:      11 + Math.random() * 26,
+        vy:        0.22 + Math.random() * 0.55,
+        rot:       0,
+        wob:       Math.random() * Math.PI * 2,
+        wobSpeed:  0.010 + Math.random() * 0.018,
+        wobAmp:    0.10 + Math.random() * 0.22,   // radians — a tilt, not a spin
+        sway:      Math.random() * Math.PI * 2,
+        swaySpeed: 0.007 + Math.random() * 0.015,
+        swayAmp:   5 + Math.random() * 16,
+        alpha:     0.22 + Math.random() * 0.5,
+        pulse:     Math.random() * Math.PI * 2,
+        useB:      Math.random() < 0.4
+      };
+    }
+    for (var ti = 0; ti < NUM_TRI; ti++) tris.push(makeTri(true));
+
+    // A triforce of side `s`, centred on the current origin. Three sub-triangles
+    // of side s/2, with the middle one left empty.
+    function triforcePath(s) {
+      var h  = s * (Math.sqrt(3) / 2);
+      var q  = s / 4, hh = h / 2;
+      ctx.beginPath(); ctx.moveTo(0, -hh);  ctx.lineTo(-q, 0);    ctx.lineTo(q, 0);     ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-q, 0);   ctx.lineTo(-s/2, hh); ctx.lineTo(0, hh);    ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(q, 0);    ctx.lineTo(0, hh);    ctx.lineTo(s/2, hh);  ctx.closePath(); ctx.fill();
+    }
+
+    function drawTriforceBg() {
+      if (stopped) { ctx.clearRect(0, 0, W, H); return; }
+      ctx.clearRect(0, 0, W, H);
+      for (var t = 0; t < tris.length; t++) {
+        var tr = tris[t];
+        tr.y    -= tr.vy;
+        tr.wob  += tr.wobSpeed;
+        tr.rot   = Math.sin(tr.wob) * tr.wobAmp;
+        tr.sway += tr.swaySpeed;
+        tr.pulse += 0.03;
+        if (tr.y + tr.size < -40) { tris[t] = makeTri(false); continue; }
+        var col = tr.useB ? SETTINGS.animColorB : SETTINGS.animColorA;
+        // Fade in at the bottom and out at the top so nothing pops.
+        var edge = Math.min(1, (H - tr.y) / 60, (tr.y + tr.size) / 60);
+        var a    = tr.alpha * Math.max(0, edge) * (0.78 + 0.22 * Math.sin(tr.pulse));
+        ctx.save();
+        ctx.translate(tr.x + Math.sin(tr.sway) * tr.swayAmp, tr.y);
+        ctx.rotate(tr.rot);
+        ctx.shadowColor = _hexToRgba(col, Math.min(0.9, a + 0.2));
+        ctx.shadowBlur  = tr.size * 0.55;
+        ctx.fillStyle   = _hexToRgba(col, a);
+        triforcePath(tr.size);
+        ctx.restore();
+      }
+      var triVig = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.min(W, H) * 0.40);
+      triVig.addColorStop(0,   'rgba(0,0,0,0.62)');
+      triVig.addColorStop(0.6, 'rgba(0,0,0,0.18)');
+      triVig.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.fillStyle = triVig;
+      ctx.fillRect(0, 0, W, H);
+      rafId = requestAnimationFrame(drawTriforceBg);
+    }
+    rafId = requestAnimationFrame(drawTriforceBg);
+
+  } else if (bg === 'lightning') {
+    // Forked lightning against a dark sky — no rain. A strike is a branching
+    // bolt played back through a flicker envelope (bright, dark, bright again)
+    // rather than a single frame, which is what makes it read as lightning.
+    // Some strikes are "distant": a soft full-screen flash with no bolt.
+    var FLICKER = [1, 0.92, 0.45, 0, 0, 0.88, 0.7, 0.32, 0, 0, 0.62, 0.44, 0.26, 0.13, 0.05, 0];
+    var bolt = null;        // { segs: [{pts,w}], frame: n }
+    var glow = 0;           // soft afterglow, decays
+    var distant = 0;        // distant-flash intensity, decays
+    // The item animation is only on screen for about 2.5s, so the first strike
+    // has to land almost immediately and the gaps have to be short — otherwise
+    // the whole animation can play out on an empty sky.
+    var nextStrike = 2;
+
+    // Slow drifting cloud banks so the frame is never completely dead between
+    // strikes, and so a flash has something to light up.
+    var clouds = [];
+    for (var ci2 = 0; ci2 < 5; ci2++) {
+      clouds.push({
+        x: Math.random() * (W + 200) - 100,
+        y: H * (0.05 + Math.random() * 0.35),
+        r: 55 + Math.random() * 95,
+        vx: 0.10 + Math.random() * 0.28,
+        a: 0.06 + Math.random() * 0.07
+      });
+    }
+
+    function buildBolt() {
+      var segs = [];
+      var endY = H * (0.62 + Math.random() * 0.45);
+      function walk(x, y, stopY, width, jitter, depth) {
+        var pts = [[x, y]];
+        var guard = 0;
+        while (y < stopY && guard++ < 60) {
+          y += 9 + Math.random() * 20;
+          x += (Math.random() - 0.5) * jitter;
+          pts.push([x, y]);
+          if (depth < 2 && width > 1.1 && Math.random() < 0.15) {
+            walk(x, y, y + (stopY - y) * (0.3 + Math.random() * 0.45), width * 0.55, jitter * 0.85, depth + 1);
+          }
+        }
+        segs.push({ pts: pts, w: width });
+      }
+      walk(50 + Math.random() * Math.max(20, W - 100), -12, endY, 2.6, 38, 0);
+      return { segs: segs, frame: 0 };
+    }
+
+    function strokeBolt(intensity) {
+      for (var s2 = 0; s2 < bolt.segs.length; s2++) {
+        var sg = bolt.segs[s2];
+        ctx.beginPath();
+        ctx.moveTo(sg.pts[0][0], sg.pts[0][1]);
+        for (var q2 = 1; q2 < sg.pts.length; q2++) ctx.lineTo(sg.pts[q2][0], sg.pts[q2][1]);
+        // Wide soft halo first, then the bright core over the top.
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = _hexToRgba(SETTINGS.animColorA, 0.16 * intensity);
+        ctx.lineWidth   = sg.w * 7;
+        ctx.stroke();
+        ctx.strokeStyle = _hexToRgba(SETTINGS.animColorA, 0.34 * intensity);
+        ctx.lineWidth   = sg.w * 3;
+        ctx.stroke();
+        ctx.strokeStyle = _hexToRgba(SETTINGS.animColorB, intensity);
+        ctx.lineWidth   = sg.w * 1.5;
+        ctx.stroke();
+      }
+    }
+
+    function drawLightning() {
+      if (stopped) { ctx.clearRect(0, 0, W, H); return; }
+      ctx.clearRect(0, 0, W, H);
+
+      // Sky haze from the top, brightened while anything is lit.
+      var lit = glow + distant;
+      var sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, _hexToRgba(SETTINGS.animColorA, 0.05 + lit * 0.14));
+      sky.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+
+      for (var cd = 0; cd < clouds.length; cd++) {
+        var cl = clouds[cd];
+        cl.x += cl.vx;
+        if (cl.x - cl.r > W + 40) { cl.x = -cl.r - 40; cl.y = H * (0.05 + Math.random() * 0.35); }
+        var cg = ctx.createRadialGradient(cl.x, cl.y, 0, cl.x, cl.y, cl.r);
+        cg.addColorStop(0, _hexToRgba(SETTINGS.animColorA, cl.a + lit * 0.16));
+        cg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = cg;
+        ctx.fillRect(cl.x - cl.r, cl.y - cl.r, cl.r * 2, cl.r * 2);
+      }
+
+      if (distant > 0) {
+        ctx.fillStyle = _hexToRgba(SETTINGS.animColorB, distant * 0.13);
+        ctx.fillRect(0, 0, W, H);
+        distant -= 0.045; if (distant < 0) distant = 0;
+      }
+
+      if (bolt) {
+        var f = FLICKER[bolt.frame] || 0;
+        if (f > 0) {
+          ctx.fillStyle = _hexToRgba(SETTINGS.animColorB, f * 0.13);
+          ctx.fillRect(0, 0, W, H);
+          strokeBolt(f);
+          glow = Math.max(glow, f * 0.8);
+        }
+        bolt.frame++;
+        if (bolt.frame >= FLICKER.length) bolt = null;
+      }
+
+      if (glow > 0) { glow -= 0.03; if (glow < 0) glow = 0; }
+
+      if (--nextStrike <= 0) {
+        if (Math.random() < 0.35) {
+          distant = 1;                                  // sheet flash, no bolt
+          nextStrike = 12 + Math.floor(Math.random() * 24);
+        } else {
+          bolt = buildBolt();
+          nextStrike = 22 + Math.floor(Math.random() * 40);
+        }
+      }
+
+      var ltVig = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.min(W, H) * 0.42);
+      ltVig.addColorStop(0,   'rgba(0,0,0,0.55)');
+      ltVig.addColorStop(0.6, 'rgba(0,0,0,0.16)');
+      ltVig.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.fillStyle = ltVig;
+      ctx.fillRect(0, 0, W, H);
+
+      rafId = requestAnimationFrame(drawLightning);
+    }
+    rafId = requestAnimationFrame(drawLightning);
+
   } else if (bg === 'image') {
     // Show the image via the <img> layer (animated GIFs animate here; a canvas
     // drawImage would only ever render the first frame).
@@ -1779,6 +2063,11 @@ try {
     }
     else if (e.data.type==='newgame') resetAll();
     else if (e.data.type==='bcast-settings-changed') applyAllSettings();
+    // Seed settings from the map's gear menu. Belt to the storage event's
+    // braces — neither is reliable alone across Electron windows.
+    else if (e.data.type==='worldstate' || e.data.type==='swordless' || e.data.type==='setting') {
+      refreshSeedSettings();
+    }
   };
 } catch(err) { console.error('BroadcastChannel error:', err); }
 

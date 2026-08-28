@@ -38,6 +38,40 @@ body {
 .zoom-btn:hover { background: #333; color: #fff; }
 #zoom-label { color: #fff; min-width: 40px; text-align: center; font-size: 11px; font-weight: bold; }
 
+/* ── Settings menu (gear → dropdown panel) ── */
+#settings-wrap { position: relative; margin-left: auto; }
+#settings-btn {
+  background: #1a1a1a; color: #ccc; border: 1px solid #333;
+  border-radius: 3px; padding: 0 8px; font-size: 11px; line-height: 1.7;
+  cursor: pointer;
+}
+#settings-btn:hover { background: #333; color: #fff; }
+#settings-btn.open { background: #333; color: #fff; border-color: #555; }
+#settings-panel {
+  display: none;
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
+  min-width: 226px;
+  background: #141414; border: 1px solid #333; border-radius: 5px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.75);
+  padding: 8px 10px 10px;
+  font-size: 11px;
+}
+#settings-panel.open { display: block; }
+.set-group { margin-top: 9px; }
+.set-group:first-child { margin-top: 0; }
+.set-group-title {
+  color: #6f6f6f; font-size: 9.5px; font-weight: bold;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  padding-bottom: 4px; margin-bottom: 6px; border-bottom: 1px solid #262626;
+}
+.set-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 0; color: #bbb;
+}
+.set-row label { cursor: pointer; display: flex; align-items: center; gap: 6px; flex: 1; }
+.set-row input[type="checkbox"] { cursor: pointer; margin: 0; }
+.set-row select { flex: 1; }
+
 /* ── Scroll area ── */
 #maps-outer {
   flex: 1;
@@ -78,6 +112,60 @@ body {
 .dot.unavail   { background: #ff4444; border: 2px solid #000; }
 .dot.cleared   { background: rgba(40,40,40,0.85); border: 1.5px solid #555; z-index: 0; }
 .dot.hidden    { display: none; pointer-events: none; }
+
+/* ── Shopsanity markers ─────────────────────────────────────────────────
+   Small square with a $ inside, sized between the check dots (18px) and the
+   entrance markers (13px). Fill is green/red straight from the shop's
+   reachability logic; clicking dims it like a cleared check dot. */
+.shop-marker {
+  position: absolute;
+  width: 15px; height: 15px;
+  border: 1.5px solid #000;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 6;
+  background: #888;
+  display: flex; align-items: center; justify-content: center;
+  font: bold 11px/1 "Segoe UI", Arial, sans-serif;
+  color: #000;
+  transition: transform 0.08s;
+}
+.shop-marker:hover { transform: translate(-50%,-50%) scale(1.6); z-index: 21; }
+/* Same five states as the check dots, so a shop that mirrors a check reads
+   identically to it — including purple for out-of-logic. */
+.shop-marker.available { background: #4dff88; }
+.shop-marker.possible  { background: #ffd700; }
+.shop-marker.visible   { background: #ff8c00; }
+.shop-marker.ool       { background: #9333ea; }
+.shop-marker.unavail   { background: #ff4444; }
+.shop-marker.cleared   { background: rgba(40,40,40,0.85); border-color: #555; color: #777; z-index: 0; }
+#maps.shops-hidden .shop-marker { display: none; pointer-events: none; }
+
+/* ── Bonk shuffle markers ────────────────────────────────────────────────
+   Bonk drops are dense (41 of them), so these are deliberately smaller than
+   the 18px check dots — same idea as the reference tracker's .bonkloc. */
+.bonk-dot {
+  position: absolute;
+  width: 11px; height: 11px;
+  border: 1px solid #000;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 3;
+  transition: transform 0.08s;
+}
+.bonk-dot:hover { transform: translate(-50%,-50%) scale(1.8); z-index: 22; }
+.bonk-dot.available { background: #4dff88; }
+.bonk-dot.possible  { background: #ffd700; }
+.bonk-dot.visible   { background: #ff8c00; }
+.bonk-dot.ool       { background: #9333ea; }
+.bonk-dot.unavail   { background: #ff4444; }
+.bonk-dot.cleared   { background: rgba(40,40,40,0.85); border-color: #555; z-index: 0; }
+#maps.bonk-hidden .bonk-dot { display: none; pointer-events: none; }
+/* Cold Fairy Statue is inside Ice Palace — the reference drops it in
+   entrance shuffle, where its overworld position is meaningless. */
+#maps:not(.entrances-hidden) .bonk-dot[data-bonk-indoor="1"] { display: none; pointer-events: none; }
 
 /* ── Entrance markers (entrance shuffle overlay) ───────────────────────── */
 .ent-marker {
@@ -471,6 +559,89 @@ body {
   <button class="zoom-btn" id="ent-info-btn" style="font-size:11px;padding:0 8px;">Notes &amp; Connectors</button>
   <span class="tb-sep">|</span>
   <button class="zoom-btn" id="checklist-btn" style="font-size:11px;padding:0 8px;" onclick="openCheckList()">☑ Checks</button>
+
+  <div id="settings-wrap">
+    <button id="settings-btn" type="button" title="Map settings">&#9881; Settings</button>
+    <div id="settings-panel">
+      <div class="set-group">
+        <div class="set-group-title">Map Style</div>
+        <div class="set-row">
+          <select id="set-mapstyle" class="tb-select">
+            <option value="standard">Standard</option>
+            <option value="entrance">Entrance Shuffle</option>
+          </select>
+        </div>
+      </div>
+      <div class="set-group">
+        <div class="set-group-title">World State</div>
+        <div class="set-row">
+          <select id="set-worldstate" class="tb-select">
+            <option value="standard">Standard</option>
+            <option value="open">Open</option>
+            <option value="inverted">Inverted</option>
+            <option value="retro">Retro</option>
+          </select>
+        </div>
+      </div>
+      <div class="set-group">
+        <div class="set-group-title">Dungeon Items</div>
+        <div class="set-row">
+          <select id="set-dungeonitems" class="tb-select">
+            <option value="standard">Standard</option>
+            <option value="mapcompass">Map/Compass</option>
+            <option value="mapcompasskeys">Map/Compass/Small Keys</option>
+            <option value="keysanity">Key Sanity</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="set-group">
+        <div class="set-group-title">GT Requirement</div>
+        <div class="set-row">
+          <select id="set-gtcrystals" class="tb-select">
+            <option value="7">7 Crystals</option>
+            <option value="6">6 Crystals</option>
+            <option value="5">5 Crystals</option>
+            <option value="4">4 Crystals</option>
+            <option value="3">3 Crystals</option>
+            <option value="2">2 Crystals</option>
+            <option value="1">1 Crystal</option>
+            <option value="0">Open (0 Crystals)</option>
+          </select>
+        </div>
+      </div>
+      <div class="set-group">
+        <div class="set-group-title">Seed Options</div>
+        <div class="set-row">
+          <label for="set-shopsanity"><input type="checkbox" id="set-shopsanity"> Shopsanity</label>
+        </div>
+        <div class="set-row">
+          <label for="set-bonkshuffle"><input type="checkbox" id="set-bonkshuffle"> Bonk Shuffle</label>
+        </div>
+        <div class="set-row">
+          <label for="set-swordless"><input type="checkbox" id="set-swordless"> Swordless</label>
+        </div>
+        <div class="set-row">
+          <label for="set-universalkeys"><input type="checkbox" id="set-universalkeys"> Universal Keys</label>
+        </div>
+        <div class="set-row">
+          <label for="set-keydropall"><input type="checkbox" id="set-keydropall"> Key Drop</label>
+        </div>
+        <div class="set-row" id="set-keydrop-row">
+          <label for="set-keydrop"><input type="checkbox" id="set-keydrop"> Pot Key Drop Only</label>
+        </div>
+        <div class="set-row" id="set-enemykeydrop-row">
+          <label for="set-enemykeydrop"><input type="checkbox" id="set-enemykeydrop"> Enemy Key Drop</label>
+        </div>
+        <div class="set-row">
+          <label for="set-bossshuffle"><input type="checkbox" id="set-bossshuffle"> Boss Shuffle</label>
+        </div>
+        <div class="set-row">
+          <label for="set-enemizer"><input type="checkbox" id="set-enemizer"> Enemizer</label>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="maps-outer">
@@ -576,7 +747,43 @@ body {
   window.trackerSettings.bossShuffle  = p.get('bossshuffle')  || localStorage.getItem('alttp-bossshuffle')   || 'yes';
   window.trackerSettings.gtCrystals   = parseInt(p.get('gtcrystals') || localStorage.getItem('alttp-gt-crystals') || '7');
   window.trackerSettings.inverted     = window.trackerSettings.gamemode === 'inverted';
+
+  // ── The GT crystal requirement, resolved ──
+  // 0 is a legal requirement (GT open from the start) and 0 is falsy, so the
+  // old `settings.gtCrystals || 7` silently turned an open-GT seed back into a
+  // 7-crystal one. Every comparison site goes through this instead.
+  window.gtCrystalReq = function() {
+    var v = parseInt(window.trackerSettings && window.trackerSettings.gtCrystals, 10);
+    return (v >= 0 && v <= 7) ? v : 7;
+  };
+
   window.trackerSettings.entranceShuffle = (p.get('entranceshuffle') || localStorage.getItem('alttp-entrance-shuffle') || 'yes') === 'yes';
+  // Universal Keys — small keys bought from shops rather than found in dungeons.
+  // Retro implies it, but a seed can use universal keys under any world state,
+  // so it's a flag of its own rather than a read of gamemode.
+  window.trackerSettings.universalKeys = p.get('universalkeys') || localStorage.getItem('alttp-universal-keys') || 'no';
+  // Key Drop Shuffle — pot keys and enemy drops become shuffled locations.
+  // Independent of every other flag; it raises each dungeon's key count.
+  // "Key Drop" is the combined mode — pot keys AND enemy drops.
+  window.trackerSettings.keyDropAll = p.get('keydropall') || localStorage.getItem('alttp-keydrop-all') || 'no';
+  window.trackerSettings.keyDrop = p.get('keydrop') || localStorage.getItem('alttp-keydrop') || 'no';
+  // Enemy Key Drop — the same idea for enemy-dropped keys. Independent flag.
+  window.trackerSettings.enemyKeyDrop = p.get('enemykeydrop') || localStorage.getItem('alttp-enemy-keydrop') || 'no';
+
+  // ── Map style ──
+  // Single source of truth for which marker set the map draws. 'standard' shows
+  // the normal check dots; 'entrance' shows the entrance-shuffle overlay.
+  // trackerSettings.entranceShuffle stays as the boolean every logic branch
+  // already reads — mapStyle is the forward-looking name the settings menu uses,
+  // so new styles can be added without another boolean per style.
+  window.trackerSettings.mapStyle = window.trackerSettings.entranceShuffle ? 'entrance' : 'standard';
+
+  // ── v1.1.17 seed flags ──
+  // Menu + flag only for now: nothing on the map keys off these yet. They are
+  // parsed and persisted here so the shop/bonk check locations can be added
+  // later without touching the settings plumbing again.
+  window.trackerSettings.shopsanity  = (p.get('shopsanity')  || localStorage.getItem('alttp-shopsanity')   || 'no') === 'yes';
+  window.trackerSettings.bonkShuffle = (p.get('bonkshuffle') || localStorage.getItem('alttp-bonk-shuffle') || 'no') === 'yes';
 })();
 </script>
 <script>
@@ -898,9 +1105,17 @@ function dungeonColor(key) {
         }
         return 'green';
       }
-      // Red until lamp AND (master sword OR cape OR [swordless] hammer)
+      // Two separate requirements, which the old single test conflated:
+      //   1. get past the barrier — master sword breaks it, cape sneaks past it
+      //   2. a weapon for Agahnim himself
+      // The cape is not a weapon, so the cape route still needs a sword. In
+      // swordless the barrier is already broken and the hammer does the job.
       if (!it.lamp) return 'red';
-      if (!(it.sword >= 2 || it.cape || (swordless && it.hammer))) return 'red';
+      if (swordless) {
+        if (!it.hammer) return 'red';
+      } else if (!(it.sword >= 2 || (it.cape && it.sword >= 1))) {
+        return 'red';
+      }
 
       if (['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) {
         var ctKeys = (it.ctSmallKeys) || 0;
@@ -1132,6 +1347,11 @@ function dungeonColor(key) {
         var mmAccess = (it.flute >= 1 && lwVillage) || (it.mirror && lwVillage) || (it.agahnim && !it.moonpearl && it.mirror);
         if (!mmAccess) return 'red';
       } else {
+        // Non-inverted: MM sits in the south-west Dark World. Reaching it means
+        // fluting to the LW desert area and lifting the dark rock with Titan's
+        // Mitts — and the Moon Pearl is mandatory, since a bunny cannot lift
+        // rocks or enter the dungeon. Missing pearl = no access at all.
+        if (!it.moonpearl) return 'red';
         if (!it.flute || it.gloves < 2) return 'red';
       }
       if (!it.boots && !it.hookshot) return 'red';
@@ -1251,7 +1471,7 @@ function dungeonColor(key) {
                          (_gtIsEnemizer || it.bow >= 1) && _gtBKOk;
         return hasGTItems ? 'green' : 'yellow';
       }
-      var req = (window.trackerSettings && window.trackerSettings.gtCrystals) || 7;
+      var req = window.gtCrystalReq();
       return it.crystals >= req ? 'green' : 'red';
     }
 
@@ -1297,6 +1517,13 @@ function checkLogic(it) {
   var climbDM = glove || flute;
   var eastDM  = climbDM && (hookshot || (mirror && hammer));
   var DMlight = lamp || flute;
+  // Retro is Open's world state with universal purchasable keys — for map
+  // logic the two are identical, so every "is this Open?" test goes through
+  // here rather than comparing gamemode to 'open' directly.
+  function openLike(s) {
+    var gm = (s || window.trackerSettings || {}).gamemode;
+    return gm === 'open' || gm === 'retro';
+  }
   // In inverted mode: DW is home, LW requires pearl + portal access
   var inv = window.trackerSettings.inverted;
   var lwAccess = inv
@@ -1416,7 +1643,9 @@ function checkLogic(it) {
            }
            if (!pearl||!titan||!eastDM) return 'red'; return DMlight ? 'green' : 'purple';
          },
-    12:  function() { return bomb ? 'green' : 'red'; },
+    // Sahasrahla's Hut (3) — the chests sit behind a cracked wall, so bomb it
+    // or dash through with the Pegasus Boots. Boots-only was missing.
+    12:  function() { return (bomb || boots) ? 'green' : 'red'; },
     13:  function() {
            var _inv=window.trackerSettings&&window.trackerSettings.inverted;
            var _isEntShuffle13 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
@@ -1904,9 +2133,22 @@ function checkLogic(it) {
          },
     96:  function() {
            var settings = window.trackerSettings || {};
-           // Escape Sewers: bombs or boots to get through; green only when lit/liftable
-           // (lamp or gloves), otherwise dark navigation is out of logic (purple).
-           if (settings.gamemode === 'open') return (bomb || boots) ? ((lamp || glove) ? 'green' : 'purple') : 'red';
+           // Escape Sewers side room. The wall itself always needs boots or a
+           // bomb to open. Beyond that there are two ways in:
+           //   gloves          — lift the rock, skipping the dark room entirely
+           //   HC small key    — come round through the key door, which means
+           //                     crossing the dark room, so a lamp is needed
+           // Retro shares Open's map logic — it only changes key handling.
+           if (openLike(settings)) {
+             if (!(bomb || boots)) return 'red';        // can't open the wall
+             if (glove) return 'green';                 // rock route, no key, no darkness
+             if (!lamp) return 'purple';                // dark room unlit — out of logic
+             // No gloves: the key door is the only way, so the HC small key is
+             // required. Yellow rather than red when we can't see one, because
+             // hcSmallKeys reads 0 both when it's genuinely uncollected and
+             // when nothing is auto-tracking (manual play).
+             return ((it.hcSmallKeys || 0) >= 1) ? 'green' : 'yellow';
+           }
            if (settings.gamemode === 'inverted') return (lwAccess && (lamp || (glove && bomb))) ? 'green' : 'red';
            // Standard world state: the deep Escape Sewers chest needs boots or a bomb.
            return (boots || bomb) ? 'green' : 'red';
@@ -1948,13 +2190,13 @@ function checkLogic(it) {
          },
     104: function() {
            var settings = window.trackerSettings || {};
-           if (settings.gamemode === 'open') return (lamp || firerod) ? 'green' : 'purple'; // Dark Cross: dark sewers = out of logic by default
+           if (openLike(settings)) return (lamp || firerod) ? 'green' : 'purple'; // Dark Cross: dark sewers = out of logic by default
            if (settings.gamemode === 'inverted') return (lwAccess && (lamp || firerod)) ? 'green' : 'red';
            return 'green';
          },
     109: function() {
            var settings = window.trackerSettings || {};
-           if (!['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) return null;
+           if (!window.ctChecksExist(settings)) return null;
            var sl = settings.swordless === 'yes';
            var inv = settings.inverted;
            if (inv) {
@@ -1965,23 +2207,52 @@ function checkLogic(it) {
          },
     110: function() {
            var settings = window.trackerSettings || {};
-           if (!['keysanity','mapcompasskeys'].includes(settings.dungeonItems)) return null;
+           if (!window.ctChecksExist(settings)) return null;
            var inv = settings.inverted;
            var sl = settings.swordless === 'yes';
            var ctKeys = (window.trackerItems && window.trackerItems.ctSmallKeys) || 0;
+           // Retro's keys are bought, not found, so there is no per-dungeon
+           // count to gate on — access alone decides it.
+           var keyOk = window.ctKeysAreUniversal(settings) || ctKeys >= 1;
            if (inv) {
              // Inverted: DW DM access + lamp + 1 small key
              var dwDMInv = glove || (flute && lwAccess);
              if (!dwDMInv || !lamp) return 'red';
-             return ctKeys >= 1 ? 'green' : 'red';
+             return keyOk ? 'green' : 'red';
            }
            if (!lamp) return 'red';
            if (!(sword2 || cape || (sl && hammer))) return 'red';
-           return ctKeys >= 1 ? 'green' : 'red';
+           return keyOk ? 'green' : 'red';
          },
     105: function() { return flippers ? 'green' : ((pearl || boots) ? 'purple' : 'red'); }, // Waterfall Fairy: out of logic w/o flippers if moonpearl or boots
   };
 }
+// Castle Tower's two chests hold small keys in a normal seed, so they aren't
+// checks. They become real item locations wherever those keys leave the
+// dungeon: the key-shuffling dungeon-item modes, and universal keys — which
+// makes every small key purchasable (the same reason it raises each dungeon's
+// chest count).
+//
+// Global because two separate passes need it: checkLogic's 109/110 handlers,
+// and the dot-hiding block in refreshMapLogic. Miss either one and the checks
+// half-appear.
+window.ctChecksExist = function(s) {
+  var st = s || window.trackerSettings || {};
+  return ['keysanity','mapcompasskeys'].indexOf(st.dungeonItems) !== -1
+      || window.keysAreUniversal(st);
+};
+// True when small keys are bought rather than found, so a per-dungeon key
+// requirement can't be tracked or enforced. Set explicitly by the Universal
+// Keys seed option, and implied by the Retro world state. A key-shuffling
+// dungeon item mode is the exception: there the keys are back in the pool.
+window.keysAreUniversal = function(s) {
+  var st = s || window.trackerSettings || {};
+  if (!(st.universalKeys === 'yes' || st.gamemode === 'retro')) return false;
+  return ['keysanity','mapcompasskeys'].indexOf(st.dungeonItems) === -1;
+};
+// Kept as the old name for the CT-specific call sites.
+window.ctKeysAreUniversal = window.keysAreUniversal;
+
 window.checkColor = function(id) {
   var it = window.trackerItems;
   if (!it) return 'red';
@@ -2204,13 +2475,12 @@ var DUNGEONS = {
 // Prize image arrays for cycling (when prize>=0)
 // Standard mode: 0=crystal, 1=redcrystal, 2=pendant, 3=greenpendant
 // Key Sanity:    0=unknown, 1=crystal, 2=redcrystal, 3=pendant, 4=greenpendant
-var PRIZE_CYCLE_STANDARD = [
-  { name:'crystal',      img:'items/crystal1.png',      imgCleared:'items/crystal0.png'      },
-  { name:'redcrystal',   img:'items/redcrystal1.png',   imgCleared:'items/redcrystal0.png'   },
-  { name:'pendant',      img:'items/pendant1.png',      imgCleared:'items/pendant0.png'      },
-  { name:'greenpendant', img:'items/greenpendant1.png', imgCleared:'items/greenpendant0.png' },
-];
-var PRIZE_CYCLE_KEYSANITY = [
+// One prize cycle for every dungeon-item mode. There used to be a separate
+// four-entry standard cycle without "?", which meant two things: "?" couldn't
+// be selected in Standard (some seeds put dungeon prizes in the overworld),
+// and prizeIndexByName('unknown') fell through to 0 = crystal, so an unknown
+// prize broadcast by the item tracker silently drew as a crystal.
+var PRIZE_CYCLE = [
   { name:'unknown',      img:'items/unknown1.png',      imgCleared:'items/unknown0.png'      },
   { name:'crystal',      img:'items/crystal1.png',      imgCleared:'items/crystal0.png'      },
   { name:'redcrystal',   img:'items/redcrystal1.png',   imgCleared:'items/redcrystal0.png'   },
@@ -2225,32 +2495,56 @@ function prizeIndexByName(name) {
   }
   return 0; // default to first entry
 }
-var PRIZE_CYCLE = PRIZE_CYCLE_STANDARD;
+// Starting prize for every dungeon. Mirrors defaultPrizeIndex() in
+// js/items.js, so the map and the item tracker agree on what a fresh board
+// looks like: crystals under Standard dungeon item shuffle, ? under every
+// shuffled setting. Nothing is read from storage — the item tracker's own
+// setting is session-only, and any prize the player actually changes reaches
+// the map through the broadcast snapshot anyway.
+window.defaultPrizeIndex = function() {
+  var mode = 'standard';
+  try {
+    mode = new URLSearchParams(window.location.search).get('dungeonitems')
+        || localStorage.getItem('alttp-dungeon-items') || 'standard';
+  } catch(e) {}
+  return (mode === 'standard') ? 1 : 0;   // 0 = unknown, 1 = crystal in PRIZE_CYCLE
+};
 
-// Apply Key Sanity prize defaults
 (function() {
   // Initialise mapObtained on all dungeons
   Object.keys(DUNGEONS).forEach(function(key) { DUNGEONS[key].mapObtained = false; DUNGEONS[key].otherCleared = false; });
-  var p = new URLSearchParams(window.location.search);
-  var diMode = p.get('dungeonitems') || localStorage.getItem('alttp-dungeon-items') || 'standard';
-  var ksMode = ['keysanity','mapcompass','mapcompasskeys','other'].includes(diMode);
-  if (ksMode) {
-    PRIZE_CYCLE = PRIZE_CYCLE_KEYSANITY;
-    // Set all non-fixed dungeons to unknown (prize index 0 in KS cycle)
-    Object.keys(DUNGEONS).forEach(function(key) {
-      var def = DUNGEONS[key];
-      if (def.prize === -2) return; // CT and GT have fixed prizes
-      def.prize = 0;
-      def.img        = PRIZE_CYCLE[0].img;
-      def.imgCleared = PRIZE_CYCLE[0].imgCleared;
-    });
-  }
+  // The DUNGEONS literals all carry prize:0, which meant crystal under the old
+  // four-entry standard cycle but means unknown now — so set it explicitly
+  // rather than relying on the literal.
+  var idx = window.defaultPrizeIndex();
+  Object.keys(DUNGEONS).forEach(function(key) {
+    var def = DUNGEONS[key];
+    if (def.prize === -2) return; // CT and GT have fixed prizes
+    def.prize      = idx;
+    def.img        = PRIZE_CYCLE[idx].img;
+    def.imgCleared = PRIZE_CYCLE[idx].imgCleared;
+  });
 })();
 
 // ── Persistent check state ────────────────────────────────────────────────────
 // Always start fresh — checks are cleared on each page load (new game).
+//
+// The one exception is a state file being restored. _applyEntState reloads the
+// page to apply cleanly, and this wipe used to run afterwards and throw the
+// file's checks away — the save format carries them, so a run saved mid-session
+// came back with every check un-ticked. It hands them over in a one-shot key
+// instead, which the wipe above doesn't touch.
 var checkState = {};
 try { localStorage.removeItem('alttp-checks'); } catch(e) {}
+try {
+  var _restoreChecks = localStorage.getItem('alttp-checks-restore');
+  if (_restoreChecks) {
+    localStorage.removeItem('alttp-checks-restore');
+    var _rc = JSON.parse(_restoreChecks);
+    if (_rc && typeof _rc === 'object') checkState = _rc;
+    localStorage.setItem('alttp-checks', JSON.stringify(checkState));
+  }
+} catch(e) {}
 function saveCheckState() { try { localStorage.setItem('alttp-checks', JSON.stringify(checkState)); } catch(e) {} }
 
 var _resettingGame = false;
@@ -2286,6 +2580,9 @@ function resetChecks() {
   window.refreshMapLogic();
   // Reset entrance overlay state (labels, notes, connectors, cleared markers)
   if (typeof window._entResetAll === 'function') window._entResetAll();
+  // Reset shopsanity marker and bonk check state
+  if (typeof window._shopResetAll === 'function') window._shopResetAll();
+  if (typeof window._bonkResetAll === 'function') window._bonkResetAll();
 }
 
 // ── trackerItems default (no items) ──────────────────────────────────────────
@@ -2515,6 +2812,30 @@ CHECKS.forEach(function(c) {
   renderAnnotation(d, id);
 });
 
+// Only three dots change map or position with world state. Re-place them from
+// their CHECKS entry so the settings menu can flip inverted without a reload
+// (a reload would wipe the in-progress check state).
+var _INV_DOT_OVERRIDES = {
+  2:   { world: 'dw' },                       // Link's House — same spot, other map
+  109: { world: 'dw', left: 51.0, top: 2.0 }, // CT checks follow Aga1 to DW,
+  110: { world: 'dw', left: 63.0, top: 2.0 }  // sitting either side of its marker
+};
+window._applyInvertedDots = function(inv) {
+  Object.keys(_INV_DOT_OVERRIDES).forEach(function(idStr) {
+    var id = parseInt(idStr, 10);
+    var el = dotById[id];
+    if (!el) return;
+    var base = null;
+    for (var i = 0; i < CHECKS.length; i++) { if (CHECKS[i][0] === id) { base = CHECKS[i]; break; } }
+    if (!base) return;
+    var o = inv ? _INV_DOT_OVERRIDES[id] : {};
+    el.style.left = ((o.left !== undefined) ? o.left : base[1]) + '%';
+    el.style.top  = ((o.top  !== undefined) ? o.top  : base[2]) + '%';
+    var parent = ((o.world || base[4]) === 'lw') ? lwEl : dwEl;
+    if (el.parentElement !== parent) parent.appendChild(el);
+  });
+};
+
 // ── Build dungeon markers ─────────────────────────────────────────────────────
 var dngEls = {};
 Object.keys(DUNGEONS).forEach(function(key) {
@@ -2544,13 +2865,35 @@ Object.keys(DUNGEONS).forEach(function(key) {
   dngEls[key] = el;
 });
 
-// In inverted: CT and GT markers are at swapped positions — swap dngEls so
-// all downstream logic (refreshDungeonImg, refreshMapLogic) hits the right element
-if (_inverted) {
-  var _tmpEl = dngEls['ct'];
-  dngEls['ct'] = dngEls['gt'];
-  dngEls['gt'] = _tmpEl;
-}
+// CT and GT are the only dungeon markers that move with world state. Keep a
+// record of which element was built for which key — dngEls itself gets
+// reassigned below, so it can't be used as the reference once swapped.
+var _dngElsBuilt = {};
+Object.keys(dngEls).forEach(function(k) { _dngElsBuilt[k] = dngEls[k]; });
+
+// In inverted, CT (Aga1) and GT (Ganon) trade places on the map. Re-position
+// both elements and re-point dngEls so all downstream logic
+// (refreshDungeonImg, refreshMapLogic) hits the element standing at that
+// dungeon's spot. Idempotent — safe to call on every world-state change.
+window._applyInvertedDungeons = function(inv) {
+  var placements = {
+    ct: inv ? { world: 'dw', left: 57.00, top:  2.0 }
+            : { world: DUNGEONS.ct.world, left: DUNGEONS.ct.left, top: DUNGEONS.ct.top },
+    gt: inv ? { world: 'lw', left: 50.00, top: 52.6 }
+            : { world: DUNGEONS.gt.world, left: DUNGEONS.gt.left, top: DUNGEONS.gt.top }
+  };
+  Object.keys(placements).forEach(function(k) {
+    var el = _dngElsBuilt[k], p = placements[k];
+    if (!el) return;
+    el.style.left = p.left + '%';
+    el.style.top  = p.top  + '%';
+    var parent = (p.world === 'lw') ? lwEl : dwEl;
+    if (el.parentElement !== parent) parent.appendChild(el);
+  });
+  dngEls['ct'] = inv ? _dngElsBuilt['gt'] : _dngElsBuilt['ct'];
+  dngEls['gt'] = inv ? _dngElsBuilt['ct'] : _dngElsBuilt['gt'];
+};
+window._applyInvertedDungeons(_inverted);
 
 // ── Entrance Shuffle overlay (Phase 1: markers + show/hide toggle) ─────────
 // Self-contained: namespaced under ent*, isolated from dot/dng logic above.
@@ -2563,6 +2906,14 @@ if (_inverted) {
   // bake the adjustment into entrances_data.js once dialed in.
   var ENT_OFFSET_X = -2.0; // negative = shift left
   var ENT_OFFSET_Y = -2.0; // negative = shift up
+
+  // Entrance markers that move with world state. In inverted the pyramid sits
+  // in the Light World, so these two hop maps. Coordinates are pre-offset
+  // (ENT_OFFSET_X/Y is applied on top), same as the entrances_data.js values.
+  var INV_ENT_OVERRIDES = {
+    'Pyramid Exit': { world: 'lw', left: 48.0, top: 46.0 },
+    'Pyramid Hole': { world: 'lw', left: 52.4, top: 43.0 }
+  };
 
   // Some entrance markers sit on top of an existing check dot for the same
   // physical location (the check dot is then redundant). List those check
@@ -2659,19 +3010,31 @@ if (_inverted) {
 
     // In inverted, Pyramid Exit and Pyramid Hole appear on the LW map
     var entWorld = e.world;
-    if (_inverted && e.name === 'Pyramid Exit') {
-      entWorld = 'lw';
-      m.style.left = (48.0 + ENT_OFFSET_X) + '%';
-      m.style.top  = (46.0 + ENT_OFFSET_Y) + '%';
-    }
-    if (_inverted && e.name === 'Pyramid Hole') {
-      entWorld = 'lw';
-      m.style.left = (52.4 + ENT_OFFSET_X) + '%';
-      m.style.top  = (43.0 + ENT_OFFSET_Y) + '%';
+    if (_inverted && INV_ENT_OVERRIDES[e.name]) {
+      var _ov = INV_ENT_OVERRIDES[e.name];
+      entWorld = _ov.world;
+      m.style.left = (_ov.left + ENT_OFFSET_X) + '%';
+      m.style.top  = (_ov.top  + ENT_OFFSET_Y) + '%';
     }
     (entWorld === 'lw' ? lwEl : dwEl).appendChild(m);
     entMarkers[e.name] = m;
   });
+
+  // Re-place those two markers when the settings menu flips world state.
+  window._entApplyInvertedLayout = function(inv) {
+    Object.keys(INV_ENT_OVERRIDES).forEach(function(name) {
+      var m = entMarkers[name];
+      if (!m) return;
+      var base = null;
+      for (var i = 0; i < ENTRANCES.length; i++) { if (ENTRANCES[i].name === name) { base = ENTRANCES[i]; break; } }
+      if (!base) return;
+      var src = inv ? INV_ENT_OVERRIDES[name] : base;
+      m.style.left = (src.left + ENT_OFFSET_X) + '%';
+      m.style.top  = (src.top  + ENT_OFFSET_Y) + '%';
+      var parent = (src.world === 'lw') ? lwEl : dwEl;
+      if (m.parentElement !== parent) parent.appendChild(m);
+    });
+  };
 
   // Restore cleared state
   try {
@@ -2904,6 +3267,19 @@ if (_inverted) {
     //   • Mirror from ledge     → Upper East LW DM (Paradox Cave Top area)
     // Both cascades are handled in refreshSyntheticRegions below.
     'Superbunny Cave (Top)':              'Isolated East Dark Death Mountain Ledge',
+    // Manually added: Turtle Rock's Open requirement is
+    // "canReach|Upper East Death Mountain" PLUS mitts/hammer/moonpearl, so the
+    // auto-derivation (which only takes entrances whose entire requirement is a
+    // bare canReach) skipped it — same reason Ganons Tower and Misery Mire
+    // needed manual entries.
+    //
+    // The door itself is in the Dark World, on the east DDM plateau you arrive
+    // at through the top-east portal. It behaves like Superbunny Cave (Top)'s
+    // ledge: drop down to Lower East DDM, or mirror out to Upper East LW DM
+    // (Paradox Cave Top and the east side of LW Death Mountain). Chris confirmed
+    // a Superbunny Cave (Top) connector already produces the right result, so
+    // Turtle Rock shares its region rather than getting a new cascade.
+    'Turtle Rock':                        'Isolated East Dark Death Mountain Ledge',
     'Archery Game':                        'South Dark World',
     // Bumper Cave (Top) is "never" accessible in Open vanilla logic, but physically
     // the exit lands on the northwest DW ledge adjacent to the main West Dark World.
@@ -3711,7 +4087,10 @@ if (_inverted) {
     // the GT crystal requirement is met, the entrance itself is available.
     if (name === 'Ganons Tower' && window.trackerSettings && window.trackerSettings.entranceShuffle) {
       var gtItems = window.trackerItems || {};
-      var gtReq = gtItems.gtCrystals || (window.trackerSettings.gtCrystals) || 7;
+      // gtItems.gtCrystals is the value the SRAM reported, if any; 0 is legal
+      // there too, so test for undefined rather than truthiness.
+      var gtReq = (gtItems.gtCrystals !== undefined && gtItems.gtCrystals !== null)
+                    ? parseInt(gtItems.gtCrystals, 10) : window.gtCrystalReq();
       if ((gtItems.crystals || 0) >= gtReq) return false;
     }
 
@@ -4664,9 +5043,11 @@ if (_inverted) {
   var entSep1         = document.getElementById('ent-sep-1');
   var entSep2         = document.getElementById('ent-sep-2');
   var checklistBtn    = document.getElementById('checklist-btn');
-  var isEntranceShuffle = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
 
+  // Read the flag live on every call — the settings menu can flip map style
+  // mid-run, so this must not be captured once at load.
   function updateEntControlsVisibility() {
+    var isEntranceShuffle = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
     var show = isEntranceShuffle;
     var entSaveBtn = document.getElementById('ent-save-btn');
     var entLoadBtn = document.getElementById('ent-load-btn');
@@ -4681,6 +5062,8 @@ if (_inverted) {
   }
 
   updateEntControlsVisibility();
+  // Exposed so the settings menu can re-run it after a live map-style change.
+  window._entUpdateControlsVisibility = updateEntControlsVisibility;
 
   // ── "Notes & Connectors" summary popup ──
   function isCleared(name) {
@@ -4954,12 +5337,12 @@ window.refreshMapLogic = function() {
   Object.keys(dotById).forEach(function(id) {
     dotById[id].className = dotClass(parseInt(id));
   });
-  // Always hide CT-Room03 (109) and CT-Dark Maze (110) unless KS/MCK mode.
-  // Also hide in entrance shuffle (KS/MCK or not) — these checks aren't
-  // logically knowable without finding CT's entrance first.
-  var _diMode = window.trackerSettings.dungeonItems;
+  // Hide CT-Room03 (109) and CT-Dark Maze (110) unless the seed actually makes
+  // them checks — see window.ctChecksExist. Also hidden in entrance shuffle
+  // either way: they aren't logically knowable without finding CT's entrance
+  // first.
   var _isEntShuffleCT = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
-  if (!['keysanity','mapcompasskeys'].includes(_diMode) || _isEntShuffleCT) {
+  if (!window.ctChecksExist(window.trackerSettings) || _isEntShuffleCT) {
     if (dotById[109]) dotById[109].className = 'dot hidden';
     if (dotById[110]) dotById[110].className = 'dot hidden';
   } else if (window.trackerSettings && window.trackerSettings.inverted) {
@@ -5022,7 +5405,7 @@ window.refreshMapLogic = function() {
     (function() {
       var el = dngEls['ct'];
       if (!el || DUNGEONS['ct'].cleared || DUNGEONS['ct'].fullyCleared) return;
-      var req = (window.trackerSettings && window.trackerSettings.gtCrystals) || 7;
+      var req = window.gtCrystalReq();
       var crystals = (window.trackerItems && window.trackerItems.crystals) || 0;
       el.className = (lwVillageOk && crystals >= req) ? 'dng available' : 'dng unavail';
     })();
@@ -5060,6 +5443,10 @@ window.refreshMapLogic = function() {
     })();
   }
   if (window._entRefreshPrizeIcons) window._entRefreshPrizeIcons();
+  // Shopsanity markers and bonk checks (defined later in the file — guarded
+  // for load order)
+  if (window.refreshShopMarkers) window.refreshShopMarkers();
+  if (window.refreshBonkChecks) window.refreshBonkChecks();
   // Broadcast check colors to checklist window
   try {
     if (typeof _bc !== 'undefined' && window.checkColor) {
@@ -5117,6 +5504,8 @@ window.onRoomsUpdated = function(data) {
       }
     }
   });
+  // Bonk drops share this SRAM block (ids 23-63 of SRAM_FLAGS).
+  if (window.bonkSramUpdate) window.bonkSramUpdate(data);
   if (dirty) {
     saveCheckState();
     // Auto-mark entrance cleared when its key check is SRAM-detected.
@@ -5202,7 +5591,10 @@ try {
     if (!window._entItemsReceived) {
       window._entItemsReceived = true;
       if (window.refreshMapLogic) window.refreshMapLogic();
-      Object.keys(entMarkers || {}).forEach(function(name) {
+      // entMarkers is a closure local of initEntranceMarkers and is NOT in
+      // scope here — referencing it bare threw a ReferenceError that aborted
+      // the rest of this callback. Use the exposed handle.
+      Object.keys(window._entMarkers || {}).forEach(function(name) {
         if (window._entApplyMarkerColor) window._entApplyMarkerColor(name);
       });
     }
@@ -5233,6 +5625,7 @@ try {
         window.trackerItems.redCrystal   = snap.redCrystal   !== undefined ? snap.redCrystal   : savedRedCrystal;
         window.trackerItems.mmMedallion  = snap.mmMedallion  !== undefined ? snap.mmMedallion  : savedMmMed;
         window.trackerItems.trMedallion  = snap.trMedallion  !== undefined ? snap.trMedallion  : savedTrMed;
+        window.trackerItems.hcSmallKeys  = snap.hcSmallKeys  !== undefined ? snap.hcSmallKeys  : (window.trackerItems.hcSmallKeys || 0);
         window.trackerItems.ctSmallKeys  = snap.ctSmallKeys  !== undefined ? snap.ctSmallKeys  : (window.trackerItems.ctSmallKeys || 0);
         window.trackerItems.spSmallKeys  = snap.spSmallKeys  !== undefined ? snap.spSmallKeys  : (window.trackerItems.spSmallKeys || 0);
         window.trackerItems.dpSmallKeys  = snap.dpSmallKeys  !== undefined ? snap.dpSmallKeys  : (window.trackerItems.dpSmallKeys || 0);
@@ -5453,7 +5846,9 @@ function _applyEntState(json) {
     if (state.connections) localStorage.setItem('ent-connections', state.connections);
     if (state.cleared)     localStorage.setItem('ent-cleared',     state.cleared);
     if (state.notes)       localStorage.setItem('ent-notes',       state.notes);
-    if (state.checks)      localStorage.setItem('alttp-checks',    state.checks);
+    // Not 'alttp-checks' — the reload below clears that by design. See the
+    // one-shot pickup in the check-state block above.
+    if (state.checks)      localStorage.setItem('alttp-checks-restore', state.checks);
     // Reload the page to apply all restored state cleanly
     location.reload();
   } catch(e) {
@@ -5764,6 +6159,633 @@ if (document.readyState === 'loading') {
 } else {
   mapConnect();
 }
+</script>
+
+<script>
+// ── Shopsanity markers ────────────────────────────────────────────────────────
+// First pass: one test marker beside the Potion Shop on the standard map.
+//
+// Adding a shop is two steps: append a row to SHOPS, and add its reachability
+// function to SHOP_LOGIC keyed by the same id. Everything else — building the
+// element, colouring, cleared state, visibility — is generic.
+(function initShopMarkers() {
+  // [id, left%, top%, name, world]
+  //
+  // Coordinates are the shop entries from js/entrances_data.js with the SAME
+  // -2.0% correction on both axes that initEntranceConnectors applies via
+  // ENT_OFFSET_X / ENT_OFFSET_Y. Those raw values are not screen positions —
+  // the entrance overlay shifts them, so a shop placed at the raw value sits
+  // 2% right and 2% low of its own door.
+  //
+  // Three exceptions to the door position:
+  //   Potion Shop    parked directly above its check dot (81.60 / 32.50) by
+  //                  3.61% — half a dot (1.76%) + half a marker (1.46%) + a
+  //                  2px gap. Its own door is at 79.40 / 33.00.
+  //   Kakariko Shop  1.0% below its door — Chicken House sits up-and-left, and
+  //                  there is no clear spot further left or up.
+  //   Dark DM Shop   86.40 / 15.99 — the door coordinate drew too high on the
+  //                  plateau. Sits 0.8% right of the door to clear Super Bunny
+  //                  Cave, and its top% is solved so the marker's BOTTOM edge
+  //                  lines up with that check dot's bottom edge (the dot is
+  //                  18px, the marker 15px, and top% positions the centre).
+  //
+  // When adding a shop, verify clearance against the live DOM rather than the
+  // CHECKS array: a dot's rendered position is not always its array entry
+  // (Catfish is listed at 92.00 but draws at 90.5).
+  var SHOPS = [
+    // Light World
+    ['potion-shop',           81.60, 28.90, 'Potion Shop',              'lw'],
+    ['kakariko-shop',         11.40, 58.00, 'Kakariko Shop',            'lw'],
+    ['lake-hylia-shop',       72.40, 76.00, 'Lake Hylia Shop',          'lw'],
+    ['paradox-shop',          85.00, 14.80, 'Paradox Cave Shop',        'lw'],
+    ['capacity-fairy',        79.40, 84.70, 'Capacity Upgrade Fairy',   'lw'],
+    // Dark World
+    ['dark-lumberjack-shop',  33.00,  4.70, 'Dark Lumberjack Shop',     'dw'],
+    ['red-shield-shop',       32.80, 44.60, 'Red Shield Shop',          'dw'],
+    ['dark-world-shop',       20.00, 52.00, 'Dark World Shop',          'dw'],
+    ['dark-lake-hylia-shop',  64.60, 79.00, 'Dark Lake Hylia Shop',     'dw'],
+    ['dark-potion-shop',      79.40, 33.00, 'Dark Potion Shop',         'dw'],
+    ['dark-dm-shop',          86.40, 15.99, 'Dark Death Mountain Shop', 'dw']
+  ];
+
+  // Region reachability, mirroring the helpers of the same name inside
+  // checkLogic so a shop agrees with the checks sitting around it. Keep these
+  // in sync if the checkLogic versions ever change.
+  function regions(it, settings) {
+    var inv      = !!settings.inverted;
+    var pearl    = it.moonpearl >= 1;
+    var glove    = it.gloves    >= 1;
+    var titan    = it.gloves    >= 2;
+    var hookshot = it.hookshot  >= 1;
+    var hammer   = it.hammer    >= 1;
+    var mirror   = it.mirror    >= 1;
+    var flute    = it.flute     >= 1;
+    var flippers = it.flippers  >= 1;
+    var aga      = it.agahnim   >= 1;
+
+    var climbDM    = glove || flute;
+    var eastDM     = climbDM && (hookshot || (mirror && hammer));
+    var lwAccess   = inv ? (pearl && (aga || titan || (glove && hammer))) : true;
+    var superBunny = inv && aga && !pearl;
+    // Getting into the Village of Outcasts on foot in the Dark World. Shared by
+    // dwNW, dwSouth and the Dark World Shop below rather than restated three
+    // times — they used to drift.
+    var dwNWreach  = pearl && (titan || (glove && hammer) ||
+                               (aga && hookshot && (hammer || glove || flippers)));
+
+    return {
+      // Raw helpers, exposed for other overlays (see window.trackerRegions).
+      inv: inv,
+      lwAccess: lwAccess,
+      eastDM: eastDM,
+      // Light World overworld — free in open/standard, portal-gated inverted.
+      lightWorld: lwAccess,
+      // Village of Outcasts / Skull Woods / Dark Lumberjack (checks 8, 64).
+      dwNW: inv ? true : dwNWreach,
+      // East Dark World, Palace of Darkness side (check 92).
+      dwEast: inv ? (hammer || (flute && lwAccess) || flippers ||
+                     (mirror && lwAccess) || (superBunny && mirror))
+                  : pearl && (aga || (hammer && glove) || (titan && flippers)),
+      // South Dark World, swamp and Ice Lake shore (checks 16, 67, 93).
+      dwSouth: inv ? true : (dwNWreach || (aga && pearl && hammer)),
+      // East Dark Death Mountain plateau (check 11, Super Bunny Cave). The
+      // shop is outdoors, so unlike that cave it needs no light source.
+      dwDeathMountain: inv ? (glove || (flute && lwAccess))
+                           : (pearl && titan && eastDM),
+      // Dark World Shop only — it is never just "the Village of Outcasts".
+      // Outside inverted it needs the hammer *on top of* village access. In
+      // inverted it is not free with the rest of the village either: you either
+      // carry the hammer and walk there in the Dark World, or reach the Light
+      // World (pearl + portal) and mirror back in. Red Shield Shop and Dark
+      // Lumberjack Shop stay on plain dwNW — both confirmed by Chris testing.
+      dwShopVillage: inv ? (hammer || (lwAccess && mirror))
+                         : (dwNWreach && hammer)
+    };
+  }
+
+  // Each entry returns a colour name: 'green', 'purple' (out of logic), or
+  // 'red'. Entrance shuffle is deliberately not handled — markers are hidden
+  // in that mode, see isVisible().
+  //
+  // Two shops sit on top of an existing check and must never drift from it, so
+  // they defer to checkColor() rather than restating its logic. That also gets
+  // them the check's purple/out-of-logic states for free.
+  function mirrorCheck(id) {
+    return function() {
+      var c = (typeof window.checkColor === 'function') ? window.checkColor(id) : null;
+      return c || 'red';   // checkColor returns null for checks it hides
+    };
+  }
+  function yesNo(ok) { return ok ? 'green' : 'red'; }
+
+  // Shared with the bonk-shuffle overlay so region rules live in one place.
+  window.trackerRegions = regions;
+
+  var SHOP_LOGIC = {
+    'potion-shop':          function(r) { return yesNo(r.lightWorld); },
+    'kakariko-shop':        function(r) { return yesNo(r.lightWorld); },
+    'lake-hylia-shop':      function(r) { return yesNo(r.lightWorld); },
+    // Inside Paradox Cave on East Death Mountain — the shop is behind a
+    // bombable wall, so bombs are required on top of reaching the summit.
+    'paradox-shop': function(r, it) {
+      if (!r.eastDM) return 'red';
+      if (!(it.bomb >= 1 || it.bomb === true)) return 'red';
+      if (r.inv && !(it.moonpearl >= 1)) return 'red';
+      return 'green';
+    },
+    // Pond of Happiness — same water as the Hobo, so it tracks that check (70):
+    // green with flippers, purple (out of logic) without.
+    'capacity-fairy': mirrorCheck(70),
+    'dark-lumberjack-shop': function(r) { return yesNo(r.dwNW); },
+    'red-shield-shop':      function(r) { return yesNo(r.dwNW); },
+    'dark-world-shop':      function(r) { return yesNo(r.dwShopVillage); },
+    'dark-lake-hylia-shop': function(r) { return yesNo(r.dwSouth); },
+    // Dark Potion Shop tracks the Pyramid check (92).
+    'dark-potion-shop':     mirrorCheck(92),
+    // Dark Death Mountain Shop tracks Super Bunny Cave (11) — same plateau,
+    // so it goes purple when that cave does.
+    'dark-dm-shop':         mirrorCheck(11)
+  };
+
+  var LS_KEY = 'alttp-shop-cleared';
+  var shopState = {};
+  try { shopState = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch(e) { shopState = {}; }
+  function saveShopState() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(shopState)); } catch(e) {}
+  }
+
+  // Shop markers show only when Shopsanity is on. They stay hidden in entrance
+  // shuffle: a shop's position there depends on where its entrance was found,
+  // so the standard-map coordinates and logic above don't apply.
+  function isVisible() {
+    var s = window.trackerSettings || {};
+    return !!s.shopsanity && !s.entranceShuffle;
+  }
+
+  var shopEls = {};
+  var lwEl = document.getElementById('lw');
+  var dwEl = document.getElementById('dw');
+  if (!lwEl || !dwEl) return;
+
+  SHOPS.forEach(function(s) {
+    var id = s[0], left = s[1], top = s[2], name = s[3], world = s[4];
+    var el = document.createElement('div');
+    el.className = 'shop-marker';
+    el.style.left = left + '%';
+    el.style.top  = top + '%';
+    el.textContent = '$';
+    el.title = name;
+    el.dataset.shopId = id;
+
+    el.addEventListener('click', function() {
+      shopState[id] = !shopState[id];
+      saveShopState();
+      refreshShopMarkers();
+    });
+    if (typeof showTip === 'function') {
+      el.addEventListener('mouseenter', function(ev) { showTip(name, ev); });
+      el.addEventListener('mousemove',  moveTip);
+      el.addEventListener('mouseleave', hideTip);
+    }
+
+    (world === 'lw' ? lwEl : dwEl).appendChild(el);
+    shopEls[id] = el;
+  });
+
+  function refreshShopMarkers() {
+    var maps = document.getElementById('maps');
+    if (maps) maps.classList.toggle('shops-hidden', !isVisible());
+
+    var it       = window.trackerItems   || {};
+    var settings = window.trackerSettings || {};
+    var r = regions(it, settings);
+    SHOPS.forEach(function(s) {
+      var id = s[0];
+      var el = shopEls[id];
+      if (!el) return;
+      if (shopState[id]) { el.className = 'shop-marker cleared'; return; }
+      var fn = SHOP_LOGIC[id];
+      var color = (fn && fn(r, it, settings)) || 'red';
+      // Same colour→class map the check dots use, so a mirrored shop and its
+      // check always render the same shade.
+      var CLS = { green:'available', yellow:'possible', orange:'visible', purple:'ool', red:'unavail' };
+      el.className = 'shop-marker ' + (CLS[color] || 'unavail');
+    });
+  }
+  window.refreshShopMarkers = refreshShopMarkers;
+
+  window._shopResetAll = function() {
+    shopState = {};
+    saveShopState();
+    refreshShopMarkers();
+  };
+
+  refreshShopMarkers();
+})();
+</script>
+
+<script>
+// ── Bonk shuffle checks ───────────────────────────────────────────────────────
+// Ported from alttptracker-main. Location coordinates come from its
+// css/style.css (#locationMap23..63) and the world each sits on from the
+// containing div in its tracker.html. The SRAM offset/mask for every one of
+// these is ALREADY in window.SRAM_FLAGS under ids 23-63 — that id range was
+// reserved for exactly this and matches js/autot.js byte for byte, so
+// autotracking needs no new address table.
+//
+// Logic is transcribed from data/logic/logic_nondungeon_checks.js. That file
+// distinguishes "canBreach" (reachable, possibly out of logic) from
+// "canReach" (in logic); this tracker has a single region test, so the two
+// collapse and those locations are green/red with no yellow. Where the
+// reference's `logical` clause is a real extra item (the lamp on the
+// Agahnim-gated trees), yellow is preserved.
+(function initBonkChecks() {
+  // [id, left%, top%, name, world, logic group]
+  var BONK = [
+    [23, 16.40, 15.0, 'Lost Woods Hideout Tree',        'lw', 'lwFree'],
+    [24, 84.20,  6.7, 'Death Mountain Bonk Rocks',      'lw', 'lwEastDM'],
+    [25, 31.00, 14.5, 'Mountain Entry Pull Tree',       'lw', 'lwFree'],
+    [26, 35.40, 23.0, 'Mountain Entry Southeast Tree',  'lw', 'lwFree'],
+    [27,  3.20, 30.0, 'Lost Woods Pass West Tree',      'lw', 'lwFree'],
+    [28,  9.80, 31.0, 'Kakariko Portal Tree',           'lw', 'lwFree'],
+    [29, 16.40, 31.7, 'Fortune Bonk Rocks',             'lw', 'lwFree'],
+    [30, 34.00, 29.1, 'Kakariko Pond Tree',             'lw', 'lwAga'],
+    [31, 41.20, 31.2, 'Bonk Rocks Tree',                'lw', 'lwAga'],
+    [32, 48.20, 30.2, 'Sanctuary Tree',                 'lw', 'lwFree'],
+    [33, 64.80, 35.5, 'River Bend West Tree',           'lw', 'lwAga'],
+    [34, 73.80, 31.4, 'River Bend East Tree',           'lw', 'lwFree'],
+    [35,  9.80, 41.9, 'Blinds Hideout Tree',            'lw', 'lwFree'],
+    [36, 22.00, 58.2, 'Kakariko Welcome Tree',          'lw', 'lwFree'],
+    [37, 29.20, 47.4, 'Forgotten Forest Southwest Tree','lw', 'lwFree'],
+    [38, 31.20, 44.6, 'Forgotten Forest Central Tree',  'lw', 'lwFree'],
+    [39, 46.80, 46.0, 'Hyrule Castle Tree',             'lw', 'lwFree'],
+    [40, 67.00, 40.5, 'Wooden Bridge Tree',             'lw', 'lwFree'],
+    [41, 89.20, 59.5, 'Eastern Palace Tree',            'lw', 'lwAga'],
+    [42, 31.40, 72.4, 'Flute Boy South Tree',           'lw', 'lwAga'],
+    [43, 34.40, 70.6, 'Flute Boy East Tree',            'lw', 'lwAga'],
+    [44, 46.80, 68.1, 'Central Bonk Rocks Tree',        'lw', 'lwFree'],
+    [45, 80.80, 66.4, 'Tree Line Tree 2',               'lw', 'lwAga'],
+    [46, 85.20, 67.4, 'Tree Line Tree 4',               'lw', 'lwAga'],
+    [47, 35.60, 82.8, 'Flute Boy Approach South Tree',  'lw', 'lwFree'],
+    [48, 36.00, 78.9, 'Flute Boy Approach North Tree',  'lw', 'lwFree'],
+    [49, 28.40,  9.0, 'Dark Lumberjack Tree',           'dw', 'dwWest'],
+    [50, 16.40, 31.8, 'Dark Fortune Bonk Rocks (2)',    'dw', 'dwWest'],
+    [51, 50.80, 30.0, 'Dark Graveyard West Bonk Rocks', 'dw', 'dwWest'],
+    [52, 55.80, 32.0, 'Dark Graveyard North Bonk Rocks','dw', 'dwWest'],
+    [53, 61.00, 30.0, 'Dark Graveyard Tomb Bonk Rocks', 'dw', 'dwWest'],
+    [54, 67.00, 35.7, 'Qirn Jump West Tree',            'dw', 'dwWest'],
+    [55, 73.80, 31.5, 'Qirn Jump East Tree',            'dw', 'dwEastCross'],
+    [56, 77.40, 30.9, 'Dark Witch Tree',                'dw', 'dwEastCross'],
+    [57, 47.40, 54.5, 'Pyramid Area',                   'dw', 'dwEast'],
+    [58, 94.60, 56.5, 'Palace of Darkness Area',        'dw', 'dwEast'],
+    [59, 79.80, 66.2, 'Dark Tree Line Tree 2',          'dw', 'dwEast'],
+    [60, 82.60, 66.9, 'Dark Tree Line Tree 3',          'dw', 'dwEast'],
+    [61, 85.40, 67.5, 'Dark Tree Line Tree 4',          'dw', 'dwEast'],
+    [62, 55.80, 83.5, 'Hype Cave Area',                 'dw', 'dwSouth'],
+    [63, 93.00, 77.5, 'Cold Fairy Statue',              'lw', 'coldFairy']
+  ];
+  // Cold Fairy Statue is an Ice Palace interior location.
+  var INDOOR = { 63: true };
+
+  // Each group returns 'green' | 'yellow' | 'red', transcribed from the
+  // reference's Open / Inverted requirement blocks.
+  var GROUPS = {
+    // always: canGetBonkableItem. Inverted adds LW portal access + pearl.
+    lwFree: function(r, it, bonkable) {
+      if (!bonkable) return 'red';
+      return (!r.inv || (r.lwAccess && it.moonpearl >= 1)) ? 'green' : 'red';
+    },
+    // always: canBreach|Light World - East Death Mountain (+ pearl inverted).
+    lwEastDM: function(r, it, bonkable) {
+      if (!bonkable || !r.eastDM) return 'red';
+      return (!r.inv || it.moonpearl >= 1) ? 'green' : 'red';
+    },
+    // always: agahnim (+ pearl inverted); logical: lantern → yellow without it.
+    lwAga: function(r, it, bonkable) {
+      if (!bonkable || !(it.agahnim >= 1)) return 'red';
+      if (r.inv && !(it.moonpearl >= 1)) return 'red';
+      return it.lamp ? 'green' : 'yellow';
+    },
+    // Open: Dark World West + pearl. Inverted: free (DW is home).
+    dwWest:  function(r, it, bonkable) { return (bonkable && (r.inv || r.dwNW))    ? 'green' : 'red'; },
+    dwEast:  function(r, it, bonkable) { return (bonkable && r.dwEast)             ? 'green' : 'red'; },
+    dwSouth: function(r, it, bonkable) { return (bonkable && (r.inv || r.dwSouth)) ? 'green' : 'red'; },
+    // Dark World East plus a way across the water: glove, hammer or flippers.
+    dwEastCross: function(r, it, bonkable) {
+      if (!bonkable || !r.dwEast) return 'red';
+      return (it.gloves >= 1 || it.hammer || it.flippers) ? 'green' : 'red';
+    },
+    // always: bombs + bonkable (Inverted also needs LW access + pearl).
+    coldFairy: function(r, it, bonkable) {
+      if (!bonkable || !(it.bomb >= 1 || it.bomb === true)) return 'red';
+      return (!r.inv || (r.lwAccess && it.moonpearl >= 1)) ? 'green' : 'red';
+    }
+  };
+
+  // The reference's canGetBonkableItem: boots, or a sword plus Quake to dash.
+  function canGetBonkableItem(it) {
+    return (it.boots >= 1) || (it.sword >= 1 && it.quake >= 1);
+  }
+
+  var LS_KEY = 'alttp-bonk-cleared';
+  // Cleared state starts fresh each load, matching how checkState is handled —
+  // a new session means a new game.
+  var bonkState = {};
+  try { localStorage.removeItem(LS_KEY); } catch(e) {}
+  function saveBonkState() { try { localStorage.setItem(LS_KEY, JSON.stringify(bonkState)); } catch(e) {} }
+
+  var lwEl = document.getElementById('lw');
+  var dwEl = document.getElementById('dw');
+  if (!lwEl || !dwEl) return;
+
+  var bonkEls = {};
+  BONK.forEach(function(b) {
+    var id = b[0], left = b[1], top = b[2], name = b[3], world = b[4];
+    var el = document.createElement('div');
+    el.className = 'bonk-dot unavail';
+    el.style.left = left + '%';
+    el.style.top  = top + '%';
+    el.title = name;
+    el.dataset.bonkId = id;
+    if (INDOOR[id]) el.dataset.bonkIndoor = '1';
+    el.addEventListener('click', function() {
+      bonkState[id] = !bonkState[id];
+      saveBonkState();
+      refreshBonkChecks();
+    });
+    if (typeof showTip === 'function') {
+      el.addEventListener('mouseenter', function(ev) { showTip(name, ev); });
+      el.addEventListener('mousemove',  moveTip);
+      el.addEventListener('mouseleave', hideTip);
+    }
+    (world === 'lw' ? lwEl : dwEl).appendChild(el);
+    bonkEls[id] = el;
+  });
+
+  function refreshBonkChecks() {
+    var s = window.trackerSettings || {};
+    var maps = document.getElementById('maps');
+    if (maps) maps.classList.toggle('bonk-hidden', !s.bonkShuffle);
+
+    var it = window.trackerItems || {};
+    var r  = (typeof window.trackerRegions === 'function') ? window.trackerRegions(it, s) : null;
+    if (!r) return;
+    var bonkable = canGetBonkableItem(it);
+    var CLS = { green:'available', yellow:'possible', orange:'visible', purple:'ool', red:'unavail' };
+    BONK.forEach(function(b) {
+      var id = b[0], el = bonkEls[id];
+      if (!el) return;
+      if (bonkState[id]) { el.className = 'bonk-dot cleared'; return; }
+      var fn = GROUPS[b[5]];
+      el.className = 'bonk-dot ' + (CLS[fn ? fn(r, it, bonkable) : 'red'] || 'unavail');
+    });
+  }
+  window.refreshBonkChecks = refreshBonkChecks;
+
+  // Autotracking. SRAM_FLAGS already carries ids 23-63, so this is the same
+  // sramCleared() path the normal checks use.
+  window.bonkSramUpdate = function(data) {
+    var dirty = false;
+    BONK.forEach(function(b) {
+      var id = b[0];
+      if (!bonkState[id] && window.SRAM_FLAGS[id] && window.sramCleared(data, window.SRAM_FLAGS[id])) {
+        bonkState[id] = true;
+        dirty = true;
+      }
+    });
+    if (dirty) { saveBonkState(); refreshBonkChecks(); }
+    return dirty;
+  };
+
+  window._bonkResetAll = function() {
+    bonkState = {};
+    saveBonkState();
+    refreshBonkChecks();
+  };
+
+  refreshBonkChecks();
+})();
+</script>
+
+<script>
+// ── Map settings menu ─────────────────────────────────────────────────────────
+// Gear button in the topbar opens a small panel. Everything here writes back to
+// the same alttp-* localStorage keys index.html reads, so the launcher picks up
+// the last choice made here. URL params still win on initial page load.
+//
+// Adding a new option is three steps:
+//   1. parse it in the early-settings-init block near the top of this file
+//   2. add a row to #settings-panel
+//   3. register it in OPTIONS below
+(function initSettingsMenu() {
+  var btn   = document.getElementById('settings-btn');
+  var panel = document.getElementById('settings-panel');
+  if (!btn || !panel) return;
+
+  function lsSet(key, val) { try { localStorage.setItem(key, val); } catch(e) {} }
+
+  // ── Map style ──
+  // 'entrance' is the only non-standard style today. Future styles register
+  // here and in the <select>; applyMapStyle stays the single switch point.
+  function applyMapStyle(style) {
+    var isEnt = (style === 'entrance');
+    window.trackerSettings.mapStyle       = style;
+    window.trackerSettings.entranceShuffle = isEnt;
+
+    lsSet('alttp-entrance-shuffle', isEnt ? 'yes' : 'no');
+    lsSet('alttp-entrance-shuffle-mode', isEnt ? 'on' : 'none');
+
+    // Show/hide the entrance overlay itself.
+    var maps = document.getElementById('maps');
+    if (maps) maps.classList.toggle('entrances-hidden', !isEnt);
+
+    // Topbar/bottombar controls that only make sense in entrance shuffle.
+    if (typeof window._entUpdateControlsVisibility === 'function') {
+      window._entUpdateControlsVisibility();
+    }
+
+    // Leaving entrance mode with a popup open would strand it on screen.
+    if (!isEnt) {
+      ['ent-popup', 'ent-info-popup'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('open');
+      });
+      window._entConnectPending = null;
+    }
+
+    // Repaint every dungeon box, check dot, and entrance marker under the new
+    // style. refreshMapLogic re-reads trackerSettings.entranceShuffle
+    // throughout and calls _entRefreshPrizeIcons at the end.
+    if (typeof window.refreshMapLogic === 'function') window.refreshMapLogic();
+  }
+  window.applyMapStyle = applyMapStyle;
+
+  // ── World state ──
+  // Inverted is the only value that changes the map's layout, and only three
+  // check dots, the CT/GT dungeon markers, and the two pyramid entrance
+  // markers actually move. Everything else reads trackerSettings.inverted at
+  // evaluation time, so re-placing those and refreshing is enough — no reload,
+  // so the in-progress check state survives.
+  function applyWorldState(mode) {
+    window.trackerSettings.gamemode = mode;
+    window.trackerSettings.inverted = (mode === 'inverted');
+    lsSet('alttp-gamemode', mode);
+
+    // Tell the other windows — the item tracker recomputes its chest counts,
+    // key readouts and CT box from this. localStorage above reaches it via a
+    // storage event; this is the second path, for the same reason as the
+    // swordless flag (neither is reliable alone across Electron windows).
+    try {
+      if (window._bc) window._bc.postMessage({ type: 'worldstate', data: mode });
+    } catch (e) {}
+
+    var inv = window.trackerSettings.inverted;
+    if (typeof window._applyInvertedDots === 'function')      window._applyInvertedDots(inv);
+    if (typeof window._applyInvertedDungeons === 'function')  window._applyInvertedDungeons(inv);
+    if (typeof window._entApplyInvertedLayout === 'function') window._entApplyInvertedLayout(inv);
+
+    if (typeof window.refreshMapLogic === 'function') window.refreshMapLogic();
+  }
+  window.applyWorldState = applyWorldState;
+
+  // ── Dungeon Item Shuffle ──
+  // Changes what counts as a check (CT's two chests), the dungeon markers' key
+  // gating, and — in the item tracker — chest totals and the key readouts.
+  function applyDungeonItems(mode) {
+    window.trackerSettings.dungeonItems = mode;
+    lsSet('alttp-dungeon-items', mode);
+    try {
+      if (window._bc) window._bc.postMessage({ type: 'setting', key: 'alttp-dungeon-items', value: mode });
+    } catch (e) {}
+    if (typeof window.refreshMapLogic === 'function') window.refreshMapLogic();
+  }
+  window.applyDungeonItems = applyDungeonItems;
+
+  // ── Ganon's Tower crystal requirement ──
+  // Map only — the item tracker doesn't render it. Stored as an int because
+  // every comparison site treats it as one.
+  function applyGtCrystals(n) {
+    var v = parseInt(n, 10);
+    // 0 is the "GT open from the start" option — the lower bound is 0, not 1.
+    if (!(v >= 0 && v <= 7)) v = 7;
+    window.trackerSettings.gtCrystals = v;
+    lsSet('alttp-gt-crystals', String(v));
+    if (typeof window.refreshMapLogic === 'function') window.refreshMapLogic();
+  }
+  window.applyGtCrystals = applyGtCrystals;
+
+  // ── Simple boolean seed flags ──
+  // settingsKey: property on window.trackerSettings
+  // storageKey:  localStorage key shared with index.html
+  // yesNo: the setting is the STRING 'yes'/'no' on trackerSettings rather than a
+  // boolean. Swordless is read as `settings.swordless === 'yes'` in a dozen
+  // places, so storing `true` here would silently disable every swordless
+  // branch while the checkbox looked ticked.
+  var OPTIONS = [
+    { id: 'set-shopsanity',  settingsKey: 'shopsanity',  storageKey: 'alttp-shopsanity'   },
+    { id: 'set-bonkshuffle', settingsKey: 'bonkShuffle', storageKey: 'alttp-bonk-shuffle' },
+    { id: 'set-swordless',   settingsKey: 'swordless',   storageKey: 'alttp-swordless',   yesNo: true },
+    // Both are 'yes'/'no' strings too, and both default ON in the launcher.
+    // Universal Keys drives the item tracker's chest totals, key rows and CT box,
+    // so it has to reach that window — same relay as boss shuffle.
+    { id: 'set-universalkeys', settingsKey: 'universalKeys', storageKey: 'alttp-universal-keys', yesNo: true, notifyItems: true },
+    // Key Drop Shuffle changes chest totals, small key maxes and the CT key
+    // count, so it has to reach the item tracker as well.
+    // Key Drop covers both halves; the two below are disabled while it is on.
+    { id: 'set-keydropall',  settingsKey: 'keyDropAll',  storageKey: 'alttp-keydrop-all', yesNo: true, notifyItems: true },
+    { id: 'set-keydrop',     settingsKey: 'keyDrop',     storageKey: 'alttp-keydrop',     yesNo: true, notifyItems: true },
+    { id: 'set-enemykeydrop', settingsKey: 'enemyKeyDrop', storageKey: 'alttp-enemy-keydrop', yesNo: true, notifyItems: true },
+    { id: 'set-bossshuffle', settingsKey: 'bossShuffle', storageKey: 'alttp-bossshuffle', yesNo: true, notifyItems: true },
+    { id: 'set-enemizer',    settingsKey: 'enemizer',    storageKey: 'alttp-enemizer',    yesNo: true }
+  ];
+
+  // ── Wire up ──
+  var styleSel = document.getElementById('set-mapstyle');
+  if (styleSel) {
+    styleSel.value = window.trackerSettings.mapStyle || 'standard';
+    styleSel.addEventListener('change', function() { applyMapStyle(styleSel.value); });
+  }
+
+  var worldSel = document.getElementById('set-worldstate');
+  if (worldSel) {
+    worldSel.value = window.trackerSettings.gamemode || 'standard';
+    worldSel.addEventListener('change', function() { applyWorldState(worldSel.value); });
+  }
+
+  var diSel = document.getElementById('set-dungeonitems');
+  if (diSel) {
+    diSel.value = window.trackerSettings.dungeonItems || 'standard';
+    diSel.addEventListener('change', function() { applyDungeonItems(diSel.value); });
+  }
+
+  var gtSel = document.getElementById('set-gtcrystals');
+  if (gtSel) {
+    gtSel.value = String(window.gtCrystalReq());
+    gtSel.addEventListener('change', function() { applyGtCrystals(gtSel.value); });
+  }
+
+  OPTIONS.forEach(function(opt) {
+    var el = document.getElementById(opt.id);
+    if (!el) return;
+    el.checked = opt.yesNo
+      ? window.trackerSettings[opt.settingsKey] === 'yes'
+      : !!window.trackerSettings[opt.settingsKey];
+    el.addEventListener('change', function() {
+      window.trackerSettings[opt.settingsKey] = opt.yesNo
+        ? (el.checked ? 'yes' : 'no')
+        : el.checked;
+      lsSet(opt.storageKey, el.checked ? 'yes' : 'no');
+      // Tell the other windows. The localStorage write above reaches them via a
+      // storage event; this is the belt to that braces, since BroadcastChannel
+      // is unreliable across Electron windows and storage events never fire in
+      // the window that wrote the value.
+      var _val = el.checked ? 'yes' : 'no';
+      try {
+        if (opt.settingsKey === 'swordless' && window._bc) {
+          window._bc.postMessage({ type: 'swordless', data: _val });
+        } else if (opt.notifyItems && window._bc) {
+          window._bc.postMessage({ type: 'setting', key: opt.storageKey, value: _val });
+        }
+      } catch (e) {}
+      // Every dungeon/check that cares reads trackerSettings at evaluation
+      // time, so one refresh repaints the whole map under the new flag.
+      if (typeof window.refreshMapLogic === 'function') window.refreshMapLogic();
+      syncKeyDropLock();
+    });
+  });
+
+  // Key Drop covers both halves, so the two specific flags are disabled while
+  // it is on — dimmed rather than hidden, so it stays clear what it stands for.
+  function syncKeyDropLock() {
+    var all = document.getElementById('set-keydropall');
+    var on = !!(all && all.checked);
+    ['set-keydrop','set-enemykeydrop'].forEach(function(id) {
+      var el = document.getElementById(id);
+      var row = document.getElementById(id + '-row');
+      if (el) el.disabled = on;
+      if (row) row.style.opacity = on ? '0.4' : '';
+    });
+  }
+  syncKeyDropLock();
+
+  // ── Open/close ──
+  function setOpen(open) {
+    panel.classList.toggle('open', open);
+    btn.classList.toggle('open', open);
+  }
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    setOpen(!panel.classList.contains('open'));
+  });
+  document.addEventListener('mousedown', function(e) {
+    if (!panel.classList.contains('open')) return;
+    if (panel.contains(e.target) || btn.contains(e.target)) return;
+    setOpen(false);
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') setOpen(false);
+  });
+})();
 </script>
 </body>
 </html>
