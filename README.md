@@ -28,12 +28,13 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Boss Shuffle (Used to track dungeon bosses) - (v1.1.11)
  - Enemizer or normal mode
  - Sword or Swordless
- - Shop Sanity (v1.1.17 Coming Soon)
- - Bonk Shuffle (v1.1.17 Coming Soon)
- - Universal Key (v1.1.17 Coming Soon)
- - KeyDrop Enemy and Pot (v1.1.17 Coming Soon)
- - Enemy and Pot Item Drop (Individual or Pots and Bones) (v1.1.17 Coming Soon)
- - Pseudo Boots/Mirror Scroll (v1.1.16)
+ - Other Seed Options (Advanced)
+   - Shop Sanity (v1.1.17 Coming Soon)
+   - Bonk Shuffle (v1.1.17 Coming Soon)
+   - Universal Key (v1.1.17 Coming Soon)
+   - KeyDrop Enemy and Pot (v1.1.17 Coming Soon)
+   - Enemy and Pot Item Drop (Individual or Pots and Bones) (v1.1.17 Coming Soon)
+   - Pseudo Boots/Mirror Scroll (v1.1.16)
  - Item Tracker Broadcast View (Customizable)
  - Item marking on the map
  - Read from the meta data from alttpr.com (v1.1.17 Coming Soon)
