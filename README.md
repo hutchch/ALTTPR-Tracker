@@ -77,7 +77,7 @@ Windows Emulator Setup Guides
 - [Bonk Shuffle](https://github.com/hutchch/ALTTPR-Tracker/wiki/Bonk-Shuffle-Logic)
 
 ***
-<img width="2787" height="1827" alt="image" src="https://github.com/user-attachments/assets/1cd54f59-0afd-4966-b673-06588492a78a" />
+<img width="2775" height="1790" alt="image" src="https://github.com/user-attachments/assets/c82bcd81-99c1-4a0d-ade4-cd9991643422" />
 NOTE: <i>This is v1.1.17, currently in development, some features are coming soon</i>
 
 ***
