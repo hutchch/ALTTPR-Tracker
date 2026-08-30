@@ -191,6 +191,12 @@ try {
         window.applyEnemyKeyDropChange(_v);
       } else if (_k === 'alttp-keydrop-all' && typeof window.applyKeyDropAllChange === 'function') {
         window.applyKeyDropAllChange(_v);
+      } else if (_k === 'alttp-pot-drops' && typeof window.applyPotDropsChange === 'function') {
+        window.applyPotDropsChange(_v);
+      } else if (_k === 'alttp-enemy-drops' && typeof window.applyEnemyDropsChange === 'function') {
+        window.applyEnemyDropsChange(_v);
+      } else if (_k === 'alttp-pots-bones' && typeof window.applyPotsBonesChange === 'function') {
+        window.applyPotsBonesChange(_v);
       }
       return;
     }
@@ -297,7 +303,7 @@ function fitWindowToContent() {
     // SIDE_PAD adds a little breathing room; the body centres the content, so it
     // splits evenly left/right and keeps the edge dungeon borders (POD, GT) off
     // the window frame.
-    var SIDE_PAD = 14;
+    var SIDE_PAD = 8;
     var w = Math.ceil(contentW * s) + chromeW + SIDE_PAD;
     var h = Math.ceil(body.scrollHeight * s) + chromeH + 4;
     window.resizeTo(w, h);

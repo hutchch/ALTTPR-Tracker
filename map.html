@@ -69,6 +69,8 @@ body {
   padding: 3px 0; color: #bbb;
 }
 .set-row label { cursor: pointer; display: flex; align-items: center; gap: 6px; flex: 1; }
+/* A half indented under its master — same grouping cue as the launcher's menu. */
+.set-row.sub { padding-left: 18px; }
 .set-row input[type="checkbox"] { cursor: pointer; margin: 0; }
 .set-row select { flex: 1; }
 
@@ -237,7 +239,18 @@ body {
   object-fit: contain;
   pointer-events: none;
 }
-#maps.entrances-hidden .ent-marker { display: none; pointer-events: none; }
+/* A Retro door that mirrors a check (DOOR_CHECK) carries that check's colour,
+   so the diamond needs the check dot's yellow/orange/purple as well as the
+   green and red the entrance overlay already has. Same hex values as .dot. */
+.ent-marker.retro-possible:not(.cleared) { background: #ffd700; }
+.ent-marker.retro-visible:not(.cleared)  { background: #ff8c00; }
+.ent-marker.retro-ool:not(.cleared)      { background: #9333ea; }
+
+/* The entrance overlay hides its markers whenever entrance shuffle is off.
+   Retro doors borrow .ent-marker for the diamond but are NOT part of that
+   overlay — they show precisely when it is hidden — so they opt out here and
+   manage their own display in refreshRetroDoors(). */
+#maps.entrances-hidden .ent-marker:not(.retro-door) { display: none; pointer-events: none; }
 #maps:not(.entrances-hidden) .dot[data-ent-hidden="1"] { display: none; pointer-events: none; }
 #maps:not(.entrances-hidden) .dng[data-ent-hidden="1"] { display: none; pointer-events: none; }
 
@@ -624,14 +637,23 @@ body {
         <div class="set-row">
           <label for="set-universalkeys"><input type="checkbox" id="set-universalkeys"> Universal Keys</label>
         </div>
-        <div class="set-row">
+        <div class="set-row" id="set-keydropall-row">
           <label for="set-keydropall"><input type="checkbox" id="set-keydropall"> Key Drop</label>
         </div>
-        <div class="set-row" id="set-keydrop-row">
-          <label for="set-keydrop"><input type="checkbox" id="set-keydrop"> Pot Key Drop Only</label>
+        <div class="set-row sub" id="set-keydrop-row">
+          <label for="set-keydrop"><input type="checkbox" id="set-keydrop"> Pot Key Drop</label>
         </div>
-        <div class="set-row" id="set-enemykeydrop-row">
+        <div class="set-row sub" id="set-enemykeydrop-row">
           <label for="set-enemykeydrop"><input type="checkbox" id="set-enemykeydrop"> Enemy Key Drop</label>
+        </div>
+        <div class="set-row" id="set-potsbones-row">
+          <label for="set-potsbones"><input type="checkbox" id="set-potsbones"> Pots and Bones</label>
+        </div>
+        <div class="set-row sub" id="set-potdrops-row">
+          <label for="set-potdrops"><input type="checkbox" id="set-potdrops"> Pot Drops</label>
+        </div>
+        <div class="set-row sub" id="set-enemydrops-row">
+          <label for="set-enemydrops"><input type="checkbox" id="set-enemydrops"> Enemy Drops</label>
         </div>
         <div class="set-row">
           <label for="set-bossshuffle"><input type="checkbox" id="set-bossshuffle"> Boss Shuffle</label>
@@ -782,6 +804,15 @@ body {
   // Menu + flag only for now: nothing on the map keys off these yet. They are
   // parsed and persisted here so the shop/bonk check locations can be added
   // later without touching the settings plumbing again.
+  // **Strings, not booleans.** These three are declared `yesNo: true` in the
+  // settings menu's OPTIONS, which means the menu reads and writes them as the
+  // literal 'yes'/'no' — exactly like universalKeys and the key-drop trio just
+  // above. Resolving them to a boolean here left every checkbox unticked and
+  // the launcher's settings looking like they never arrived. Same trap the
+  // OPTIONS comment warns about; it caught me anyway.
+  window.trackerSettings.potDrops   = p.get('potdrops')   || localStorage.getItem('alttp-pot-drops')   || 'no';
+  window.trackerSettings.enemyDrops = p.get('enemydrops') || localStorage.getItem('alttp-enemy-drops') || 'no';
+  window.trackerSettings.potsBones  = p.get('potsbones')  || localStorage.getItem('alttp-pots-bones')  || 'no';
   window.trackerSettings.shopsanity  = (p.get('shopsanity')  || localStorage.getItem('alttp-shopsanity')   || 'no') === 'yes';
   window.trackerSettings.bonkShuffle = (p.get('bonkshuffle') || localStorage.getItem('alttp-bonk-shuffle') || 'no') === 'yes';
 })();
@@ -2583,6 +2614,7 @@ function resetChecks() {
   // Reset shopsanity marker and bonk check state
   if (typeof window._shopResetAll === 'function') window._shopResetAll();
   if (typeof window._bonkResetAll === 'function') window._bonkResetAll();
+  if (typeof window._retroDoorsResetAll === 'function') window._retroDoorsResetAll();
 }
 
 // ── trackerItems default (no items) ──────────────────────────────────────────
@@ -5447,6 +5479,7 @@ window.refreshMapLogic = function() {
   // for load order)
   if (window.refreshShopMarkers) window.refreshShopMarkers();
   if (window.refreshBonkChecks) window.refreshBonkChecks();
+  if (window.refreshRetroDoors) window.refreshRetroDoors();
   // Broadcast check colors to checklist window
   try {
     if (typeof _bc !== 'undefined' && window.checkColor) {
@@ -6192,20 +6225,24 @@ if (document.readyState === 'loading') {
   // When adding a shop, verify clearance against the live DOM rather than the
   // CHECKS array: a dot's rendered position is not always its array entry
   // (Catfish is listed at 92.00 but draws at 90.5).
+  // The sixth field marks a shop that is ALSO a Retro-mode check. Retro sells
+  // items from a subset of these doors: Chris listed eight (Aug 2026) and added
+  // Dark Lake Hylia Shop straight after, so nine. Potion Shop and Capacity
+  // Upgrade Fairy are Shopsanity-only and stay hidden in a plain Retro seed.
   var SHOPS = [
-    // Light World
-    ['potion-shop',           81.60, 28.90, 'Potion Shop',              'lw'],
-    ['kakariko-shop',         11.40, 58.00, 'Kakariko Shop',            'lw'],
-    ['lake-hylia-shop',       72.40, 76.00, 'Lake Hylia Shop',          'lw'],
-    ['paradox-shop',          85.00, 14.80, 'Paradox Cave Shop',        'lw'],
-    ['capacity-fairy',        79.40, 84.70, 'Capacity Upgrade Fairy',   'lw'],
+    // Light World                                                        retro
+    ['potion-shop',           81.60, 28.90, 'Potion Shop',              'lw', false],
+    ['kakariko-shop',         11.40, 58.00, 'Kakariko Shop',            'lw', true ],
+    ['lake-hylia-shop',       72.40, 76.00, 'Lake Hylia Shop',          'lw', true ],
+    ['paradox-shop',          85.00, 14.80, 'Paradox Cave Shop',        'lw', true ],
+    ['capacity-fairy',        79.40, 84.70, 'Capacity Upgrade Fairy',   'lw', false],
     // Dark World
-    ['dark-lumberjack-shop',  33.00,  4.70, 'Dark Lumberjack Shop',     'dw'],
-    ['red-shield-shop',       32.80, 44.60, 'Red Shield Shop',          'dw'],
-    ['dark-world-shop',       20.00, 52.00, 'Dark World Shop',          'dw'],
-    ['dark-lake-hylia-shop',  64.60, 79.00, 'Dark Lake Hylia Shop',     'dw'],
-    ['dark-potion-shop',      79.40, 33.00, 'Dark Potion Shop',         'dw'],
-    ['dark-dm-shop',          86.40, 15.99, 'Dark Death Mountain Shop', 'dw']
+    ['dark-lumberjack-shop',  33.00,  4.70, 'Dark Lumberjack Shop',     'dw', true ],
+    ['red-shield-shop',       32.80, 44.60, 'Red Shield Shop',          'dw', true ],
+    ['dark-world-shop',       20.00, 52.00, 'Dark World Shop',          'dw', true ],
+    ['dark-lake-hylia-shop',  64.60, 79.00, 'Dark Lake Hylia Shop',     'dw', true ],
+    ['dark-potion-shop',      79.40, 33.00, 'Dark Potion Shop',         'dw', true ],
+    ['dark-dm-shop',          86.40, 15.99, 'Dark Death Mountain Shop', 'dw', true ]
   ];
 
   // Region reachability, mirroring the helpers of the same name inside
@@ -6314,12 +6351,26 @@ if (document.readyState === 'loading') {
     try { localStorage.setItem(LS_KEY, JSON.stringify(shopState)); } catch(e) {}
   }
 
-  // Shop markers show only when Shopsanity is on. They stay hidden in entrance
-  // shuffle: a shop's position there depends on where its entrance was found,
-  // so the standard-map coordinates and logic above don't apply.
+  // Shop markers show when Shopsanity is on, and — for the eight flagged above
+  // — in Retro, where those doors hold a check of their own. They stay hidden
+  // in entrance shuffle either way: a shop's position there depends on where
+  // its entrance was found, so the standard-map coordinates and logic above
+  // don't apply.
+  function isRetro() {
+    var s = window.trackerSettings || {};
+    return s.gamemode === 'retro';
+  }
   function isVisible() {
     var s = window.trackerSettings || {};
-    return !!s.shopsanity && !s.entranceShuffle;
+    return (!!s.shopsanity || isRetro()) && !s.entranceShuffle;
+  }
+  // Is this particular shop drawn right now? Shopsanity shows all eleven;
+  // Retro alone shows only its eight.
+  function shopShown(retroFlag) {
+    var s = window.trackerSettings || {};
+    if (s.entranceShuffle) return false;
+    if (s.shopsanity) return true;
+    return isRetro() && !!retroFlag;
   }
 
   var shopEls = {};
@@ -6363,6 +6414,7 @@ if (document.readyState === 'loading') {
       var id = s[0];
       var el = shopEls[id];
       if (!el) return;
+      el.style.display = shopShown(s[5]) ? '' : 'none';
       if (shopState[id]) { el.className = 'shop-marker cleared'; return; }
       var fn = SHOP_LOGIC[id];
       var color = (fn && fn(r, it, settings)) || 'red';
@@ -6381,6 +6433,169 @@ if (document.readyState === 'loading') {
   };
 
   refreshShopMarkers();
+})();
+</script>
+
+<script>
+// ── Retro-mode door checks ────────────────────────────────────────────────────
+//
+// Retro sells items from take-any caves, fairies, gambles and hints as well as
+// from shops, so those doors hold a check of their own. Chris listed 38 of them
+// (Aug 2026). Eight are shops and are drawn by the Shopsanity overlay above —
+// same $ marker, same SHOP_LOGIC — via the `retro` flag on their SHOPS row.
+// The thirty below are the rest.
+//
+// They are a separate overlay with their own cleared state, exactly like the
+// shop markers: **not** part of the check counter, the checklist or the
+// broadcast view (Chris's call). Nothing about those moves in any mode.
+(function initRetroDoors() {
+  // Coordinates come from js/entrances_data.js by name, with the same -2.0%
+  // correction on both axes the entrance overlay applies — the raw values are
+  // door positions, not screen positions.
+  var RETRO_DOORS = [
+    'Lost Woods Gamble', 'Lumberjack House', 'Fortune Teller (Light)',
+    'Snitch Lady (West)', 'Snitch Lady (East)', 'Bush Covered House',
+    'Light World Bomb Hut', 'Kakariko Gamble Game', 'Desert Fairy',
+    '50 Rupee Cave', 'Bonk Fairy (Light)', 'Light Hype Fairy',
+    'Lake Hylia Fortune Teller', 'Lake Hylia Fairy', 'Good Bee Cave',
+    '20 Rupee Cave', 'Long Fairy Cave',
+    'Fortune Teller (Dark)', 'Archery Game', 'Mire Fairy', 'Mire Hint',
+    'Bonk Fairy (Dark)', 'Dark Lake Hylia Fairy', 'East Dark World Hint',
+    'Dark Lake Hylia Ledge Fairy', 'Dark Lake Hylia Ledge Hint',
+    'Dark Lake Hylia Ledge Spike Cave', 'Palace of Darkness Hint',
+    'Dark Death Mountain Fairy', 'Dark Sanctuary Hint',
+    // Added Aug 2026 — missed off Chris's original list of 38.
+    'Hookshot Fairy'
+  ];
+  // Per-door position overrides, applied after the -2% correction. Only for
+  // doors whose derived spot collides with something already on the Retro map.
+  //   Hookshot Fairy derives to 83.0/14.0, which puts its diamond under the
+  //   Paradox Cave Shop's $ square (85.0/14.8, and shop coordinates are NOT
+  //   -2% corrected). Same row, 2% left, clears both the shop and the Paradox
+  //   Cave check dot.
+  var DOOR_AT = {
+    'Hookshot Fairy': [81.0, 14.0]
+  };
+
+  // Doors whose colour comes from an existing CHECK rather than from
+  // entranceUnavailable(), the same idea as the shop overlay's mirrorCheck().
+  //
+  // Why this is needed: `ref_logic_entrances.js` is entrance-SHUFFLE logic, so
+  // it only credits a region you can walk to from outside. In Retro the
+  // entrances are vanilla, and a cave's own interior connects two ledges —
+  // Paradox Cave runs from the upper east Death Mountain ledge down to the
+  // lower one. A player with upper-east access only therefore reaches the
+  // Hookshot Fairy door through the cave, which "canReach|Lower East Death
+  // Mountain" does not model. Chris: "Hookshot Fairy Cave ... will have the
+  // same accessibility as Paradox Cave Check in this mode."
+  //
+  // 17 is "Paradox Cave (7)", which already covers Top/Middle/Bottom.
+  //
+  // Dark Death Mountain Fairy is the same story on the other mountain — Chris:
+  // "This is accessible in Retro if the Check Spectacle Rock Cave is
+  // accessible." 79 is that check.
+  var DOOR_CHECK = {
+    'Hookshot Fairy': 17,
+    'Dark Death Mountain Fairy': 79
+  };
+  // Chris wrote "Light Hype Cave"; entrances_data.js calls that door
+  // "Light Hype Fairy" (lw 62.0/80.0). The Dark World twin is "Hype Cave" and
+  // is NOT on his list.
+
+  // ── colour ──
+  // `window.entranceUnavailable(name)` is the entrance overlay's own verdict —
+  // the logic Chris asked to copy, called rather than reimplemented. Its
+  // found-the-entrance gates are already wrapped in
+  // `if (trackerSettings.entranceShuffle)`, so on a plain Retro map they are
+  // skipped and what is left is pure item/region reachability, which is exactly
+  // what this overlay wants.
+  //
+  // It returns false until the first item snapshot arrives, which keeps the
+  // markers from flashing red on load.
+
+  var LS_KEY = 'alttp-retro-doors-cleared';
+  var doorState = {};
+  try { doorState = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch(e) { doorState = {}; }
+  function saveDoorState() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(doorState)); } catch(e) {}
+  }
+
+  function isVisible() {
+    var s = window.trackerSettings || {};
+    return s.gamemode === 'retro' && !s.entranceShuffle;
+  }
+
+  var lwEl = document.getElementById('lw');
+  var dwEl = document.getElementById('dw');
+  if (!lwEl || !dwEl) return;
+  var byName = {};
+  (window.ENTRANCES || []).forEach(function(e) { byName[e.name] = e; });
+
+  var doorEls = {};
+  RETRO_DOORS.forEach(function(name) {
+    var e = byName[name];
+    if (!e) { console.warn('retro door not in ENTRANCES:', name); return; }
+    var el = document.createElement('div');
+    // Same diamond the entrance overlay uses, so a Retro door reads as a door.
+    el.className = 'ent-marker retro-door';
+    var at = DOOR_AT[name];
+    el.style.left = (at ? at[0] : e.left - 2.0) + '%';
+    el.style.top  = (at ? at[1] : e.top  - 2.0) + '%';
+    el.title = name;
+    el.dataset.doorName = name;
+    el.addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      doorState[name] = !doorState[name];
+      saveDoorState();
+      refreshRetroDoors();
+    });
+    if (typeof showTip === 'function') {
+      el.addEventListener('mouseenter', function(ev) { showTip(name, ev); });
+      el.addEventListener('mousemove',  moveTip);
+      el.addEventListener('mouseleave', hideTip);
+    }
+    (e.world === 'lw' ? lwEl : dwEl).appendChild(el);
+    doorEls[name] = el;
+  });
+
+  function refreshRetroDoors() {
+    var show = isVisible();
+    RETRO_DOORS.forEach(function(name) {
+      var el = doorEls[name];
+      if (!el) return;
+      el.style.display = show ? '' : 'none';
+      if (!show) return;
+      if (doorState[name]) { el.className = 'ent-marker retro-door cleared'; return; }
+      var mirrored = DOOR_CHECK[name];
+      if (mirrored !== undefined && typeof window.checkColor === 'function') {
+        // checkColor returns null for checks it hides; treat that as red, the
+        // same fallback mirrorCheck() uses. A mirrored door wears the check's
+        // full colour, not just green or red — it IS that check's access.
+        var c = 'red';
+        try { c = window.checkColor(mirrored) || 'red'; } catch (ex) { c = 'red'; }
+        el.className = 'ent-marker retro-door ' + (
+          c === 'red'    ? 'ent-unavailable' :
+          c === 'yellow' ? 'retro-possible'  :
+          c === 'orange' ? 'retro-visible'   :
+          c === 'purple' ? 'retro-ool'       : 'unconnected');
+        return;
+      }
+      var bad = false;
+      if (typeof window.entranceUnavailable === 'function') {
+        try { bad = !!window.entranceUnavailable(name); } catch (ex) { bad = false; }
+      }
+      el.className = 'ent-marker retro-door ' + (bad ? 'ent-unavailable' : 'unconnected');
+    });
+  }
+  window.refreshRetroDoors = refreshRetroDoors;
+
+  window._retroDoorsResetAll = function() {
+    doorState = {};
+    saveDoorState();
+    refreshRetroDoors();
+  };
+
+  refreshRetroDoors();
 })();
 </script>
 
@@ -6442,7 +6657,13 @@ if (document.readyState === 'loading') {
     [60, 82.60, 66.9, 'Dark Tree Line Tree 3',          'dw', 'dwEast'],
     [61, 85.40, 67.5, 'Dark Tree Line Tree 4',          'dw', 'dwEast'],
     [62, 55.80, 83.5, 'Hype Cave Area',                 'dw', 'dwSouth'],
-    [63, 93.00, 77.5, 'Cold Fairy Statue',              'lw', 'coldFairy']
+    // Moved up from 77.5 (Aug 2026): the Retro door overlay puts the Good Bee
+    // Cave diamond at 92.9/77.5, dead on top of this dot. Chris's call on where
+    // it goes instead — just above that diamond and PARTIALLY COVERED by it,
+    // not clear of it. The dot is z-index 3 and .ent-marker is 5, so the
+    // diamond's top corner draws over the dot's lower edge, which is the look
+    // he asked for. 1.8% up is that overlap; don't "fix" it to a clean gap.
+    [63, 93.00, 75.7, 'Cold Fairy Statue',              'lw', 'coldFairy']
   ];
   // Cold Fairy Statue is an Ice Palace interior location.
   var INDOOR = { 63: true };
@@ -6695,6 +6916,12 @@ if (document.readyState === 'loading') {
     { id: 'set-keydropall',  settingsKey: 'keyDropAll',  storageKey: 'alttp-keydrop-all', yesNo: true, notifyItems: true },
     { id: 'set-keydrop',     settingsKey: 'keyDrop',     storageKey: 'alttp-keydrop',     yesNo: true, notifyItems: true },
     { id: 'set-enemykeydrop', settingsKey: 'enemyKeyDrop', storageKey: 'alttp-enemy-keydrop', yesNo: true, notifyItems: true },
+    // The full-shuffle modes: every pot / every enemy is a location. The item
+    // tracker takes its totals straight from the seed in these, so it has to
+    // hear about them the moment they change.
+    { id: 'set-potsbones',   settingsKey: 'potsBones',   storageKey: 'alttp-pots-bones',  yesNo: true, notifyItems: true },
+    { id: 'set-potdrops',    settingsKey: 'potDrops',    storageKey: 'alttp-pot-drops',   yesNo: true, notifyItems: true },
+    { id: 'set-enemydrops',  settingsKey: 'enemyDrops',  storageKey: 'alttp-enemy-drops', yesNo: true, notifyItems: true },
     { id: 'set-bossshuffle', settingsKey: 'bossShuffle', storageKey: 'alttp-bossshuffle', yesNo: true, notifyItems: true },
     { id: 'set-enemizer',    settingsKey: 'enemizer',    storageKey: 'alttp-enemizer',    yesNo: true }
   ];
@@ -6756,16 +6983,48 @@ if (document.readyState === 'loading') {
 
   // Key Drop covers both halves, so the two specific flags are disabled while
   // it is on — dimmed rather than hidden, so it stays clear what it stands for.
+  // Same mutual-exclusion model as the launcher — see CONFLICT_SIDES there for
+  // why sides are enough to derive every rule. Kept in step by hand; if one
+  // changes, change both.
+  var CONFLICT_SIDES = {
+    'set-keydropall':   ['pot','enemy'],
+    'set-keydrop':      ['pot'],
+    'set-enemykeydrop': ['enemy'],
+    'set-potsbones':    ['pot','enemy'],
+    'set-potdrops':     ['pot'],
+    'set-enemydrops':   ['enemy']
+  };
+  var FAMILY_MASTER = {
+    'set-keydrop':      'set-keydropall',
+    'set-enemykeydrop': 'set-keydropall',
+    'set-potdrops':     'set-potsbones',
+    'set-enemydrops':   'set-potsbones'
+  };
   function syncKeyDropLock() {
-    var all = document.getElementById('set-keydropall');
-    var on = !!(all && all.checked);
-    ['set-keydrop','set-enemykeydrop'].forEach(function(id) {
+    var ids = Object.keys(CONFLICT_SIDES);
+    var checked = {};
+    ids.forEach(function(id) {
+      var el = document.getElementById(id);
+      checked[id] = !!(el && el.checked);
+    });
+    ids.forEach(function(id) {
+      var master = FAMILY_MASTER[id];
+      var dim;
+      if (master && checked[master]) dim = true;
+      else if (checked[id]) dim = false;   // never trap the player's own tick
+      else dim = ids.some(function(other) {
+        return other !== id && checked[other] &&
+          CONFLICT_SIDES[id].some(function(side) {
+            return CONFLICT_SIDES[other].indexOf(side) !== -1;
+          });
+      });
       var el = document.getElementById(id);
       var row = document.getElementById(id + '-row');
-      if (el) el.disabled = on;
-      if (row) row.style.opacity = on ? '0.4' : '';
+      if (el) el.disabled = dim;
+      if (row) row.style.opacity = dim ? '0.4' : '';
     });
   }
+
   syncKeyDropLock();
 
   // ── Open/close ──

@@ -218,6 +218,9 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 #other-settings-panel .check-row { display: flex; margin: 5px 0; }
 /* Key Drop covers both halves, so the two specific flags are disabled while it
    is on — dimmed rather than hidden, so it's clear what it stands for. */
+/* A half sits under its master, indented past the checkbox column so the
+   grouping reads at a glance rather than from the labels alone. */
+#other-settings-panel .check-row.sub { margin-left: 18px; }
 #other-settings-panel .check-row.dimmed { opacity: 0.4; cursor: default; }
 #other-settings-panel .check-row.dimmed input { cursor: default; }
 
@@ -460,17 +463,29 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
         <span id="other-settings-summary">None</span><span class="osb-caret">&#9660;</span>
       </button>
       <div id="other-settings-panel">
-        <label class="check-row">
+        <label class="check-row" id="keydropall-row">
           <input type="checkbox" id="keydropall-toggle">
           <span>Key Drop</span>
         </label>
-        <label class="check-row" id="keydrop-row">
+        <label class="check-row sub" id="keydrop-row">
           <input type="checkbox" id="keydrop-toggle">
-          <span>Pot Key Drop Only</span>
+          <span>Pot Key Drop</span>
         </label>
-        <label class="check-row" id="enemykeydrop-row">
+        <label class="check-row sub" id="enemykeydrop-row">
           <input type="checkbox" id="enemykeydrop-toggle">
           <span>Enemy Key Drop</span>
+        </label>
+        <label class="check-row" id="potsbones-row">
+          <input type="checkbox" id="potsbones-toggle">
+          <span>Pots and Bones</span>
+        </label>
+        <label class="check-row sub" id="potdrops-row">
+          <input type="checkbox" id="potdrops-toggle">
+          <span>Pot Drops</span>
+        </label>
+        <label class="check-row sub" id="enemydrops-row">
+          <input type="checkbox" id="enemydrops-toggle">
+          <span>Enemy Drops</span>
         </label>
         <label class="check-row">
           <input type="checkbox" id="universalkeys-toggle">
@@ -923,6 +938,9 @@ function getSettings() {
     mirrorscroll: document.getElementById('mirrorscroll-toggle') && document.getElementById('mirrorscroll-toggle').checked ? 'yes' : 'no',
     // Both of these were map-only Seed Options until Aug 2026; the launcher now
     // owns them too, so the map gets them on the URL like every other flag.
+    potDrops:    document.getElementById('potdrops-toggle') && document.getElementById('potdrops-toggle').checked ? 'yes' : 'no',
+    enemyDrops:  document.getElementById('enemydrops-toggle') && document.getElementById('enemydrops-toggle').checked ? 'yes' : 'no',
+    potsBones:   document.getElementById('potsbones-toggle') && document.getElementById('potsbones-toggle').checked ? 'yes' : 'no',
     shopsanity:  document.getElementById('shopsanity-toggle') && document.getElementById('shopsanity-toggle').checked ? 'yes' : 'no',
     bonkShuffle: document.getElementById('bonkshuffle-toggle') && document.getElementById('bonkshuffle-toggle').checked ? 'yes' : 'no',
     entranceShuffle: esToggle && esToggle.checked ? 'on' : 'none',
@@ -959,6 +977,9 @@ function save() {
   localStorage.setItem('alttp-mirrorscroll', s.mirrorscroll);
   // Key names set by map.html first — 'alttp-bonk-shuffle' is hyphenated where
   // most others aren't. Don't "tidy" it; the map reads that exact string.
+  localStorage.setItem('alttp-pot-drops', s.potDrops);
+  localStorage.setItem('alttp-enemy-drops', s.enemyDrops);
+  localStorage.setItem('alttp-pots-bones', s.potsBones);
   localStorage.setItem('alttp-shopsanity', s.shopsanity);
   localStorage.setItem('alttp-bonk-shuffle', s.bonkShuffle);
   localStorage.setItem('alttp-entrance-shuffle', s.entranceShuffle === 'none' ? 'no' : 'yes');
@@ -972,7 +993,7 @@ function save() {
 
 function mapUrl(s) {
   var entFlag = (s.entranceShuffle === 'none') ? 'no' : 'yes';
-  return 'map.html?zoom=' + s.zoom + '&enemizer=' + s.enemizer + '&gtcrystals=' + s.gtCrystals + '&gamemode=' + s.gamemode + '&dungeonitems=' + s.dungeonItems + '&swordless=' + s.swordless + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&bossshuffle=' + s.bossshuffle + '&entranceshuffle=' + entFlag + '&entrancemode=' + s.entranceShuffle + '&shopsanity=' + s.shopsanity + '&bonkshuffle=' + s.bonkShuffle;
+  return 'map.html?zoom=' + s.zoom + '&enemizer=' + s.enemizer + '&gtcrystals=' + s.gtCrystals + '&gamemode=' + s.gamemode + '&dungeonitems=' + s.dungeonItems + '&swordless=' + s.swordless + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&bossshuffle=' + s.bossshuffle + '&entranceshuffle=' + entFlag + '&entrancemode=' + s.entranceShuffle + '&shopsanity=' + s.shopsanity + '&bonkshuffle=' + s.bonkShuffle + '&potdrops=' + s.potDrops + '&enemydrops=' + s.enemyDrops + '&potsbones=' + s.potsBones;
 }
 
 function launchItems() {
@@ -984,7 +1005,7 @@ function launchItems() {
     var tbg = document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black';
     var di = s.dungeonItems || 'standard';
     // gamemode is needed here too — Retro raises every dungeon's chest count.
-    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll + '&gamemode=' + s.gamemode + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop, 'alttp-items', 'width=500,height=390,resizable=yes');
+    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll + '&gamemode=' + s.gamemode + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&potdrops=' + s.potDrops + '&enemydrops=' + s.enemyDrops + '&potsbones=' + s.potsBones, 'alttp-items', 'width=500,height=390,resizable=yes');
   }
 }
 
@@ -1025,7 +1046,7 @@ function launchBoth() {
     var tbg = document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black';
     var di = s.dungeonItems || 'standard';
     // gamemode is needed here too — Retro raises every dungeon's chest count.
-    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll + '&gamemode=' + s.gamemode + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop, 'alttp-items', 'width=500,height=390,resizable=yes');
+    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll + '&gamemode=' + s.gamemode + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&potdrops=' + s.potDrops + '&enemydrops=' + s.enemyDrops + '&potsbones=' + s.potsBones, 'alttp-items', 'width=500,height=390,resizable=yes');
     window.open(mapUrl(s), 'alttp-map', 'width=' + mapW + ',height=' + mapH + ',resizable=yes');
   }
 }
@@ -1100,6 +1121,14 @@ window.addEventListener('DOMContentLoaded', async function() {
   var mirrorscrollToggle = document.getElementById('mirrorscroll-toggle');
   if (mirrorscrollToggle) mirrorscrollToggle.checked = (msVal === 'yes');
 
+  [['potdrops-toggle', saved.potDrops, 'alttp-pot-drops'],
+   ['enemydrops-toggle', saved.enemyDrops, 'alttp-enemy-drops'],
+   ['potsbones-toggle', saved.potsBones, 'alttp-pots-bones']].forEach(function(d) {
+    var v = d[1] || localStorage.getItem(d[2]) || 'no';
+    var el = document.getElementById(d[0]);
+    if (el) el.checked = (v === 'yes');
+  });
+
   var ssVal = saved.shopsanity || localStorage.getItem('alttp-shopsanity') || 'no';
   var shopsanityToggle = document.getElementById('shopsanity-toggle');
   if (shopsanityToggle) shopsanityToggle.checked = (ssVal === 'yes');
@@ -1142,9 +1171,12 @@ window.addEventListener('DOMContentLoaded', async function() {
 // sat in this menu for a release while both of those functions had never heard
 // of them, so custom presets quietly dropped them.
 var OTHER_SETTINGS = [
-  { id: 'keydropall-toggle',     cfg: 'keyDropAll',    label: 'Key Drop',          short: 'Key Drop' },
-  { id: 'keydrop-toggle',        cfg: 'keyDrop',       label: 'Pot Key Drop Only', short: 'Pot Keys',   subsumed: true },
-  { id: 'enemykeydrop-toggle',   cfg: 'enemyKeyDrop',  label: 'Enemy Key Drop',    short: 'Enemy Keys', subsumed: true },
+  { id: 'keydropall-toggle',     cfg: 'keyDropAll',    label: 'Key Drop',          short: 'Key Drop', keyDropFamily: true },
+  { id: 'keydrop-toggle',        cfg: 'keyDrop',       label: 'Pot Key Drop',      short: 'Pot Keys',   subsumed: true, keyDropFamily: true },
+  { id: 'enemykeydrop-toggle',   cfg: 'enemyKeyDrop',  label: 'Enemy Key Drop',    short: 'Enemy Keys', subsumed: true, keyDropFamily: true },
+  { id: 'potsbones-toggle',      cfg: 'potsBones',     label: 'Pots and Bones',   short: 'Pots+Bones' },
+  { id: 'potdrops-toggle',       cfg: 'potDrops',      label: 'Pot Drops',        short: 'Pot Drops',   subsumedByDrops: true },
+  { id: 'enemydrops-toggle',     cfg: 'enemyDrops',    label: 'Enemy Drops',      short: 'Enemy Drops', subsumedByDrops: true },
   { id: 'universalkeys-toggle',  cfg: 'universalKeys', label: 'Universal Keys',   short: 'Universal Keys' },
   { id: 'pseudoboots-toggle',    cfg: 'pseudoBoots',   label: 'Pseudo Boots',     short: 'Pseudo Boots' },
   { id: 'mirrorscroll-toggle',   cfg: 'mirrorScroll',  label: 'Mirror Scroll',    short: 'Mirror Scroll' },
@@ -1155,26 +1187,83 @@ var OTHER_SETTINGS = [
 // Key Drop means both halves, so while it is on the two specific flags are
 // disabled and left out of the summary — listing them would imply they were
 // separate choices.
+// ── which of the six drop-related options are mutually exclusive ──
+//
+// Two families, each a master plus two halves:
+//
+//   Key Drop        = Pot Key Drop Only  + Enemy Key Drop
+//   Pots and Bones  = Pot Drops          + Enemy Drops
+//
+// and the two families collide by SIDE: anything pot-flavoured conflicts with
+// anything else pot-flavoured, same for enemy. Listing the sides is enough to
+// derive every rule Chris asked for (Aug 2026) rather than hard-coding pairs:
+//
+//   Pot Key on      -> Pot Drops, Key Drop, Pots and Bones all dim
+//   Enemy Drops on  -> Enemy Key Drop, Key Drop, Pots and Bones all dim
+//   Key Drop on     -> both its halves, and everything on either side
+//
+// Pot Key and Enemy Key don't collide with each other — different sides — so
+// both stay tickable, which is the whole point of having the two halves.
+var CONFLICT_SIDES = {
+  'keydropall-toggle':   ['pot','enemy'],
+  'keydrop-toggle':      ['pot'],
+  'enemykeydrop-toggle': ['enemy'],
+  'potsbones-toggle':    ['pot','enemy'],
+  'potdrops-toggle':     ['pot'],
+  'enemydrops-toggle':   ['enemy']
+};
+// A half's own master subsumes it rather than conflicting with it: the master
+// dims it even while it stays ticked underneath, which is how a player's own
+// choices survive being covered.
+var FAMILY_MASTER = {
+  'keydrop-toggle':      'keydropall-toggle',
+  'enemykeydrop-toggle': 'keydropall-toggle',
+  'potdrops-toggle':     'potsbones-toggle',
+  'enemydrops-toggle':   'potsbones-toggle'
+};
+
 function syncKeyDropLock() {
-  var all = document.getElementById('keydropall-toggle');
-  var on = !!(all && all.checked);
-  ['keydrop','enemykeydrop'].forEach(function(name) {
-    var t = document.getElementById(name + '-toggle');
-    var row = document.getElementById(name + '-row');
-    if (t) t.disabled = on;
-    if (row) row.classList.toggle('dimmed', on);
+  var ids = Object.keys(CONFLICT_SIDES);
+  var checked = {};
+  ids.forEach(function(id) {
+    var el = document.getElementById(id);
+    checked[id] = !!(el && el.checked);
   });
-  return on;
+  ids.forEach(function(id) {
+    var master = FAMILY_MASTER[id];
+    var dim;
+    if (master && checked[master]) {
+      dim = true;                       // covered by its own master
+    } else if (checked[id]) {
+      dim = false;                      // never disable what the player just ticked,
+                                        // or a conflicting pair would deadlock
+    } else {
+      dim = ids.some(function(other) {
+        return other !== id && checked[other] &&
+          CONFLICT_SIDES[id].some(function(side) {
+            return CONFLICT_SIDES[other].indexOf(side) !== -1;
+          });
+      });
+    }
+    var t = document.getElementById(id);
+    var row = document.getElementById(id.replace('-toggle', '-row'));
+    if (t) t.disabled = dim;
+    if (row) row.classList.toggle('dimmed', dim);
+  });
+  return checked['keydropall-toggle'];
 }
+
 
 function updateOtherSettingsSummary() {
   var el = document.getElementById('other-settings-summary');
   if (!el) return;
-  var locked = syncKeyDropLock();
+  syncKeyDropLock();
+  // Anything syncKeyDropLock disabled is covered by something else that is on,
+  // so listing it would imply it was a separate choice. One rule for every
+  // family instead of a list of exceptions.
   var on = OTHER_SETTINGS.filter(function(o) {
-    if (locked && o.subsumed) return false;
     var t = document.getElementById(o.id);
-    return t && t.checked;
+    return t && t.checked && !t.disabled;
   });
   if (!on.length) { el.textContent = 'None'; el.style.color = '#666'; return; }
   // Two names fit; past that the row would overflow its 152px-label layout.

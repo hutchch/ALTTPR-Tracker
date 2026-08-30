@@ -681,6 +681,61 @@ window.anyKeyDropFlag = function() {
     return window.keyDropFlag() || window.enemyKeyDropFlag();
 };
 
+// ── Pot Drops / Enemy Drops / Pots and Bones ─────────────────────────────────
+//
+// The full-shuffle modes: EVERY pot, or EVERY enemy, is a location — not just
+// the ones that hold a key. There is no hand-kept table for these and there
+// never will be; the location lists run to hundreds of entries and
+// alttptracker-main has none of them either (its `pottery` and `mobbery` fields
+// are placeholder zeros).
+//
+// They work anyway because two things come straight from the cartridge:
+//
+//   $F65410 / $F65430   what the seed put in each dungeon   (totals)
+//   $F5F4B0             how many of them you have checked   (progress)
+//
+// So in these modes the tracker stops deriving anything and simply reports what
+// the game already knows. See seed-count-tables.md and drop-modes.md.
+window._potDropsOverride = null;
+window._enemyDropsOverride = null;
+window._potsBonesOverride = null;
+
+// Pots and Bones is both halves at once, exactly as Key Drop is for its two.
+window.potsBonesFlag = function() {
+    if (window._potsBonesOverride) return window._potsBonesOverride === 'yes';
+    try {
+        return (new URLSearchParams(window.location.search).get('potsbones')
+             || localStorage.getItem('alttp-pots-bones')
+             || 'no') === 'yes';
+    } catch (e) { return false; }
+};
+
+window.potDropsFlag = function() {
+    if (window.potsBonesFlag()) return true;
+    if (window._potDropsOverride) return window._potDropsOverride === 'yes';
+    try {
+        return (new URLSearchParams(window.location.search).get('potdrops')
+             || localStorage.getItem('alttp-pot-drops')
+             || 'no') === 'yes';
+    } catch (e) { return false; }
+};
+
+window.enemyDropsFlag = function() {
+    if (window.potsBonesFlag()) return true;
+    if (window._enemyDropsOverride) return window._enemyDropsOverride === 'yes';
+    try {
+        return (new URLSearchParams(window.location.search).get('enemydrops')
+             || localStorage.getItem('alttp-enemy-drops')
+             || 'no') === 'yes';
+    } catch (e) { return false; }
+};
+
+// "Is the tracker running on the seed's own numbers rather than its table?"
+// The one predicate every drop-mode branch hangs off.
+window.anyDropModeFlag = function() {
+    return window.potDropsFlag() || window.enemyDropsFlag();
+};
+
 // What key drop adds to one dungeon. Returns zeroes when the flag is off, so
 // callers can add unconditionally.
 //
@@ -772,7 +827,21 @@ window.keyDropExtras = function(key) {
 window.ctMaxSmallKeys = function() {
     var seed = window.seedCountsFor('ct');
     if (seed) return seed.keys;
+    var fb = window.dropModeFallback && window.dropModeFallback('ct');
+    if (fb) return fb.keys;
     return 2 + window.keyDropExtras('ct').keys;
+};
+
+// CT's item count. Normally zero — its two (or four) locations are all keys —
+// so the box that shows this is hidden unless a mode actually gives CT items,
+// which today means a drop mode. CT has no map, compass or big key, so there is
+// nothing to subtract beyond the keys.
+window.ctMaxItems = function() {
+    var seed = window.seedCountsFor('ct');
+    if (seed) return Math.max(0, seed.locations - seed.keys);
+    var fb = window.dropModeFallback && window.dropModeFallback('ct');
+    if (fb) return Math.max(0, fb.locations - fb.keys);
+    return Math.max(0, (2 + window.keyDropExtras('ct').locations) - window.ctMaxSmallKeys());
 };
 
 // ── The seed's own counts ────────────────────────────────────────────────────
@@ -817,13 +886,24 @@ window._seedCountUsed = null;     // the subset applyDungeonItemMaxes actually t
 // can't drag a junk row in on its own.
 window.seedCountsUsable = function(raw) {
     if (!raw) return false;
-    var keys = Object.keys(raw), sane = 0;
+    // A drop mode shuffles far more locations in, so the normal ceiling would
+    // reject a perfectly good table.
+    var dropMode = window.anyDropModeFlag();
+    var ceiling  = dropMode ? 400 : 60;
+    var keys = Object.keys(raw), sane = 0, nonZero = 0;
     for (var i = 0; i < keys.length; i++) {
         var r = raw[keys[i]];
-        if (!(r.locations >= 1 && r.locations <= 60)) return false;
+        if (!(r.locations >= 1 && r.locations <= ceiling)) return false;
         if (!(r.keys >= 0 && r.keys <= r.locations)) return false;
+        if (r.locations > 0) nonZero++;
         if (dungeons[keys[i]] && r.locations === dungeons[keys[i]].maxChests) sane++;
     }
+    // In a drop mode the tracker has NO table of its own to check against —
+    // that is the whole point of the mode — so the location totals cannot be
+    // used as a checksum. The plausibility gate above is all there is. Still
+    // require the block to hold something, or an all-zero read would be
+    // "accepted" and zero every dungeon.
+    if (dropMode) return nonZero >= 12;
     // 12 dungeons carry a `dungeons` entry; require most of them to line up.
     return sane >= 8;
 };
@@ -833,24 +913,113 @@ window.seedCountsFor = function(key) {
     var raw = window._seedCountRaw;
     if (!raw || !raw[key] || !window.seedCountsUsable(raw)) return null;
     var row = raw[key];
+    // Drop mode: take it as read. There is nothing to compare against, and the
+    // collected side comes from the game's own counter too, so the two halves
+    // stay consistent with each other.
+    if (window.anyDropModeFlag()) return row;
     var have = dungeons[key]
         ? dungeons[key].maxChests
         : 2 + window.keyDropExtras('ct').locations;   // CT has no dungeon object
     return (row.locations === have) ? row : null;
 };
 
+// The game's own per-dungeon "checks done" tally, or null when the tracker
+// should stick to counting location bits.
+//
+//     $F5F4B0, one 16-bit slot per dungeon, low byte at 2i
+//
+// It sits inside the 0x500 room read the tracker already issues, so this costs
+// nothing. Slot order is SEED_COUNT_SLOT, the same as the seed's own tables.
+//
+// Returns null outside a drop mode ON PURPOSE — every other mode counts bits,
+// which is what all of the key-drop work was verified against. Widening this is
+// a decision, not a tidy-up.
+window.CHECKS_DONE_OFFSET = 0x4b0;
+window.checksDoneFor = function(key, roomData) {
+    if (!window.anyDropModeFlag()) return null;
+    var slot = window.SEED_COUNT_SLOT[key];
+    if (slot === undefined || !roomData) return null;
+    var at = window.CHECKS_DONE_OFFSET + 2 * slot;
+    if (at >= roomData.length) return null;
+    return roomData[at];
+};
+
 // How many of a dungeon's locations are taken by its map, compass and big key.
-// Matches processRoomData's own `bigKeyIsALocation`, so the two never disagree
-// about whether HC's big key drop counts.
+// **The single definition** — processRoomData calls this rather than repeating
+// the rule, because a second copy is exactly how HC's big key came to be
+// counted in maxItems but not in the collected count.
+//
+// HC is the whole complication: no big key of its own normally, but key drop
+// and every drop mode give it one. Chris's baseline chart lists a big key for
+// HC in all three drop modes, so `anyDropModeFlag` counts here as well —
+// without it HC's item count runs one high in a pot-drops-only seed, where the
+// enemy key-drop flag is off.
 window.dungeonItemSlots = function(key) {
     var d = dungeons[key];
     if (!d) return { map: 0, compass: 0, bigKey: 0 };
     var kd = window.KEYDROP_DATA[key] || {};
+    var hasBigKeyDrop = kd.bigkeydrop &&
+        (window.enemyKeyDropFlag() || window.anyDropModeFlag());
     return {
         map:     d.mapAddr ? 1 : 0,
         compass: (d.compassAddr && !d.noCompass) ? 1 : 0,
-        bigKey:  (!d.noBigKeyItem || (window.enemyKeyDropFlag() && kd.bigkeydrop)) ? 1 : 0
+        bigKey:  (!d.noBigKeyItem || hasBigKeyDrop) ? 1 : 0
     };
+};
+
+// ── The drop-mode fallback table ─────────────────────────────────────────────
+//
+// Counted by hand (Chris, Aug 2026) and used ONLY when a drop mode is on and
+// the seed's own tables can't be read. The seed always wins where it is
+// available — this is the safety net for a ROM that doesn't publish them.
+//
+// `locations` is the SUM of his columns (drops + keys + big key + map +
+// compass). After his corrections (Aug 2026) the chart is self-consistent in
+// 38 of its 39 rows, and — the part worth trusting — **every one of its 39 key
+// values equals what KEYDROP_DATA independently says**:
+//
+//   Enemy Drops     keys = base + enemy key drops      13/13
+//   Pot Drops       keys = base + pot keys             13/13
+//   Pots and Bones  keys = base + pots + drops         13/13
+//
+// Two hand-counts arrived at from different directions agreeing on all 39 is
+// about as good as this gets without a seed. CT corroborates the drop counts
+// too: 30 enemies + 25 pots = the 55 listed under Pots and Bones exactly.
+//
+// The one row still out:
+//
+//   PB  ToH  71+1+1+1+1 = 75, chart says 42 — below the Pot Drops total of 43,
+//            and ToH's own halves (34 enemies + 39 pots) come to 73, so 42 is
+//            a stray copy. **75 used.**
+//
+// **Anything here is a guess until a seed confirms it.** keyprobe.html shows
+// the seed's numbers beside these; when one disagrees, the seed is right.
+window.DROP_MODE_FALLBACK = {
+    // locations, keys
+    enemydrops: {
+        hc:[74,4], ep:[54,1], dp:[57,1], toh:[38,1], ct:[34,4], pod:[66,6], sp:[65,1],
+        sw:[63,4], tt:[75,1], ip:[85,4], mm:[52,4], tr:[39,6], gt:[106,5]
+    },
+    potdrops: {
+        hc:[42,1], ep:[57,1], dp:[56,4], toh:[43,1], ct:[27,2], pod:[53,6], sp:[71,6],
+        sw:[90,4], tt:[54,3], ip:[61,4], mm:[47,5], tr:[61,4], gt:[119,7]
+    },
+    potsbones: {
+        hc:[108,4], ep:[105,2], dp:[107,4], toh:[75,1], ct:[59,4], pod:[105,6], sp:[126,6],
+        sw:[145,5], tt:[121,3], ip:[138,6], mm:[91,6], tr:[88,6], gt:[198,8]
+    }
+};
+
+// Which of the three tables applies, or null outside a drop mode. Both halves
+// on — however they were ticked — is the Pots and Bones column.
+window.dropModeFallback = function(key) {
+    var pot = window.potDropsFlag(), enemy = window.enemyDropsFlag();
+    if (!pot && !enemy) return null;
+    var t = (pot && enemy) ? window.DROP_MODE_FALLBACK.potsbones
+          : pot            ? window.DROP_MODE_FALLBACK.potdrops
+                           : window.DROP_MODE_FALLBACK.enemydrops;
+    var row = t[key];
+    return row ? { locations: row[0], keys: row[1] } : null;
 };
 
 // Items = locations, less whatever the current mode leaves sitting in the
@@ -937,11 +1106,31 @@ window.applyDungeonItemMaxes = function() {
     Object.keys(dungeons).forEach(function(k) {
         var seed = window.seedCountsFor(k);
         if (!seed) return;
+        // Outside a drop mode this is a no-op — the seed only gets this far
+        // when its location total already matches. In a drop mode it is the
+        // whole point: the tracker has no table that knows about pot or enemy
+        // locations, so the seed supplies the total as well as the split.
+        dungeons[k].maxChests    = seed.locations;
         dungeons[k].maxSmallKeys = seed.keys;
         dungeons[k].maxItems     = window.itemsFromCounts(k, seed.locations, seed.keys, mode);
         if (!window._seedCountUsed) window._seedCountUsed = {};
         window._seedCountUsed[k] = seed;
     });
+
+    // ── the drop-mode fallback ──
+    // Only where the seed didn't answer. A drop mode has no table of its own,
+    // so without this the counts would sit at their no-drop values and every
+    // dungeon would look tiny.
+    if (window.anyDropModeFlag()) {
+        Object.keys(dungeons).forEach(function(k) {
+            if (window._seedCountUsed && window._seedCountUsed[k]) return;   // the seed won
+            var fb = window.dropModeFallback(k);
+            if (!fb) return;
+            dungeons[k].maxChests    = fb.locations;
+            dungeons[k].maxSmallKeys = fb.keys;
+            dungeons[k].maxItems     = window.itemsFromCounts(k, fb.locations, fb.keys, mode);
+        });
+    }
 
     // Retro world state: small keys become universal and are bought from shops,
     // so every small-key chest now holds a real item and counts toward the
@@ -980,6 +1169,54 @@ window.ctKeyBoxIsStatic = function() { return window.keysAreUniversal(); };
 // boxEl is passed while the tracker is still being built — the box isn't in the
 // document yet at that point, so getElementById would miss it and the box would
 // keep its default (visible) styling.
+// The CT item box. Same build-always/show-hide rule as everything else: the
+// element exists in every mode so a live settings change has something to
+// update, and `display` decides whether it is on screen.
+window.updateCtItemBox = function(boxEl) {
+    var box = boxEl || document.querySelector('.stat-ctitem');
+    if (!box) return;
+    var el = box.querySelector('#toh-ctitem-count') || document.getElementById('toh-ctitem-count');
+    if (!el) return;
+    var max = window.ctMaxItems();
+    box.style.display = max > 0 ? '' : 'none';
+    box.style.cursor  = deviceAttached ? 'default' : 'pointer';
+    var n = (window.trackerItems && window.trackerItems.ctItems) || 0;
+    if (n > max) n = max;
+    el.textContent = n + '/' + max;
+    el.style.color = (max > 0 && n >= max) ? '#2ecc71' : '';
+    if (window.updateCtGroup) window.updateCtGroup();
+};
+
+// The bordered wrapper around the two CT counters. It is only worth drawing
+// while at least one of them is on screen.
+window.updateCtGroup = function(groupEl) {
+    // Takes the element when called during construction: the tracker is built
+    // detached and only appended at the end, so a document.querySelector here
+    // finds nothing and the border would be left showing around two hidden
+    // counters until the next settings change.
+    var g = groupEl || document.querySelector('.ct-group');
+    if (!g) return;
+    var shown = function(sel) {
+        var e = g.querySelector(sel);
+        return !!e && e.style.display !== 'none';
+    };
+    g.style.visibility = '';
+    g.style.display = (shown('.stat-ctkey') || shown('.stat-ctitem')) ? '' : 'none';
+    if (window.equalizeTopBoxes) window.equalizeTopBoxes();
+};
+
+// FLUTES shows in EVERY mode. It was hidden in the drop modes for one release,
+// on the theory that the CT item count needed its slot; once the CT counters
+// moved into their own compact group Chris looked at a Pots and Bones tracker
+// and said there was "plenty of space for the Flute Stat" after all. The
+// function stays as the one place to hide it again if a taller stats column
+// ever starts overlapping GT — flutebox.js asserts that clearance.
+window.updateFluteBox = function(boxEl) {
+    var box = boxEl || document.querySelector('.stat-flute');
+    if (!box) return;
+    box.style.display = '';
+};
+
 window.updateCtKeyBox = function(boxEl) {
     var box = boxEl || document.querySelector('.stat-ctkey');
     if (!box) return;
@@ -989,10 +1226,17 @@ window.updateCtKeyBox = function(boxEl) {
     try {
         mode = window.dungeonItemsMode();
     } catch (e) { mode = 'standard'; }
-    var ks     = ['keysanity','mapcompasskeys'].indexOf(mode) !== -1;
     var static_ = window.ctKeyBoxIsStatic();
-    box.style.display = (ks || static_) ? '' : 'none';
+    // Shown in EVERY mode (Chris, Aug 2026: "we can probably just leave the CT
+    // key counts for standard and MC. I assume we are still tracking these" —
+    // we are, from the inventory read, in every mode). It started life gated on
+    // Key Sanity / MCK, then gained Retro and the key-drop and drop modes one
+    // at a time; each of those was really the same observation, that CT's keys
+    // are tracked and worth showing. Keeping it up in all modes also stops the
+    // stats block below shifting as the mode changes.
+    box.style.display = '';
     box.style.cursor  = static_ ? 'default' : 'pointer';
+    if (window.updateCtGroup) window.updateCtGroup();
     var ctMax = window.ctMaxSmallKeys();   // 2 normally, 4 under key drop
     if (static_) {
         el.textContent = String(ctMax);
@@ -1009,7 +1253,115 @@ window.repaintAllDungeons = function() {
     Object.keys(dungeons).forEach(function(k) {
         if (typeof updateDungeonCountDisplay === 'function') updateDungeonCountDisplay(k);
     });
+    window.equalizeTopBoxes();
 };
+
+// HC, the three pendant dungeons and the CT group form the right-hand column,
+// and the seven crystal dungeons fill the row below it. Both are measured
+// rather than given fixed widths, because the widest box changes with the mode
+// and with the seed's own totals.
+//
+// THE LAYOUT IS FLUID. The item grid spreads to the window width, so widening
+// the crystal row moves the dungeon column, which changes the very number the
+// crystal row was measured against. One pass overshot badly on a wide window —
+// TR ran past the pendant column and straight through the stats. So the whole
+// thing runs to a fixed point instead: three passes, each starting by clearing
+// every width it set. Do not "optimise" this back to a single pass.
+window.equalizeTopBoxes = function() {
+    for (var pass = 0; pass < 3; pass++) _equalizePass();
+};
+
+// getBoundingClientRect() is in DEVICE pixels, but a width we assign is in
+// logical ones, and itemtracker.html scales the whole tracker with
+// `document.body.style.zoom`. Measuring a zoomed box and writing that number
+// straight back multiplied every width by the zoom factor — once per pass, so
+// a 1.5x tracker blew up 3.4x and the crystal row ran straight through the
+// stats column. Everything below measures through this.
+function _lp(el) {
+    var z = (window._trackerScale || parseFloat(document.body.style.zoom) || 1);
+    if (!z) z = 1;
+    var r = el.getBoundingClientRect();
+    return { left: r.left / z, right: r.right / z, width: r.width / z };
+}
+
+function _equalizePass() {
+    // ── the right-hand column: HC / EP / DP / ToH / the CT group ──
+    var els = [];
+    ['hc','ep','dp','toh'].forEach(function(k) {
+        var e = document.querySelector('.dungeon-slot[data-dungeon-key="' + k + '"]');
+        if (e) els.push(e);
+    });
+    var g = document.querySelector('.ct-group');
+    if (g && g.style.display !== 'none') els.push(g);
+    if (!els.length) return;
+
+    // Clear first, always. A measure-and-apply pass that keeps the old widths
+    // can only ever grow: the previous maximum becomes the new floor.
+    els.forEach(function(e) { e.style.width = ''; });
+    var max = 0;
+    els.forEach(function(e) {
+        var w = _lp(e).width;
+        if (w > max) max = w;
+    });
+    if (!max) return;
+    // The CT group lines up with the dungeon boxes above it — same width, same
+    // left and right edges (Chris, Aug 2026: "The CT checks should be line up
+    // with the pendant dungeons above them").
+    els.forEach(function(e) { e.style.width = max + 'px'; });
+
+    // ── the plain stat rows are as wide as their own content, no wider ──
+    // They are label + number and nothing else, so stretching them to the width
+    // of a dungeon box only pushed each label away from its own number — and
+    // .stat-box's space-between meant the gap grew with the column. They hang
+    // off the right of the slot, which the CT group has already sized.
+    var rows = ['.stat-death','.stat-bonk','.stat-revival','.stat-flute']
+        .map(function(sel) { return document.querySelector(sel); })
+        .filter(Boolean);
+    var natural = 0;
+    rows.forEach(function(e) {
+        e.style.width = 'max-content';
+        var w = _lp(e).width;
+        if (w > natural) natural = w;
+    });
+    if (natural) {
+        // Left-justified, not hung off the right: sized to content it looked
+        // centred in the wider drop-mode column (Chris, Aug 2026: "I would
+        // prefer that it stays left justified but with a little padding on the
+        // left so it isn't touching the Crystal dungeon boxes"). The padding is
+        // .stat-row-inset in items.css; the width is clamped to leave room for
+        // it so a row can never run past the column.
+        var inset = 8;
+        if (natural > max - inset) natural = max - inset;
+        rows.forEach(function(e) {
+            e.style.width = Math.ceil(natural) + 'px';
+            e.style.alignSelf = 'flex-start';
+        });
+    }
+
+    equalizeCrystalRow();
+}
+
+// The seven crystal dungeons sit in a gapless flex row that stopped well short
+// of the pendant column. Chris: "the TR right side should be inline with the
+// Pedant dungeon left side. and the other crystal dungeons expanded equally."
+// GT follows TR in the same row and rides along under the pendant column.
+function equalizeCrystalRow() {
+    var keys = ['pod','sp','sw','tt','ip','mm','tr'];
+    var els = keys.map(function(k) {
+        return document.querySelector('.dungeon-slot[data-dungeon-key="' + k + '"]');
+    });
+    if (els.some(function(e) { return !e; })) return;
+    var ref = document.querySelector('.dungeon-slot[data-dungeon-key="ep"]') ||
+              document.querySelector('.dungeon-slot[data-dungeon-key="hc"]');
+    if (!ref) return;
+    els.forEach(function(e) { e.style.width = ''; });
+    var natural = _lp(els[0]).width;
+    var start = _lp(els[0]).left;
+    var each = (_lp(ref).left - start) / els.length;
+    if (!(each > natural)) return;   // nothing to fill
+    els.forEach(function(e) { e.style.width = each.toFixed(3) + 'px'; });
+}
+window.equalizeCrystalRow = equalizeCrystalRow;
 
 // Dungeon Item Shuffle changed from the map's settings menu.
 window.applyDungeonItemsChange = function(mode) {
@@ -1026,6 +1378,8 @@ window.applyDungeonItemsChange = function(mode) {
     if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
     window.repaintAllDungeons();
     window.updateCtKeyBox();
+    window.updateCtItemBox();
+    window.updateFluteBox();
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
 
@@ -1063,6 +1417,8 @@ window.applyUniversalKeysChange = function(v) {
     if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
     window.repaintAllDungeons();
     window.updateCtKeyBox();
+    window.updateCtItemBox();
+    window.updateFluteBox();
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
 
@@ -1077,6 +1433,8 @@ window.applyKeyDropChange = function(v) {
     if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
     window.repaintAllDungeons();
     window.updateCtKeyBox();
+    window.updateCtItemBox();
+    window.updateFluteBox();
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
 
@@ -1088,6 +1446,8 @@ window.applyKeyDropAllChange = function(v) {
     if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
     window.repaintAllDungeons();
     window.updateCtKeyBox();
+    window.updateCtItemBox();
+    window.updateFluteBox();
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
 
@@ -1099,8 +1459,39 @@ window.applyEnemyKeyDropChange = function(v) {
     if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
     window.repaintAllDungeons();
     window.updateCtKeyBox();
+    window.updateCtItemBox();
+    window.updateFluteBox();
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
+
+// The three drop-mode flags. Same shape as the key-drop trio: reset the
+// autotracking tallies, recompute, repaint. The tallies matter more here —
+// chestsMax comes from the game's counter in a drop mode and from location bits
+// outside one, so a stale high-water mark from the other path would stick.
+window.applyPotDropsChange = function(v) {
+    window._potDropsOverride = (v === 'yes') ? 'yes' : 'no';
+    try { localStorage.setItem('alttp-pot-drops', window._potDropsOverride); } catch (e) {}
+    _applyDropModeChange();
+};
+window.applyEnemyDropsChange = function(v) {
+    window._enemyDropsOverride = (v === 'yes') ? 'yes' : 'no';
+    try { localStorage.setItem('alttp-enemy-drops', window._enemyDropsOverride); } catch (e) {}
+    _applyDropModeChange();
+};
+window.applyPotsBonesChange = function(v) {
+    window._potsBonesOverride = (v === 'yes') ? 'yes' : 'no';
+    try { localStorage.setItem('alttp-pots-bones', window._potsBonesOverride); } catch (e) {}
+    _applyDropModeChange();
+};
+function _applyDropModeChange() {
+    _resetKeyDropTallies();
+    if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
+    window.repaintAllDungeons();
+    window.updateCtKeyBox();
+    window.updateCtItemBox();
+    window.updateFluteBox();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+}
 
 // Reset the autotracking tallies so the next SRAM read recounts from scratch.
 // chestsMax and itemCount are high-water marks that never fall on their own, so
@@ -1124,6 +1515,9 @@ window.addEventListener('storage', function(ev) {
     if (ev.key === 'alttp-bossshuffle')     window.applyBossShuffleChange(ev.newValue);
     if (ev.key === 'alttp-universal-keys')  window.applyUniversalKeysChange(ev.newValue);
     if (ev.key === 'alttp-keydrop')         window.applyKeyDropChange(ev.newValue);
+    if (ev.key === 'alttp-pot-drops')       window.applyPotDropsChange(ev.newValue);
+    if (ev.key === 'alttp-enemy-drops')     window.applyEnemyDropsChange(ev.newValue);
+    if (ev.key === 'alttp-pots-bones')      window.applyPotsBonesChange(ev.newValue);
     if (ev.key === 'alttp-enemy-keydrop')   window.applyEnemyKeyDropChange(ev.newValue);
     if (ev.key === 'alttp-keydrop-all')     window.applyKeyDropAllChange(ev.newValue);
 });
@@ -1137,6 +1531,8 @@ window.applyWorldStateChange = function(mode) {
     if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
     window.repaintAllDungeons();
     window.updateCtKeyBox();
+    window.updateCtItemBox();
+    window.updateFluteBox();
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 };
 
@@ -1287,17 +1683,6 @@ function createTracker() {
                 const isPendantDungeon = ['ep', 'dp', 'toh', 'hc'].includes(itemKey);
                 if (isPendantDungeon) {
                     dungeonSlot.classList.add('pendant-dungeon');
-                }
-
-                // GT is a shorter box than the crystal dungeons. In Key Sanity /
-                // MCK modes the stats box is taller (it carries the extra CT
-                // counter) and overflows down far enough to overlap GT — drop GT
-                // to the bottom of its row in those modes so it clears the overflow.
-                if (itemKey === 'gt') {
-                    const _gtMode = window.dungeonItemsMode();
-                    if (['keysanity', 'mapcompasskeys'].includes(_gtMode)) {
-                        dungeonSlot.classList.add('gt-bottom');
-                    }
                 }
 
                 // Container for label and prize (left side for pendant dungeons)
@@ -1578,9 +1963,25 @@ function createTracker() {
                 const revivalBox = document.createElement('div');
                 revivalBox.className = 'stat-box stat-revival';
                 revivalBox.innerHTML = '<span class="stat-label">REVIVALS</span><span class="stat-value" id="toh-revival-count">0</span>';
-                const fluteBox = document.createElement('div');
-                fluteBox.className = 'stat-box stat-flute';
-                fluteBox.innerHTML = '<span class="stat-label">FLUTES</span><span class="stat-value" id="toh-flute-count">0</span>';
+                // The two CT counters live inside their own bordered group, so a
+                // count that belongs to Castle Tower reads as separate from the
+                // DEATHS/BONKS/FLUTES stats stacked with it (Chris, Aug 2026).
+                // updateCtGroup() hides the border when neither counter shows.
+                const ctGroup = document.createElement('div');
+                ctGroup.className = 'ct-group';
+                // One CT label for the pair, on the left and styled like a
+                // pendant dungeon's label — same font, same position, so the
+                // group reads as one more box in that column (Chris, Aug 2026).
+                // The per-row labels are hidden in CSS; the key/chest icons are
+                // what tell the two rows apart.
+                const ctGroupLabel = document.createElement('div');
+                ctGroupLabel.className = 'dungeon-label ct-group-label';
+                ctGroupLabel.textContent = 'CT';
+                ctGroup.appendChild(ctGroupLabel);
+                const ctGroupRows = document.createElement('div');
+                ctGroupRows.className = 'ct-group-rows';
+                ctGroup.appendChild(ctGroupRows);
+
                 // CT small key counter. Always built; updateCtKeyBox() decides
                 // whether it is shown at all (key-shuffling modes and Retro),
                 // and whether it is a live tally or a plain, non-clickable "2"
@@ -1619,14 +2020,52 @@ function createTracker() {
                             if (window.broadcastItemSnap) window.broadcastItemSnap();
                         }
                     });
-                    statsSlot.appendChild(ctKeyBox);
+                    ctGroupRows.appendChild(ctKeyBox);
                     if (window.updateCtKeyBox) window.updateCtKeyBox(ctKeyBox);
                 }
+                // CT item count, directly under the key count. It took the
+                // FLUTES box's place (Chris, Aug 2026). Hidden unless the mode
+                // actually gives CT items — normally its locations are all
+                // keys, and a permanent 0/0 is just noise. Today that means a
+                // drop mode, where the count comes from the seed.
+                {
+                    const ctItemBox = document.createElement('div');
+                    ctItemBox.className = 'stat-box stat-ctitem';
+                    ctItemBox.innerHTML = `<span class="stat-label">CT</span><img src="${BASE_URL}/chest0.png" class="stat-icon" alt="Items"><span class="stat-value" id="toh-ctitem-count">0/0</span>`;
+                    const bump = function(delta) {
+                        if (deviceAttached) return;
+                        if (!window.trackerItems) window.trackerItems = {};
+                        var cur = window.trackerItems.ctItems || 0;
+                        var max = window.ctMaxItems();
+                        var next = cur + delta;
+                        if (next < 0 || next > max) return;
+                        window.trackerItems.ctItems = next;
+                        if (window.updateCtItemBox) window.updateCtItemBox();
+                        if (window.broadcastItemSnap) window.broadcastItemSnap();
+                    };
+                    ctItemBox.addEventListener('click', function(e) { e.stopPropagation(); bump(1); });
+                    ctItemBox.addEventListener('contextmenu', function(e) {
+                        e.preventDefault(); e.stopPropagation(); bump(-1);
+                    });
+                    ctGroupRows.appendChild(ctItemBox);
+                    if (window.updateCtItemBox) window.updateCtItemBox(ctItemBox);
+                }
+                statsSlot.appendChild(ctGroup);
+                if (window.updateCtGroup) window.updateCtGroup(ctGroup);
                 statsSlot.appendChild(hiddenStats);
                 statsSlot.appendChild(deathBox);
                 statsSlot.appendChild(bonkBox);
                 statsSlot.appendChild(revivalBox);
-                statsSlot.appendChild(fluteBox);
+                // FLUTES last, at the bottom of the column (Chris, Aug 2026).
+                // It hides in the drop modes, which is exactly when the CT item
+                // count appears, so the column never grows by both at once.
+                {
+                    const fluteBox = document.createElement('div');
+                    fluteBox.className = 'stat-box stat-flute';
+                    fluteBox.innerHTML = '<span class="stat-label">FLUTES</span><span class="stat-value" id="toh-flute-count">0</span>';
+                    statsSlot.appendChild(fluteBox);
+                    if (window.updateFluteBox) window.updateFluteBox(fluteBox);
+                }
                 rowDiv.appendChild(statsSlot);
             } else if (itemKey === 'bottles') {
                 // 2x2 grid of bottle slots, same footprint as a single item slot (48x48)
@@ -2620,8 +3059,27 @@ function processSeedCounts(data) {
     window._seedCountRaw = raw;
 
     if (window.applyDungeonItemMaxes) window.applyDungeonItemMaxes();
+
+    // Force the next inventory read to reprocess from scratch.
+    //
+    // The key counter is clamped to maxSmallKeys as it is read, and
+    // processInventoryData skips bytes that haven't changed since last time.
+    // The first inventory read lands BEFORE this block does, so keys were
+    // clamped against the old maximum — and because the bytes never change
+    // again, that stale figure stuck. HC read 4 keys as 1 and its item count
+    // ran three high for the rest of the session.
+    previousSRAM = null;
+
+    // And clear the high-water marks. `itemCount` and `chestsMax` never fall on
+    // their own, so a figure computed from the pre-seed maximums survives every
+    // later recount — the keys came right and the item count stayed wrong.
+    // Only clears while a device is attached; without one those are the
+    // player's own manual tally.
+    _resetKeyDropTallies();
+
     if (window.repaintAllDungeons) window.repaintAllDungeons();
     if (window.updateCtKeyBox) window.updateCtKeyBox();
+    if (window.updateCtItemBox) window.updateCtItemBox();
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 }
 
@@ -2677,6 +3135,16 @@ function processRoomData(data) {
             // only because that turns the pottery flag on as well.
             if (window.anyKeyDropFlag()) chestsOpened += dungeon.keyDropCount || 0;
 
+            // ── drop modes: the game's own counter, not our bits ──
+            // Pot Drops and Enemy Drops shuffle in locations we have no table
+            // for, so counting bits can only ever undercount. The game keeps a
+            // per-dungeon "checks done" tally at $F5F4B0, which is inside this
+            // very read, counts every location type, and needs no knowledge of
+            // where anything lives. Used ONLY here — every other mode keeps the
+            // bit counting it was verified with.
+            var _seedChecks = window.checksDoneFor(key, data);
+            if (_seedChecks !== null) chestsOpened = _seedChecks;
+
             // High-water mark: chest count never goes down (handles flickering SRAM on BizHawk etc.)
             chestsOpened = Math.max(chestsOpened, dungeons[key].chestsMax || 0);
             dungeons[key].chestsMax = chestsOpened;
@@ -2687,17 +3155,21 @@ function processRoomData(data) {
             const ksMode = diMode === 'keysanity';
             const mcMode = diMode === 'mapcompass';
             const mckMode = diMode === 'mapcompasskeys';
-            // Does this dungeon have a big key sitting in one of the locations we
-            // count? Normally yes. HC is the exception (noBigKeyItem) — it has no
-            // big key of its own... UNTIL key drop shuffle, which gives it
-            // "Hyrule Castle - Big Key Drop", a real location that IS counted in
-            // chestsOpened. Without this, HC reads one too high the moment the
-            // big key is found, and hits "complete" with an item still out there.
-            // The big key drop is itself an ENEMY drop, so it has to be gated on
-            // the same flag keyDropExtras uses for its `bigLoc` — otherwise
-            // maxChests counts that location and this doesn't, or the reverse.
-            const bigKeyIsALocation = !dungeon.noBigKeyItem
-                || (window.enemyKeyDropFlag() && dungeon.bigkeydrop);
+            // Which of this dungeon's locations hold its map, compass and big
+            // key — asked of `dungeonItemSlots`, the SAME helper that decides
+            // maxItems, rather than worked out again here.
+            //
+            // HC is the whole reason: normally it has no big key of its own
+            // (noBigKeyItem), but key drop and every drop mode give it one. This
+            // used to be a second copy of that rule gated on the enemy KEY drop
+            // flag alone, so under **Enemy Drops** — a drop mode, where that
+            // flag is off — maxItems counted HC's big key and the collected
+            // count didn't. Chris, Aug 2026: 66 of 68 with 71 of 74 checked,
+            // one high, the big key never coming out.
+            //
+            // One definition, used by both, so they cannot drift apart again.
+            const slots = window.dungeonItemSlots(key);
+            const bigKeyIsALocation = !!slots.bigKey;
 
             let items;
             if (ksMode) {
@@ -2709,8 +3181,10 @@ function processRoomData(data) {
                 items = chestsOpened - bigKey;
             } else {
                 let dungeonItems = 0;
-                if (!mcMode && dungeon.compassState > 0) dungeonItems++; // compass is shuffled in MC+
-                if (!mcMode && dungeon.mapState > 0) dungeonItems++;     // map is shuffled in MC+
+                // `slots` says whether the dungeon HAS each one; the state says
+                // whether it has been found yet. Both are needed.
+                if (!mcMode && slots.compass && dungeon.compassState > 0) dungeonItems++; // compass is shuffled in MC+
+                if (!mcMode && slots.map && dungeon.mapState > 0) dungeonItems++;         // map is shuffled in MC+
                 if (bigKeyIsALocation && dungeon.bigkeyState > 0) dungeonItems++;
                 // Use the high-water mark of small keys ever held so that using a key
                 // doesn't cause the chest subtraction to drop and inflate the item count.
@@ -2745,6 +3219,17 @@ function processRoomData(data) {
         }
     }
     
+    // CT has no `dungeons` entry, so its collected count is folded in here.
+    // Only in a drop mode — outside one CT's locations are all keys and the
+    // item box is hidden anyway.
+    var _ctChecks = window.checksDoneFor('ct', data);
+    if (_ctChecks !== null) {
+        if (!window.trackerItems) window.trackerItems = {};
+        var _ctKeysHeld = window.trackerItems.ctSmallKeys || 0;
+        window.trackerItems.ctItems = Math.max(0, _ctChecks - _ctKeysHeld);
+        if (window.updateCtItemBox) window.updateCtItemBox();
+    }
+
     previousRoomData = new Uint8Array(data);
 
     // Broadcast room data to map window via BroadcastChannel
@@ -3533,6 +4018,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         createTracker();
         window.applySwordlessMode(window.swordlessFlag());
+        // After the first layout, so the boxes have real widths to match.
+        requestAnimationFrame(function() { window.equalizeTopBoxes(); });
         // WebSocket is managed by tracker.js / itemtracker.html
     } catch (error) {
         console.error('Error initializing tracker:', error);

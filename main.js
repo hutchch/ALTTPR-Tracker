@@ -636,7 +636,10 @@ function createItemTrackerWindow(scale, wsHost, wsPort, bg, dungeonItems, bossSh
   const keyDrop = ((store.get('settings', {}) || {}).keyDrop) || 'no';
   const enemyKeyDrop = ((store.get('settings', {}) || {}).enemyKeyDrop) || 'no';
   const keyDropAll = ((store.get('settings', {}) || {}).keyDropAll) || 'no';
-  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}&bossshuffle=${bossShuffle||'yes'}&race=${race}&pseudoboots=${pseudoboots}&mirrorscroll=${mirrorscroll}&gamemode=${gamemode}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}`;
+  const potDrops = ((store.get('settings', {}) || {}).potDrops) || 'no';
+  const enemyDrops = ((store.get('settings', {}) || {}).enemyDrops) || 'no';
+  const potsBones = ((store.get('settings', {}) || {}).potsBones) || 'no';
+  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}&bossshuffle=${bossShuffle||'yes'}&race=${race}&pseudoboots=${pseudoboots}&mirrorscroll=${mirrorscroll}&gamemode=${gamemode}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}&potdrops=${potDrops}&enemydrops=${enemyDrops}&potsbones=${potsBones}`;
   itemWin.loadURL(toFileUrl('itemtracker.html') + q);
   itemWin.on('closed', () => { itemWin = null; });
   itemTrackerBg = bg || 'black';
@@ -678,9 +681,12 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
   const keyDrop = ((store.get('settings', {}) || {}).keyDrop) || 'no';
   const enemyKeyDrop = ((store.get('settings', {}) || {}).enemyKeyDrop) || 'no';
   const keyDropAll = ((store.get('settings', {}) || {}).keyDropAll) || 'no';
+  const potDrops = ((store.get('settings', {}) || {}).potDrops) || 'no';
+  const enemyDrops = ((store.get('settings', {}) || {}).enemyDrops) || 'no';
+  const potsBones = ((store.get('settings', {}) || {}).potsBones) || 'no';
   const shopsanity = ((store.get('settings', {}) || {}).shopsanity) || 'no';
   const bonkShuffle = ((store.get('settings', {}) || {}).bonkShuffle) || 'no';
-  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}&bossshuffle=${bossShuffle||'yes'}&entranceshuffle=${entranceShuffle||'no'}&entrancemode=${entranceMode||'none'}&shopsanity=${shopsanity}&bonkshuffle=${bonkShuffle}`;
+  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}&bossshuffle=${bossShuffle||'yes'}&entranceshuffle=${entranceShuffle||'no'}&entrancemode=${entranceMode||'none'}&shopsanity=${shopsanity}&bonkshuffle=${bonkShuffle}&potdrops=${potDrops}&enemydrops=${enemyDrops}&potsbones=${potsBones}`;
   mapWin.loadURL(toFileUrl('map.html') + q);
   mapWin.on('closed', () => { mapWin = null; });
 }

@@ -902,7 +902,11 @@ function refreshSeedSettings() {
 var _SEED_SETTING_KEYS = {
   'alttp-gamemode': 1, 'alttp-universal-keys': 1, 'alttp-dungeon-items': 1,
   'alttp-bossshuffle': 1, 'alttp-swordless': 1, 'alttp-enemizer': 1,
-  'alttp-gt-crystals': 1, 'alttp-keydrop': 1, 'alttp-enemy-keydrop': 1, 'alttp-keydrop-all': 1
+  'alttp-gt-crystals': 1, 'alttp-keydrop': 1, 'alttp-enemy-keydrop': 1, 'alttp-keydrop-all': 1,
+  // The drop modes move every dungeon's maxes, so the view has to repaint for
+  // the same reason it does on key drop. The CT item box is item-tracker only
+  // and is deliberately NOT mirrored here.
+  'alttp-pot-drops': 1, 'alttp-enemy-drops': 1, 'alttp-pots-bones': 1
 };
 window.addEventListener('storage', function(ev) {
   if (ev.key && _SEED_SETTING_KEYS[ev.key]) refreshSeedSettings();

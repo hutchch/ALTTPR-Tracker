@@ -19,8 +19,11 @@ body {
     margin: 0;
     /* Equal left/right insets so the edge dungeons (POD on the left, the HC/EP
        column on the right) clear the window frame symmetrically. offsetWidth
-       includes this padding, so the launch window-fit widens to match. */
-    padding: 0 9px;
+       includes this padding, so the launch window-fit widens to match.
+       Halved from 9px (Chris, Aug 2026: "extra padding on the left side, that
+       can be cut in half, and make the spacing on the right match"); the other
+       half of that gap is SIDE_PAD in itemtracker.html's fitWindowToContent. */
+    padding: 0 4px;
 }
 
 .tracker-row {
@@ -198,6 +201,10 @@ body {
 /* Dungeon slot styles */
 .dungeon-slot {
     position: relative;
+    /* equalizeTopBoxes() sets an explicit width on HC/EP/DP/ToH so they and the
+       CT group all match the widest of them; that measurement is a border-box
+       width, so the sizing has to agree. */
+    box-sizing: border-box;
     width: 52px;
     display: flex;
     flex-direction: column;
@@ -260,12 +267,10 @@ html.dfill-on .dungeon-slot.prize-obtained {
     align-items: center;
 }
 
-/* Drop the GT box to the bottom of its row when the stats box overflows down
-   far enough to overlap it (Key Sanity / MCK modes — the stats row gains a
-   CT counter set via the .gt-bottom class added by createTracker). */
-.dungeon-slot.gt-bottom {
-    align-self: flex-end;
-}
+/* .gt-bottom is gone (Aug 2026). It dropped the GT box to the bottom of its row
+   in Key Sanity / MCK, to clear a stats box that overflowed further down when it
+   gained the CT counter. The CT counters now sit in their own compact bordered
+   group and no longer push that far, and Chris asked for GT back in line. */
 
 .dungeon-content {
     display: flex;
@@ -634,9 +639,21 @@ html.no-boss-shuffle .boss-circle:hover {
 .stats-slot {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    box-sizing: border-box;
+    /* Tight on purpose. With FLUTES back alongside the CT group (Aug 2026) this
+       column is five rows in Key Sanity, and it has to finish above the GT box
+       in the row below — .gt-bottom, which used to shove GT down out of the
+       way, is gone at Chris's request. Every px here is one px of clearance. */
+    gap: 2px;
     justify-content: center;
-    padding: 6px 2px 2px 6px;
+    /* No top padding, 3px on the LEFT only. The 3px is what lines the CT group
+       up with the dungeon boxes above (this slot sits in its own row, so its
+       left edge lands 3px short of theirs). There is deliberately none on the
+       right: the slot would then be the widest thing in the tracker and push
+       the container 3px past the boxes, which is exactly the uneven window
+       margin Chris spotted — the container is centred, but its content was not
+       symmetric inside it. */
+    padding: 0 0 0 3px;
     margin-left: 6px;
     align-self: flex-start;
     width: 0;
@@ -679,6 +696,21 @@ html.no-boss-shuffle .boss-circle:hover {
     color: #7ddf7d;
 }
 
+/* DEATHS / BONKS / REVIVALS / FLUTES keep .stat-box's own layout: label left,
+   value right. Chris tried right-aligned rows and came back to this one — "I
+   liked how the stats were justified left".
+
+   equalizeTopBoxes() sizes them to their own content (so the value never drifts
+   away from its label) and left-justifies them in the column; this margin keeps
+   the labels off the crystal dungeon boxes that now run right up to the
+   column's left edge. Keep it in step with the `inset` in that function. */
+.stat-death,
+.stat-bonk,
+.stat-revival,
+.stat-flute {
+    margin-left: 8px;
+}
+
 .stat-death {
     color: #ff0000;
 }
@@ -691,13 +723,63 @@ html.no-boss-shuffle .boss-circle:hover {
     color: #95a5a6;
 }
 
-/* FLUTES reuses the old HEARTS colour. */
+/* FLUTES reuses the old HEARTS colour. It shares a slot with the CT item count:
+   the flute box hides in the drop modes, which is the only place the CT item
+   count shows (Chris, Aug 2026). */
 .stat-flute {
     color: #95a5a6;
 }
 
 .stat-revival {
     color: #9b59b6;
+}
+
+/* The two CT counters sit in their own bordered group so a Castle Tower count
+   is visibly not one of the DEATHS / BONKS / FLUTES stats stacked beside it.
+   updateCtGroup() hides the border whenever neither counter is showing. */
+.ct-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid rgba(255,255,255,0.40);
+    border-radius: 4px;
+    /* 5px on the left puts the CT label on the same x as EP's and DP's. */
+    padding: 2px 4px 1px 5px;
+}
+
+/* One label for the pair, on the left like a pendant dungeon's, and wearing
+   .dungeon-label so it is the same font and weight as EP / DP / ToH. */
+.ct-group-label {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+}
+
+.ct-group-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* The rows' own labels would repeat it; the key and chest icons say which is
+   which. */
+.ct-group .stat-label { display: none; }
+
+/* CT's counts sit right next to the label rather than out at the right edge.
+   The dungeon boxes push their counts across because they have map / compass /
+   big key icons in between; CT has none of those, so there is nothing to line
+   up with and the slack belongs at the far right (Chris, Aug 2026: "The CT key
+   doesn't need to line up with the other keys... the left part of the box was
+   close to the numbers"). */
+.ct-group .stat-ctkey,
+.ct-group .stat-ctitem {
+    justify-content: flex-start;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .stat-ctkey {
@@ -717,6 +799,32 @@ html.no-boss-shuffle .boss-circle:hover {
 }
 
 .stat-ctkey .stat-value {
+    font-size: 11px;
+    color: #fff;
+}
+
+/* CT item count, directly under the CT key count. Same shape as .stat-ctkey so
+   the two read as one pair — without these rules the box renders with the
+   default .stat-box spacing and its label is lost against the taller value.
+   The label is tinted like a chest rather than a key so the two rows are
+   tellable apart at a glance. */
+.stat-ctitem {
+    color: #fff;
+    gap: 4px;
+    justify-content: flex-end;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: -3px;
+    margin-bottom: -1px;
+}
+
+.stat-ctitem .stat-label {
+    margin-right: 2px;
+    opacity: 1;
+    color: #8fb8e8;
+}
+
+.stat-ctitem .stat-value {
     font-size: 11px;
     color: #fff;
 }
@@ -833,6 +941,9 @@ html.dfill-on[data-bg="white"] .dungeon-slot.prize-obtained {
 [data-bg="white"] .stat-bonk  { color: #cc5500; }
 [data-bg="white"] .stat-heartpiece { color: #6c3483; }
 [data-bg="white"] .stat-flute      { color: #6c3483; }
+[data-bg="white"] .ct-group        { border-color: rgba(0,0,0,0.40); }
+[data-bg="white"] .stat-ctkey  .stat-label { color: #8a6d1f; }
+[data-bg="white"] .stat-ctitem .stat-label { color: #1f4e8a; }
 [data-bg="white"] .stat-revival    { color: #117a65; }
 
 [data-bg="white"] .tracker-bottom-bar {
