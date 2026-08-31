@@ -1,6 +1,6 @@
 ***
 <h1>ALTTPR Tracker </h1>
-<h2>(v1.1.16 release)</h2>
+<h2>(v1.1.17 release)</h2>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
 
@@ -29,15 +29,15 @@ This is as-is.  These files are to assist in the game, and provided to help othe
  - Enemizer or normal mode
  - Sword or Swordless
  - Other Seed Options (Advanced)
-   - Shop Sanity (v1.1.17 Coming Soon)
-   - Bonk Shuffle (v1.1.17 Coming Soon)
-   - Universal Key (v1.1.17 Coming Soon)
-   - KeyDrop Enemy and Pot (v1.1.17 Coming Soon)
-   - Enemy and Pot Item Drop (Individual or Pots and Bones) (v1.1.17 Coming Soon)
+   - Shop Sanity (v1.1.17)
+   - Bonk Shuffle (v1.1.17)
+   - Universal Key (v1.1.17)
+   - KeyDrop Enemy and Pot (v1.1.17)
+   - Enemy and Pot Item Drop (Individual or Pots and Bones) (v1.1.17)
    - Pseudo Boots/Mirror Scroll (v1.1.16)
  - Item Tracker Broadcast View (Customizable)
  - Item marking on the map
- - Read from the meta data from alttpr.com (v1.1.17 Coming Soon)
+ - Read from the meta data from alttpr.com (v1.1.17)
  - Automatic Timer 
    - Starts when Game Play is detected
    - Stops in the Triforce Room
@@ -79,7 +79,6 @@ Windows Emulator Setup Guides
 ***
 
 <img width="2777" height="1797" alt="image" src="https://github.com/user-attachments/assets/1a9e3d64-63cb-4c56-9dd9-09a507012306" />
-NOTE: <i>This is v1.1.17, currently in development, some features are coming soon</i>
 
 ***
 ### Alternative Trackers:
