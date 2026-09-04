@@ -42,7 +42,10 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Starts when Game Play is detected
    - Stops in the Triforce Room
    - Can Only Pause in a menu (This is due to reading the game modes for auto start and stop) 
-
+ - OpenAPI 
+   - want something more custom? Use the OpenAPI and build your own overlay
+   - [Overlay](https://github.com/hutchch/ALTTPR-Tracker/wiki/OpenAPI-Feature#overlay-websocket)
+   
 <i>Each mode takes many hours to build.  I have committed over several hundred hours into this project. </i>
 ***
 
