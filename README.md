@@ -90,7 +90,9 @@ Here are some alternate trackers.  Please take a look and try them out
  - [PopTracker](https://poptracker.github.io/) (Release is on the right side)
  - [OpenTracker](https://github.com/trippsc2/OpenTracker/) (Release is on the right side)
  - [EmoTracker](https://github.com/EmoTracker-Community/EmoTracker) (Release is on the right side)
- - [ALTTPR Community Tracker](https://alttprtracker.mfns.dev/) (Webpage) 
+ - [ALTTPR Community Tracker](https://alttprtracker.mfns.dev/) (Webpage)
+ - [MFNs 2.0 Tracker](https://volatile.alttprtracker.mfns.dev/) (
+ Webpage)
  - [Stonks Stat Tracker](https://thettracker.vercel.app/) (Webpage) 
 
 ***
