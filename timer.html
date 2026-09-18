@@ -52,6 +52,7 @@ body {
 #timer-main {
   font-size: 52px;
   font-weight: bold;
+  font-family: var(--timer-font, Arial, Helvetica, sans-serif);
   color: var(--timer-color, #3498db);
   font-variant-numeric: tabular-nums;
   letter-spacing: 2px;
@@ -61,11 +62,14 @@ body {
 #timer-centis {
   font-size: 30px;
   font-weight: bold;
+  font-family: var(--timer-font, Arial, Helvetica, sans-serif);
   color: var(--timer-color-dim, #2a7ab8);
   font-variant-numeric: tabular-nums;
   transition: font-size 0.15s;
 }
 
+/* Sub-second digits off: hidden, not removed, so nothing reflows. */
+.timer-display.no-centis #timer-centis { display: none; }
 .timer-display.running #timer-main   { color: var(--timer-color, #3498db); }
 .timer-display.running #timer-centis { color: var(--timer-color-dim, #2a7ab8); }
 .timer-display.finished #timer-main   { color: var(--timer-color, #3498db); opacity: 0.7; }
@@ -311,6 +315,38 @@ html[data-bg="transparent"] .timer-settings-btn { background: rgba(0,0,0,0.5); b
       </div>
 
       <div class="ts-section">
+        <h4>Font</h4>
+        <div class="ts-radios">
+          <select id="ts-font" style="background:#111;color:#ddd;border:1px solid #333;border-radius:4px;padding:4px 8px;font-size:12px;">
+            <option value="sans">System UI</option>
+            <option value="arial">Arial</option>
+            <option value="arialblack">Arial Black</option>
+            <option value="arialnarrow">Arial Narrow</option>
+            <option value="verdana">Verdana</option>
+            <option value="trebuchet">Trebuchet MS</option>
+            <option value="tahoma">Tahoma</option>
+            <option value="georgia">Georgia</option>
+            <option value="times">Times New Roman</option>
+            <option value="palatino">Palatino</option>
+            <option value="impact">Impact</option>
+            <option value="comic">Comic Sans MS</option>
+            <option value="couriernew">Courier New</option>
+            <option value="mono">Monospace (Consolas / Menlo)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ts-section">
+        <h4>Sub-seconds</h4>
+        <div class="ts-radios">
+          <label><input type="checkbox" id="ts-centis"> Hide hundredths (.00)</label>
+          <div id="ts-centis-race" style="font-size:10px;color:#888;margin-top:4px;display:none;">
+            Race Mode is on — hundredths always show.
+          </div>
+        </div>
+      </div>
+
+      <div class="ts-section">
         <h4>Background</h4>
         <div class="ts-radios">
           <label><input type="radio" name="ts-bg" value="black">       Black</label>
@@ -355,12 +391,44 @@ var TIMER_COLORS = {
   pink:   { main: '#e314d2', dim: '#eb11d9' },
 };
 
+// Every entry resolves on a stock Windows AND a stock macOS — the core web
+// font set both ship, plus two stacks for the faces each OS names differently
+// (Palatino Linotype / Palatino, Consolas / Menlo). A generic family closes
+// each stack so nothing can fall through to something unreadable.
+var TIMER_FONTS = {
+  sans:        "system-ui, 'Segoe UI', -apple-system, Helvetica, Arial, sans-serif",
+  arial:       "Arial, Helvetica, sans-serif",
+  arialblack:  "'Arial Black', Gadget, sans-serif",
+  arialnarrow: "'Arial Narrow', 'Helvetica Neue Condensed', Arial, sans-serif",
+  verdana:     "Verdana, Geneva, sans-serif",
+  trebuchet:   "'Trebuchet MS', 'Lucida Grande', sans-serif",
+  tahoma:      "Tahoma, Geneva, Verdana, sans-serif",
+  georgia:     "Georgia, 'Times New Roman', serif",
+  times:       "'Times New Roman', Times, serif",
+  palatino:    "'Palatino Linotype', Palatino, 'Book Antiqua', serif",
+  impact:      "Impact, Haettenschweiler, 'Arial Black', sans-serif",
+  comic:       "'Comic Sans MS', 'Comic Sans', cursive",
+  couriernew:  "'Courier New', Courier, monospace",
+  mono:        "Consolas, Menlo, 'DejaVu Sans Mono', monospace"
+};
+
 var TIMER_SETTINGS = {
   color:        'blue',
   colorCustom:  '#3498db',
   bg:           'black',
-  bgCustom:     '#222222'
+  bgCustom:     '#222222',
+  font:         'arial',
+  fontCustom:   '',
+  showCentis:   true      // hundredths on by default
 };
+
+// Race Mode forces the hundredths back on: a race time is reported to the
+// hundredth, so hiding them is a decoration the racer doesn't get to keep.
+function raceModeOn() {
+  try {
+    return (p.get('race') || localStorage.getItem('alttp-race-mode') || 'no') === 'yes';
+  } catch (e) { return false; }
+}
 
 function loadTimerSettings() {
   try {
@@ -368,6 +436,10 @@ function loadTimerSettings() {
     TIMER_SETTINGS.colorCustom = localStorage.getItem('alttp-timer-color-custom')  || TIMER_SETTINGS.colorCustom;
     TIMER_SETTINGS.bg          = localStorage.getItem('alttp-timer-bg')            || TIMER_SETTINGS.bg;
     TIMER_SETTINGS.bgCustom    = localStorage.getItem('alttp-timer-bg-custom')     || TIMER_SETTINGS.bgCustom;
+    TIMER_SETTINGS.font        = localStorage.getItem('alttp-timer-font')          || TIMER_SETTINGS.font;
+    TIMER_SETTINGS.fontCustom  = localStorage.getItem('alttp-timer-font-custom')   || TIMER_SETTINGS.fontCustom;
+    var sc = localStorage.getItem('alttp-timer-centis');
+    if (sc !== null) TIMER_SETTINGS.showCentis = (sc !== 'no');
   } catch (e) {}
   // URL params win at launch (the launcher passes them through)
   var urlColor = p.get('color');
@@ -382,6 +454,9 @@ function saveTimerSettings() {
     localStorage.setItem('alttp-timer-color-custom', TIMER_SETTINGS.colorCustom);
     localStorage.setItem('alttp-timer-bg',           TIMER_SETTINGS.bg);
     localStorage.setItem('alttp-timer-bg-custom',    TIMER_SETTINGS.bgCustom);
+    localStorage.setItem('alttp-timer-font',         TIMER_SETTINGS.font);
+    localStorage.setItem('alttp-timer-font-custom',  TIMER_SETTINGS.fontCustom);
+    localStorage.setItem('alttp-timer-centis',       TIMER_SETTINGS.showCentis ? 'yes' : 'no');
   } catch (e) {}
 }
 
@@ -409,6 +484,25 @@ function applyTimerColor() {
   }
 }
 
+function applyTimerFont() {
+  // A saved 'custom' name from the earlier free-text version still resolves,
+  // so nobody's setting breaks; the picker itself only offers the list above.
+  var f = (TIMER_SETTINGS.font === 'custom' && TIMER_SETTINGS.fontCustom)
+        ? TIMER_SETTINGS.fontCustom + ", 'Segoe UI', Arial, sans-serif"
+        : (TIMER_FONTS[TIMER_SETTINGS.font] || TIMER_FONTS.arial);
+  document.documentElement.style.setProperty('--timer-font', f);
+}
+
+// Set the display's state class without losing the no-centis modifier.
+function setDispState(state) {
+  dispWrap.className = 'timer-display' + (state ? ' ' + state : '');
+  applyTimerCentis();
+}
+function applyTimerCentis() {
+  var show = TIMER_SETTINGS.showCentis || raceModeOn();
+  dispWrap.classList.toggle('no-centis', !show);
+}
+
 function applyTimerBg() {
   var bg = TIMER_SETTINGS.bg;
   // Clear any prior inline overrides — the [data-bg] CSS rules handle the
@@ -432,6 +526,13 @@ function openTimerSettings() {
   document.querySelectorAll('input[name="ts-bg"]').forEach(function(r)    { r.checked = (r.value === TIMER_SETTINGS.bg); });
   document.getElementById('ts-color-custom').value = TIMER_SETTINGS.colorCustom;
   document.getElementById('ts-bg-custom').value    = TIMER_SETTINGS.bgCustom;
+  var fsel = document.getElementById('ts-font');
+  fsel.value = TIMER_SETTINGS.font;
+  if (!fsel.value) fsel.value = 'arial';      // a retired value falls back
+  var cb = document.getElementById('ts-centis');
+  cb.checked  = !(TIMER_SETTINGS.showCentis || raceModeOn());
+  cb.disabled = raceModeOn();
+  document.getElementById('ts-centis-race').style.display = raceModeOn() ? '' : 'none';
   document.getElementById('timer-settings-overlay').classList.remove('hidden');
 }
 function closeTimerSettings() {
@@ -462,13 +563,30 @@ document.getElementById('ts-bg-custom').addEventListener('input', function(e) {
   if (TIMER_SETTINGS.bg === 'custom') applyTimerBg();
   saveTimerSettings();
 });
+document.getElementById('ts-font').addEventListener('change', function(e) {
+  TIMER_SETTINGS.font = e.target.value;
+  saveTimerSettings(); applyTimerFont();
+});
+document.getElementById('ts-centis').addEventListener('change', function(e) {
+  if (raceModeOn()) { e.target.checked = false; return; }  // race: not optional
+  TIMER_SETTINGS.showCentis = !e.target.checked;
+  saveTimerSettings(); applyTimerCentis();
+});
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeTimerSettings();
+});
+
+// Race Mode is set in the launcher, which writes it to localStorage; pick up a
+// change made while this window is open.
+window.addEventListener('storage', function (ev) {
+  if (ev.key === 'alttp-race-mode') applyTimerCentis();
 });
 
 loadTimerSettings();
 applyTimerColor();
 applyTimerBg();
+applyTimerFont();
+applyTimerCentis();
 
 // ── Font size controls ────────────────────────────────────────────────────────
 function changeSize(delta) {
@@ -498,40 +616,66 @@ function updateDisplay() {
 }
 
 // ── Timer controls ────────────────────────────────────────────────────────────
-// Timer is wall-clock driven: each tick recomputes centiseconds from
-// (Date.now() - _startMs), so accuracy is guaranteed even if Chromium skips a
-// tick. Display refresh runs at 20 Hz (50 ms) which still looks smooth for
-// centisecond numerals while spending ~3× less CPU than the old 100 Hz loop.
-var _startMs = 0;     // wall-clock origin (ms) for the current run
+// The clock is MONOTONIC, not wall clock. performance.now() counts from a fixed
+// origin and can't jump: an NTP correction, a DST change or someone setting the
+// system clock mid-run moves Date.now() and would move the run with it. This is
+// the same choice livesplit-core makes (its TimeStamp wraps the platform's
+// monotonic instant rather than the calendar clock).
+//
+// Every frame recomputes the whole elapsed time from (now - origin); nothing is
+// accumulated tick by tick, so a dropped or late frame can't lose or gain time
+// — it just means one frame drew a slightly older number. The display runs on
+// requestAnimationFrame (per frame, ~16 ms) rather than a 50 ms interval, so
+// the centiseconds read exactly what the clock says at paint time. A slow
+// interval runs alongside it purely as a backstop, for when the window is
+// hidden or minimised and rAF stops firing.
+function _now() {
+  return (window.performance && performance.now) ? performance.now() : Date.now();
+}
+var _startMs = 0;     // monotonic origin (ms) for the current run
 var _baseCs  = 0;     // centiseconds at that origin
+var _rafId   = 0;
 
 function startTimer() {
   if (isRunning) return;
   isRunning = true;
-  _startMs = Date.now();
+  _startMs = _now();
   _baseCs  = centiseconds;
-  intervalId = setInterval(timerTick, 50);
+  intervalId = setInterval(timerTick, 250);      // backstop only
+  _rafId = requestAnimationFrame(_rafTick);
   btnPlay.textContent = '⏸';
   btnPlay.className   = 'ctrl-btn running';
-  dispWrap.className  = 'timer-display running';
+  setDispState('running');
 }
 
 function timerTick() {
-  centiseconds = _baseCs + Math.floor((Date.now() - _startMs) / 10);
+  // Truncate, the way LiveSplit does: the shown time never runs ahead of the
+  // real one.
+  centiseconds = _baseCs + Math.floor((_now() - _startMs) / 10);
   updateDisplay();
+}
+
+function _rafTick() {
+  if (!isRunning) return;
+  timerTick();
+  _rafId = requestAnimationFrame(_rafTick);
 }
 
 function stopTimer() {
   if (!isRunning) return;
   isRunning = false;
+  // Take one last reading at the moment of the stop, so pausing doesn't round
+  // down to whatever the previous frame drew.
+  timerTick();
   clearInterval(intervalId);
+  if (_rafId) { cancelAnimationFrame(_rafId); _rafId = 0; }
   btnPlay.textContent = '▶';
   btnPlay.className   = 'ctrl-btn';
 }
 
 function finishTimer() {
   stopTimer();
-  dispWrap.className = 'timer-display finished';
+  setDispState('finished');
 }
 
 function togglePlayPause() {
@@ -542,7 +686,7 @@ function resetTimer() {
   stopTimer();
   centiseconds = 0;
   updateDisplay();
-  dispWrap.className = 'timer-display';
+  setDispState('');
 }
 
 function setTimeFromInput() {
@@ -558,7 +702,7 @@ function setTimeFromInput() {
   // If the timer is currently running, re-base the wall clock so the next
   // tick continues from this new value instead of snapping back to the old one.
   if (isRunning) {
-    _startMs = Date.now();
+    _startMs = _now();
     _baseCs  = centiseconds;
   }
   updateDisplay();
@@ -586,6 +730,8 @@ var TRIFORCE_CONFIRM = 2;
 // over BroadcastChannel. While those broadcasts are fresh, the timer skips
 // its own SNES poll entirely — same pattern the map already uses for room
 // data. Falls back to direct polling automatically when broadcasts go stale.
+var START_POLL_MS   = 60;    // while waiting for the run to start
+var RUN_POLL_MS     = 500;   // once it has
 var _lastBcGamemode = 0;
 var BC_GAMEMODE_FRESH_MS = 2000;
 var GAMEMODE_SRAM   = 'F50010';
@@ -671,7 +817,7 @@ function processGamemode(gm, viaBc) {
     if (_validReadCount === 1 && _pollTimer) {
       // First confirmed gameplay read — slow our fallback poll
       clearInterval(_pollTimer);
-      _pollTimer = setInterval(pollGamemode, 500);
+      _pollTimer = setInterval(pollGamemode, RUN_POLL_MS);
     }
     startTimer();
   } else if (gm === TRIFORCE_MODE) {
@@ -680,7 +826,7 @@ function processGamemode(gm, viaBc) {
     _validReadCount++;
     if (_validReadCount === 1 && _pollTimer) {
       clearInterval(_pollTimer);
-      _pollTimer = setInterval(pollGamemode, 500);
+      _pollTimer = setInterval(pollGamemode, RUN_POLL_MS);
     }
     if (_triforceCount >= TRIFORCE_CONFIRM) finishTimer();
   } else if (KNOWN_MODES.indexOf(gm) !== -1) {
@@ -740,19 +886,24 @@ function handleMessage(evt) {
       _validReadCount = 0;
       _triforceCount  = 0;
       clearInterval(_pollTimer);
-      // Start fast (250ms) to catch game start quickly, slow down after first valid read
-      _pollTimer = setInterval(pollGamemode, 250);
+      // Before the run starts, the poll interval IS the start accuracy: the
+      // timer can only begin on a read that sees gameplay, so a 250 ms poll is
+      // up to 250 ms late. 60 ms costs one extra 1-byte SNES read every other
+      // frame and gets that down to about a frame, near what LiveSplit's
+      // auto-splitter manages. It backs off to 500 ms once the run is going.
+      _pollTimer = setInterval(pollGamemode, START_POLL_MS);
     }
   } catch(e) {}
 }
 
 
 function pollGamemode() {
-  // If the item tracker is broadcasting game mode over BroadcastChannel,
-  // skip our own SNES poll entirely — it's redundant. We still keep the WS
-  // open as a fallback so the timer continues working when the item tracker
-  // window isn't running.
-  if (Date.now() - _lastBcGamemode < BC_GAMEMODE_FRESH_MS) return;
+  // The item tracker broadcasts game mode too, but only once a second — fine
+  // as a fallback, too coarse to start a run on. So we defer to it only when
+  // we have no device of our own to read; with our own WS attached we keep
+  // polling and start from whichever sees gameplay first.
+  if ((!_ws || _ws.readyState !== WebSocket.OPEN || !_deviceAttached) &&
+      Date.now() - _lastBcGamemode < BC_GAMEMODE_FRESH_MS) return;
   if (!_ws || _ws.readyState !== WebSocket.OPEN || !_deviceAttached || _pendingRead) return;
   _pendingRead = true;
   _ws.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES', Operands: [GAMEMODE_SRAM, '01'] }));

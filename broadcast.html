@@ -663,12 +663,31 @@ function applyBg(bg) {
   if (window.electronAPI && window.electronAPI.setBroadcastBg) window.electronAPI.setBroadcastBg(bg);
 }
 
+// Go Mode's sound now lives with the item sounds, so it follows the active
+// profile (and goes quiet on "No Sounds"). The old broadcast-settings sound is
+// still honoured when a profile has none of its own, so an existing setup keeps
+// working without being re-imported.
+// Per-sound volume, set in the Item Sounds window and stored beside the sound
+// (see bcast-sounds.html). Missing or unreadable = full volume.
+function soundVolume(storeKey) {
+  var v = parseInt(localStorage.getItem(storeKey + '-vol'), 10);
+  if (isNaN(v)) return 1;
+  return Math.max(0, Math.min(1, v / 100));
+}
+
 function playGomodeSound() {
   if (RACE_MODE) return; // Race Mode: no Go Mode sound.
-  if (!SETTINGS.gomodeSoundEnabled || !SETTINGS.gomodeSoundData) return;
+  var p = parseInt(localStorage.getItem('alttp-sound-profile') || '1', 10);
+  if (p === 5) return;                                    // "No Sounds" profile
+  var pre = 'alttp-item-sound-' + ((p >= 2 && p <= 4) ? 'p' + p + '-' : '');
+  var dataUrl = localStorage.getItem(pre + 'gomode');
+  var vol = soundVolume(pre + 'gomode');
+  if (!dataUrl && SETTINGS.gomodeSoundEnabled) { dataUrl = SETTINGS.gomodeSoundData; vol = 1; }
+  if (!dataUrl) return;
   try {
-    var audio = new Audio(SETTINGS.gomodeSoundData);
-    audio.play();
+    var audio = new Audio(dataUrl);
+    audio.volume = vol;
+    audio.play().catch(function() {});
   } catch(e) {}
 }
 
@@ -1325,7 +1344,7 @@ function applySnap(snap) {
       }
     }
     // Update the prize image only if the snap supplied prize info — some snaps
-    // (e.g. tracker.js broadcastItems) don't carry prize fields, so we must not
+    // (e.g. the legacy broadcastItems shape) don't carry prize fields, so we must not
     // wipe out the current image or completion state when they're missing.
     if (prize !== undefined) {
       var prizeSrc = BASE+'/'+prize+(obtained?'1':'0')+'.png';
@@ -2007,11 +2026,19 @@ function playItemSound(key, val) {
   try {
     // Check level-specific sound first (e.g. 'sword-2' for Master Sword),
     // then fall back to the base key sound (e.g. 'sword' for any sword).
-    var dataUrl = (val !== undefined
-      ? localStorage.getItem('alttp-item-sound-' + key + '-' + val)
-      : null) || localStorage.getItem('alttp-item-sound-' + key);
+    // Sound profiles: profile 1 uses the original unprefixed keys, 2 and 3
+    // prefix theirs (see bcast-sounds.html). Read fresh each time so switching
+    // profiles takes effect without reopening the broadcast view.
+    var _p = parseInt(localStorage.getItem('alttp-sound-profile') || '1', 10);
+    if (_p === 5) return;                       // "No Sounds" profile
+    var _pre = 'alttp-item-sound-' + ((_p >= 2 && _p <= 4) ? 'p' + _p + '-' : '');
+    // Which entry answered matters now: the volume lives beside that sound.
+    var _sk = (val !== undefined && localStorage.getItem(_pre + key + '-' + val))
+            ? (_pre + key + '-' + val) : (_pre + key);
+    var dataUrl = localStorage.getItem(_sk);
     if (!dataUrl) return;
     var a = new Audio(dataUrl);
+    a.volume = soundVolume(_sk);
     a.play().catch(function() {});
   } catch(e) {}
 }

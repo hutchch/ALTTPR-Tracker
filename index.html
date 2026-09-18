@@ -7,7 +7,7 @@
 * { box-sizing: border-box; }
 body {
   font-family: Arial, sans-serif;
-  max-width: 420px; margin: 10px auto; padding: 10px;
+  max-width: 760px; margin: 10px auto; padding: 10px;
   background: #0d0d0d; color: #ccc;
 }
 h1 { text-align: center; color: #4dff88; font-size: 22px; margin-bottom: 4px; letter-spacing: 1px; }
@@ -44,7 +44,12 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 #btn-map:hover   { background: #2a4a6a; }
 #btn-both  { background: #3a2a00; color: #ffd700; border: 1px solid #7a5a00; }
 #btn-both:hover  { background: #5a4000; }
-#btn-timer { background: #2a0a3a; color: #c084fc; border: 1px solid #6a2a9a; }
+/* Sized down from a launch button: the Timer card sits beside Display and
+   should end level with it rather than towering over it. */
+#btn-timer { background: #2a0a3a; color: #c084fc; border: 1px solid #6a2a9a;
+             padding: 6px 10px; font-size: 13px; }
+.timer-note { padding-left: 2px; margin-top: 5px; color: #8353d5;
+              font-style: italic; font-size: 11px; line-height: 1.3; }
 #btn-timer:hover { background: #4a1a6a; }
 .divider { border: none; border-top: 1px solid #222; margin: 4px 0 12px; }
 .user-guide-btn {
@@ -57,6 +62,13 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 
 /* ── Yes/No toggle slider (compact, thumb flush left/right, no inline text) ── */
 .toggle-row { display: flex; align-items: center; gap: 8px; }
+/* One-click OnlyADKD: it sets that mode's options and launches, so it lives
+   next to Entrance Shuffle rather than in the preset list. */
+.mini-launch {
+  margin-left: auto; background: #2d6cdf; border: 0; color: #fff;
+  border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer;
+}
+.mini-launch:hover { background: #3b7cf0; }
 /* Toggle rows use a narrower label column than the dropdown rows above — they
    sit beside the Preset panel, so 152px would squeeze it. 96px clears the
    longest label ("Entrance Shuffle" at ~88.5px) and lines every slider up. */
@@ -134,6 +146,28 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
    launcher-layout.md). The columns are auto-sized rather than equal fifths so
    the long label ("Universal Keys") isn't forced to wrap while "Key Drop"
    wastes half its cell. */
+/* Dungeon Item Shuffle: the same button-and-panel as Other Settings, so the
+   four flags cost one row rather than two. */
+#dshuf-btn {
+  width: 100%; text-align: left; cursor: pointer;
+  background: #1a1a1a; color: #ccc;
+  border: 1px solid #333; border-radius: 4px;
+  padding: 5px 8px; font-size: 13px; font-family: inherit;
+  display: flex; align-items: center; justify-content: space-between;
+}
+#dshuf-btn:hover { border-color: #555; }
+#dshuf-btn .osb-caret { color: #666; font-size: 10px; }
+#dshuf-panel {
+  display: none;
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: #1a1a1a; border: 1px solid #3a3a3a;
+  border-radius: 5px; padding: 8px 10px; z-index: 200;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.7);
+}
+#dshuf-panel.open { display: block; }
+#dshuf-panel .check-row { display: flex; margin: 5px 0; }
+/* 'Other' is a display mode rather than a shuffle, so it sits apart. */
+#dshuf-other-row { border-top: 1px solid #2a2a2a; margin-top: 7px !important; padding-top: 7px; }
 .check-row { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; color: #666; user-select: none; white-space: nowrap; }
 .check-row input[type="checkbox"] { width: 13px; height: 13px; accent-color: #4dff88; cursor: pointer; margin: 0; flex: 0 0 auto; }
 .presets-col {
@@ -223,6 +257,45 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 #other-settings-panel .check-row.sub { margin-left: 18px; }
 #other-settings-panel .check-row.dimmed { opacity: 0.4; cursor: default; }
 #other-settings-panel .check-row.dimmed input { cursor: default; }
+/* Two-up layouts. The page grew to 760px so Settings can run in two columns
+   and the Timer can sit beside Display instead of below the launch buttons. */
+.top-row { display: flex; gap: 12px; align-items: stretch; }
+.top-row > .section { flex: 1; min-width: 0; }
+.settings-grid { display: flex; gap: 18px; align-items: flex-start; }
+.settings-col { flex: 1; min-width: 0; }
+/* Half the width means a narrower label column than the full-width rows use. */
+.settings-col .row > label:first-child,
+.settings-col .row > label.presets-label {
+  flex: 0 0 148px; width: 148px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.settings-col .row > select { min-width: 0; }
+.settings-col .presets-col { margin-top: 6px; }
+/* The last line of the card: Race Mode on the left, Seed Link filling the rest
+   of the width beside it. Race Mode leaves the toggle column for this — the
+   space to the right of it was empty, and the seed box wants the room. */
+.race-seed-row { display: flex; align-items: center; gap: 8px; }
+/* min-width too: the base .row label rule sets 152px, which left this toggle
+   four pixels right of the ones above it. */
+.race-seed-row > label:first-child { flex: 0 0 148px; width: 148px; min-width: 148px; }
+.race-seed-row .toggle-switch { flex: 0 0 auto; }
+.race-seed-row .toggle-label-text { flex: 0 0 34px; }
+/* Same rule was padding this label out to 152px, so the box sat a long way
+   from its own label. */
+.race-seed-row label[for="seed-link"] {
+  flex: 0 0 auto; width: auto; min-width: 0; margin-left: 18px;
+}
+.race-seed-row #seed-link { flex: 1; min-width: 0; }
+/* Pottery is the one option here with more than two states, so it gets a
+   select. Same row rhythm as the checkboxes, label left, control right. */
+#other-settings-panel .check-row.select-row {
+  align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid #2c2c2c;
+}
+#other-settings-panel .check-row.select-row select {
+  background: #111; color: #ccc; border: 1px solid #3a3a3a;
+  border-radius: 3px; padding: 2px 4px; font-size: 12px; font-family: inherit;
+}
 
 /* ── Settings gear button ── */
 #app-settings-btn {
@@ -335,7 +408,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   <div class="app-settings-section-label">Items API</div>
   <div class="app-settings-row">
     <label>Enable</label>
-    <input id="api-enabled" type="checkbox">
+    <input id="api-enabled" type="checkbox" checked>
   </div>
   <div class="app-settings-row">
     <label>IP Address</label>
@@ -364,7 +437,8 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 <h1>⚔ ALTTP Tracker</h1>
 <!-- The number here is only a fallback for opening this page outside Electron;
      in the app it is replaced with app.getVersion() (i.e. package.json). -->
-<p class="version-line"><small id="app-version">Version 1.1.17</small></p>
+<p class="version-line"><small id="app-version">Version 1.1.18</small></p>
+<div class="top-row">
 <div class="section">
   <h2>Display</h2>
   <div class="row">
@@ -421,185 +495,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
     </select>
   </div>
 </div>
-
 <div class="section">
-  <h2>Settings</h2>
-  <div class="row">
-    <label>Dungeon Item Shuffle</label>
-    <select id="dungeonitems-select" style="flex:1;">
-      <option value="standard">Standard</option>
-      <option value="mapcompass">Map/Compass</option>
-      <option value="mapcompasskeys">Map/Compass/Small Keys</option>
-      <option value="keysanity">Key Sanity</option>
-      <option value="other">Other</option>
-    </select>
-  </div>
-  <div class="row">
-    <label>Ganon's Tower Requirement</label>
-    <select id="gt-crystals">
-      <option value="7" selected>7</option>
-      <option value="6">6</option>
-      <option value="5">5</option>
-      <option value="4">4</option>
-      <option value="3">3</option>
-      <option value="2">2</option>
-      <option value="1">1</option>
-      <option value="0">0 (Open)</option>
-    </select>
-  </div>
-  <div class="row">
-    <label>World State Mode</label>
-    <select id="gamemode-select">
-      <option value="standard" selected>Standard</option>
-      <option value="open">Open</option>
-      <option value="inverted">Inverted</option>
-      <option value="retro">Retro</option>
-    </select>
-  </div>
-  <div class="row">
-    <label>Other Settings</label>
-    <div class="other-settings-wrap">
-      <button type="button" id="other-settings-btn">
-        <span id="other-settings-summary">None</span><span class="osb-caret">&#9660;</span>
-      </button>
-      <div id="other-settings-panel">
-        <label class="check-row" id="keydropall-row">
-          <input type="checkbox" id="keydropall-toggle">
-          <span>Key Drop</span>
-        </label>
-        <label class="check-row sub" id="keydrop-row">
-          <input type="checkbox" id="keydrop-toggle">
-          <span>Pot Key Drop</span>
-        </label>
-        <label class="check-row sub" id="enemykeydrop-row">
-          <input type="checkbox" id="enemykeydrop-toggle">
-          <span>Enemy Key Drop</span>
-        </label>
-        <label class="check-row" id="potsbones-row">
-          <input type="checkbox" id="potsbones-toggle">
-          <span>Pots and Bones</span>
-        </label>
-        <label class="check-row sub" id="potdrops-row">
-          <input type="checkbox" id="potdrops-toggle">
-          <span>Pot Drops</span>
-        </label>
-        <label class="check-row sub" id="enemydrops-row">
-          <input type="checkbox" id="enemydrops-toggle">
-          <span>Enemy Drops</span>
-        </label>
-        <label class="check-row">
-          <input type="checkbox" id="universalkeys-toggle">
-          <span>Universal Keys</span>
-        </label>
-        <label class="check-row">
-          <input type="checkbox" id="pseudoboots-toggle">
-          <span>Pseudo Boots</span>
-        </label>
-        <label class="check-row">
-          <input type="checkbox" id="mirrorscroll-toggle">
-          <span>Mirror Scroll</span>
-        </label>
-        <label class="check-row">
-          <input type="checkbox" id="shopsanity-toggle">
-          <span>Shop Sanity</span>
-        </label>
-        <label class="check-row">
-          <input type="checkbox" id="bonkshuffle-toggle">
-          <span>Bonk Shuffle</span>
-        </label>
-      </div>
-    </div>
-  </div>
-  <div class="toggles-presets-wrap">
-  <div class="toggles-col">
-  <div class="row toggle-row">
-    <label>Entrance Shuffle</label>
-    <label class="toggle-switch">
-      <input type="checkbox" id="entranceshuffle-toggle">
-      <span class="toggle-slider"></span>
-    </label>
-    <span class="toggle-label-text" id="entranceshuffle-toggle-label">No</span>
-  </div>
-  <div class="row toggle-row">
-    <label>Boss Shuffle</label>
-    <label class="toggle-switch">
-      <input type="checkbox" id="bossshuffle-toggle" checked>
-      <span class="toggle-slider"></span>
-    </label>
-    <span class="toggle-label-text" id="bossshuffle-toggle-label">Yes</span>
-  </div>
-  <div class="row toggle-row">
-    <label>Enemizer</label>
-    <label class="toggle-switch">
-      <input type="checkbox" id="enemizer-toggle" checked>
-      <span class="toggle-slider"></span>
-    </label>
-    <span class="toggle-label-text" id="enemizer-toggle-label">Yes</span>
-  </div>
-  <div class="row toggle-row">
-    <label>Swordless</label>
-    <label class="toggle-switch">
-      <input type="checkbox" id="swordless-toggle">
-      <span class="toggle-slider"></span>
-    </label>
-    <span class="toggle-label-text" id="swordless-toggle-label">No</span>
-  </div>
-  <div class="row toggle-row">
-    <label>Race Mode</label>
-    <label class="toggle-switch">
-      <input type="checkbox" id="racemode-toggle">
-      <span class="toggle-slider"></span>
-    </label>
-    <span class="toggle-label-text" id="racemode-toggle-label">No</span>
-  </div>
-  </div>
-
-  <div class="presets-col">
-    <label class="presets-label">Preset</label>
-    <select id="preset-select">
-      <option value="lordseed">Lord Seed</option>
-      <option value="standard" selected>Standard</option>
-      <option value="openstandard">Open Standard</option>
-      <option value="standardkeysanity">Standard KeySanity</option>
-      <option value="openkeysanity">Open KeySanity</option>
-      <option value="crosskeys">CrossKeys</option>
-      <option value="adkeydrop">(AD) KeyDrop</option>
-      <option value="onlyadkd">OnlyADKD</option>
-    </select>
-    <button type="button" class="preset-btn" id="preset-apply-btn" onclick="applyPreset()">Load Preset</button>
-    <button type="button" class="preset-btn preset-btn-save" id="preset-save-btn" onclick="saveCustomPreset()">Save Preset</button>
-    <button type="button" class="preset-btn preset-btn-delete" id="preset-delete-btn" onclick="deleteCustomPreset()" style="display:none">Delete Preset</button>
-  </div>
-  </div>
-
-  <div class="seed-link-row">
-    <label for="seed-link">Seed Link (alttpr.com)</label>
-    <input id="seed-link" type="text" placeholder="https://alttpr.com/en/h/xxxxxxxxxx" autocomplete="off">
-    <button type="button" id="seed-link-btn" onclick="loadSeedSettings()">Read</button>
-  </div>
-  <div id="seed-link-status"></div>
-
-</div>
-
-<!-- Preset name modal -->
-<div id="preset-modal-overlay">
-  <div id="preset-modal">
-    <label for="preset-modal-input">Name this preset:</label>
-    <input id="preset-modal-input" type="text" maxlength="40" autocomplete="off">
-    <div class="preset-modal-btns">
-      <button id="preset-modal-ok" onclick="presetModalConfirm()">Save</button>
-      <button id="preset-modal-cancel" onclick="presetModalClose()">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<div class="btn-row">
-  <button class="launch-btn" id="btn-items" onclick="launchItems()">Items Only</button>
-  <button class="launch-btn" id="btn-map"   onclick="launchMap()">Map Only</button>
-  <button class="launch-btn" id="btn-both"  onclick="launchBoth()">Launch Both</button>
-</div>
-
-<div class="section" style="margin-top:8px;">
   <h2>Timer</h2>
   <div class="row">
     <label>Number Color</label>
@@ -630,11 +526,246 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
            title="Used when Background is set to Custom"
            style="flex:0 0 auto;width:32px;height:24px;padding:0;border:1px solid #333;background:transparent;cursor:pointer;">
   </div>
-  <div class="btn-row" style="margin-top:8px;">
+  <div class="btn-row" style="margin-top:6px;">
     <button class="launch-btn" id="btn-timer" onclick="launchTimer()">⏱ Automatic Timer</button>
   </div>
-  <div class="info" style="padding-left:15px;margin-top:6px;color:#8353d5;font-style:italic;;">⚠ Pause will only work while the game is in a menu. (See User Guide)</div>
+  <div class="info timer-note">⚠ Pause only works while the game is in a menu. (See User Guide)</div>
 </div>
+</div>
+
+<div class="section">
+  <h2>Settings</h2>
+  <div class="settings-grid">
+    <div class="settings-col">
+      <div class="row">
+      <label>World State Mode</label>
+      <select id="gamemode-select">
+      <option value="standard" selected>Standard</option>
+      <option value="open">Open</option>
+      <option value="inverted">Inverted 1.0</option>
+      <option value="inverted2">Inverted 2.0</option>
+      <option value="retro">Retro</option>
+      </select>
+      </div>
+      <div class="row">
+      <label>Dungeon Item Shuffle</label>
+      <!-- Newer randomizers shuffle these four independently, so the setting
+           is the four boxes and the old mode names are presets over them. The
+           <select> is kept, hidden, as the value everything else still reads:
+           the panel writes it, nothing else had to change. -->
+      <select id="dungeonitems-select" style="display:none;">
+      <option value="standard">Standard</option>
+      <option value="mapcompass">Map/Compass</option>
+      <option value="mapcompasskeys">Map/Compass/Small Keys</option>
+      <option value="keysanity">Key Sanity</option>
+      <option value="custom">Custom</option>
+      <option value="other">Other</option>
+      </select>
+      <div class="other-settings-wrap">
+      <button type="button" id="dshuf-btn">
+      <span id="dshuf-summary">Standard</span><span class="osb-caret">&#9660;</span>
+      </button>
+      <div id="dshuf-panel">
+      <label class="check-row"><input type="checkbox" id="dshuf-map"><span>Map</span></label>
+      <label class="check-row"><input type="checkbox" id="dshuf-compass"><span>Compass</span></label>
+      <label class="check-row"><input type="checkbox" id="dshuf-bigkey"><span>Big Key</span></label>
+      <label class="check-row"><input type="checkbox" id="dshuf-smallkey"><span>Small Keys</span></label>
+      <label class="check-row" id="dshuf-other-row"><input type="checkbox" id="dshuf-other"><span>Other (not tracked)</span></label>
+      </div>
+      </div>
+      </div>
+      <div class="row">
+      <label>Pottery Shuffle</label>
+      <select id="pottery-select">
+      <option value="none" selected>None</option>
+      <option value="keys">Keys</option>
+      <option value="cave">Cave</option>
+      <option value="cavekeys">Cave + Keys</option>
+      <option value="reduced">Reduced</option>
+      <option value="clustered">Clustered</option>
+      <option value="nonempty">Non-empty</option>
+      <option value="dungeon">Dungeon</option>
+      <option value="lottery">Lottery</option>
+      </select>
+      </div>
+      <div class="row">
+      <label>Other Settings</label>
+      <div class="other-settings-wrap">
+      <button type="button" id="other-settings-btn">
+      <span id="other-settings-summary">None</span><span class="osb-caret">&#9660;</span>
+      </button>
+      <div id="other-settings-panel">
+      <label class="check-row">
+      <input type="checkbox" id="universalkeys-toggle">
+      <span>Universal Keys</span>
+      </label>
+      <label class="check-row">
+      <input type="checkbox" id="pseudoboots-toggle">
+      <span>Pseudo Boots</span>
+      </label>
+      <label class="check-row">
+      <input type="checkbox" id="mirrorscroll-toggle">
+      <span>Mirror Scroll</span>
+      </label>
+      <label class="check-row">
+      <input type="checkbox" id="shopsanity-toggle">
+      <span>Shop Sanity</span>
+      </label>
+      <label class="check-row">
+      <input type="checkbox" id="bonkshuffle-toggle">
+      <span>Bonk Shuffle</span>
+      </label>
+      <label class="check-row">
+      <input type="checkbox" id="randomprize-toggle">
+      <span>Random Prize Shuffle</span>
+      </label>
+      </div>
+      </div>
+      </div>
+      <div class="row toggle-row">
+      <label>Entrance Shuffle</label>
+      <label class="toggle-switch">
+      <input type="checkbox" id="entranceshuffle-toggle">
+      <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label-text" id="entranceshuffle-toggle-label">No</span>
+      <button type="button" id="onlyadkd-launch" class="mini-launch"
+              onclick="launchOnlyAdkd()"
+              title="Set every OnlyADKD option and open the Item Tracker and Map">OnlyADKD</button>
+      </div>
+      <div class="row toggle-row">
+      <label>Boss Shuffle</label>
+      <label class="toggle-switch">
+      <input type="checkbox" id="bossshuffle-toggle" checked>
+      <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label-text" id="bossshuffle-toggle-label">Yes</span>
+      </div>
+      <div class="row toggle-row">
+      <label>Enemizer</label>
+      <label class="toggle-switch">
+      <input type="checkbox" id="enemizer-toggle" checked>
+      <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label-text" id="enemizer-toggle-label">Yes</span>
+      </div>
+      <div class="row toggle-row">
+      <label>Swordless</label>
+      <label class="toggle-switch">
+      <input type="checkbox" id="swordless-toggle">
+      <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label-text" id="swordless-toggle-label">No</span>
+      </div>
+    </div>
+    <div class="settings-col">
+      <div class="row">
+      <label>Logic Mode</label>
+      <select id="logicmode-select">
+      <option value="noglitches" selected>No Glitches</option>
+      <option value="overworldglitches">Overworld Glitches</option>
+      <option value="hybridglitches">Hybrid Major Glitches</option>
+      <option value="nologic">No Logic</option>
+      </select>
+      </div>
+      <div class="row">
+      <label>Ganon's Tower Requirement</label>
+      <select id="gt-crystals">
+      <option value="7" selected>7</option>
+      <option value="6">6</option>
+      <option value="5">5</option>
+      <option value="4">4</option>
+      <option value="3">3</option>
+      <option value="2">2</option>
+      <option value="1">1</option>
+      <option value="0">0 (Open)</option>
+      </select>
+      </div>
+      <div class="row">
+      <label>Enemy Drop</label>
+      <select id="enemydrop-select">
+      <option value="none" selected>None</option>
+      <option value="keys">Keys</option>
+      <option value="all">Underworld</option>
+      </select>
+      </div>
+      <div class="presets-col">
+        <label class="presets-label">Preset</label>
+        <select id="preset-select">
+          <option value="lordseed">Lord Seed</option>
+          <option value="standard" selected>Standard</option>
+          <option value="openstandard">Open Standard</option>
+          <option value="standardkeysanity">Standard KeySanity</option>
+          <option value="openkeysanity">Open KeySanity</option>
+          <option value="cabookey">Cabookey</option>
+          <option value="cabookeydrop">Cabookeydrop</option>
+          <option value="adenemizer">AD Enemizer</option>
+          <option value="adkeysanity">AD Keysanity</option>
+          <option value="adkeydrop">AD Keydrop</option>
+          <option value="adkeydropshop">AD Keydrop Shop</option>
+          <option value="open47keys">4/7 Open Keys</option>
+          <option value="mcshuffle">MC Shuffle</option>
+          <option value="crosskeyskdad">Crosskeys KD AD</option>
+          <option value="inverted1">Inverted (1.0)</option>
+          <option value="invertedkeysanity">Inverted Keysanity (1.0)</option>
+          <option value="invertedadkeysanity">Inverted AD Keysanity (1.0)</option>
+          <option value="invertedcrosskeys">Inverted Crosskeys (1.0)</option>
+          <option value="influkeys">Influkeys (1.0)</option>
+          <option value="invertedbk">Inverted BK (2.0)</option>
+          <option value="invertedfullkeys">Inverted Full Keys (2.0)</option>
+          <option value="invertedfullkeysanity">Inverted Full Keysanity (2.0)</option>
+          <option value="enemizerkeydrop">Enemizer Keydrop</option>
+          <option value="ambrosia">Ambrosia</option>
+          <option value="ambroz1a">AmbroZ1a</option>
+          <option value="potpourri">Potpourri</option>
+          <option value="potsandbones">Pots &amp; Bones</option>
+          <option value="retrance">Retrance</option>
+          <option value="shoptillyoudrop">Shop Till You Drop</option>
+          <option value="retro">Retro</option>
+          <option value="enemizer">Enemizer</option>
+          <option value="swordless">Swordless</option>
+          <option value="mcboss">MCBoss</option>
+          <option value="mcbossenemizer">MCBossEnemizer</option>
+          <option value="crosskeys">CrossKeys</option>
+        </select>
+        <button type="button" class="preset-btn" id="preset-apply-btn" onclick="applyPreset()">Load Preset</button>
+        <button type="button" class="preset-btn preset-btn-save" id="preset-save-btn" onclick="saveCustomPreset()">Save Preset</button>
+        <button type="button" class="preset-btn preset-btn-delete" id="preset-delete-btn" onclick="deleteCustomPreset()" style="display:none">Delete Preset</button>
+      </div>
+    </div>
+  </div>
+  <div class="row race-seed-row">
+  <label>Race Mode</label>
+  <label class="toggle-switch">
+  <input type="checkbox" id="racemode-toggle">
+  <span class="toggle-slider"></span>
+  </label>
+  <span class="toggle-label-text" id="racemode-toggle-label">No</span>
+  <label for="seed-link">Seed Link (alttpr.com)</label>
+  <input id="seed-link" type="text" placeholder="https://alttpr.com/en/h/xxxxxxxxxx" autocomplete="off">
+  <button type="button" id="seed-link-btn" onclick="loadSeedSettings()">Read</button>
+  </div>
+  <div id="seed-link-status"></div>
+</div>
+
+<!-- Preset name modal -->
+<div id="preset-modal-overlay">
+  <div id="preset-modal">
+    <label for="preset-modal-input">Name this preset:</label>
+    <input id="preset-modal-input" type="text" maxlength="40" autocomplete="off">
+    <div class="preset-modal-btns">
+      <button id="preset-modal-ok" onclick="presetModalConfirm()">Save</button>
+      <button id="preset-modal-cancel" onclick="presetModalClose()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="launch-btn" id="btn-items" onclick="launchItems()">Items Only</button>
+  <button class="launch-btn" id="btn-map"   onclick="launchMap()">Map Only</button>
+  <button class="launch-btn" id="btn-both"  onclick="launchBoth()">Launch Both</button>
+</div>
+
 
 <div class="btn-row" style="margin-top:8px;">
   <button class="user-guide-btn" id="btn-user-guide" onclick="openUserGuide()">📖 User Guide</button>
@@ -753,6 +884,13 @@ function applySeedMeta(meta) {
     if (disel && diVal &&
         Array.prototype.some.call(disel.options, function(o) { return o.value === diVal; })) {
       disel.value = diVal;
+      // The panel is the UI now, so a seed's mode has to move the boxes too.
+      if (typeof DSHUF_PRESETS !== 'undefined' && DSHUF_PRESETS[diVal] !== undefined) {
+        dshufSet(DSHUF_PRESETS[diVal]);
+        var diOther = document.getElementById('dshuf-other');
+        if (diOther) diOther.checked = (diVal === 'other');
+        dshufSync();
+      }
       applied.push('dungeon items ' + diVal);
     } else {
       skipped.push('dungeon_items "' + diStr + '"');
@@ -927,22 +1065,36 @@ function getSettings() {
     bossshuffle: document.getElementById('bossshuffle-toggle') && document.getElementById('bossshuffle-toggle').checked ? 'yes' : 'no',
     gtCrystals: document.getElementById('gt-crystals').value || '7',
     gamemode:      document.getElementById('gamemode-select') ? document.getElementById('gamemode-select').value : 'standard',
-    dungeonItems:  document.getElementById('dungeonitems-select') ? document.getElementById('dungeonitems-select').value : 'standard',
+    dungeonItems:  (function () {
+      var el = document.getElementById('dungeonitems-select');
+      var v  = el ? el.value : 'standard';
+      // 'custom' is a label for the checkboxes, never a stored mode.
+      return (v === 'custom') ? dshufLegacyMode(dshufStr()) : v;
+    })(),
+    dungeonShuffle: (function () {
+      var el = document.getElementById('dungeonitems-select');
+      var v  = el ? el.value : 'standard';
+      return (v === 'other') ? '' : dshufStr();
+    })(),
     trackerBg:  document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black',
     universalKeys: document.getElementById('universalkeys-toggle') && document.getElementById('universalkeys-toggle').checked ? 'yes' : 'no',
-    keyDropAll: document.getElementById('keydropall-toggle') && document.getElementById('keydropall-toggle').checked ? 'yes' : 'no',
-    keyDrop:    document.getElementById('keydrop-toggle') && document.getElementById('keydrop-toggle').checked ? 'yes' : 'no',
-    enemyKeyDrop: document.getElementById('enemykeydrop-toggle') && document.getElementById('enemykeydrop-toggle').checked ? 'yes' : 'no',
+    keyDropAll: 'no',
+    keyDrop:    (potteryValue() === 'keys' || potteryValue() === 'cavekeys') ? 'yes' : 'no',
+    enemyKeyDrop: enemyDropValue() === 'keys' ? 'yes' : 'no',
     swordless:  document.getElementById('swordless-toggle') && document.getElementById('swordless-toggle').checked ? 'yes' : 'no',
     pseudoboots: document.getElementById('pseudoboots-toggle') && document.getElementById('pseudoboots-toggle').checked ? 'yes' : 'no',
     mirrorscroll: document.getElementById('mirrorscroll-toggle') && document.getElementById('mirrorscroll-toggle').checked ? 'yes' : 'no',
     // Both of these were map-only Seed Options until Aug 2026; the launcher now
     // owns them too, so the map gets them on the URL like every other flag.
-    potDrops:    document.getElementById('potdrops-toggle') && document.getElementById('potdrops-toggle').checked ? 'yes' : 'no',
-    enemyDrops:  document.getElementById('enemydrops-toggle') && document.getElementById('enemydrops-toggle').checked ? 'yes' : 'no',
-    potsBones:   document.getElementById('potsbones-toggle') && document.getElementById('potsbones-toggle').checked ? 'yes' : 'no',
+    potDrops:    POTTERY_FULL[potteryValue()] ? 'yes' : 'no',
+    enemyDrops:  enemyDropValue() === 'all' ? 'yes' : 'no',
+    potsBones:   'no',
+    pottery:     potteryValue(),
+    logicMode:   (document.getElementById('logicmode-select') || {}).value || 'noglitches',
+    enemyDrop:   enemyDropValue(),
     shopsanity:  document.getElementById('shopsanity-toggle') && document.getElementById('shopsanity-toggle').checked ? 'yes' : 'no',
     bonkShuffle: document.getElementById('bonkshuffle-toggle') && document.getElementById('bonkshuffle-toggle').checked ? 'yes' : 'no',
+    randomPrize: document.getElementById('randomprize-toggle') && document.getElementById('randomprize-toggle').checked ? 'yes' : 'no',
     entranceShuffle: esToggle && esToggle.checked ? 'on' : 'none',
     raceMode:   document.getElementById('racemode-toggle') && document.getElementById('racemode-toggle').checked ? 'yes' : 'no',
     apiEnabled: document.getElementById('api-enabled') && document.getElementById('api-enabled').checked ? 'yes' : 'no',
@@ -963,6 +1115,7 @@ function save() {
   localStorage.setItem('alttp-gt-crystals', s.gtCrystals);
   localStorage.setItem('alttp-gamemode', s.gamemode);
   localStorage.setItem('alttp-dungeon-items', s.dungeonItems);
+  localStorage.setItem('alttp-dungeon-shuffle', s.dungeonShuffle || '');
   localStorage.setItem('alttp-tracker-bg', document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black');
   localStorage.setItem('alttp-timer-color', document.getElementById('timer-color') ? document.getElementById('timer-color').value : 'blue');
   localStorage.setItem('alttp-timer-bg', document.getElementById('timer-bg') ? document.getElementById('timer-bg').value : 'black');
@@ -980,8 +1133,12 @@ function save() {
   localStorage.setItem('alttp-pot-drops', s.potDrops);
   localStorage.setItem('alttp-enemy-drops', s.enemyDrops);
   localStorage.setItem('alttp-pots-bones', s.potsBones);
+  localStorage.setItem('alttp-pottery', s.pottery);
+  localStorage.setItem('alttp-logic-mode', s.logicMode);
+  localStorage.setItem('alttp-enemy-drop-mode', s.enemyDrop);
   localStorage.setItem('alttp-shopsanity', s.shopsanity);
   localStorage.setItem('alttp-bonk-shuffle', s.bonkShuffle);
+  localStorage.setItem('alttp-random-prize', s.randomPrize);
   localStorage.setItem('alttp-entrance-shuffle', s.entranceShuffle === 'none' ? 'no' : 'yes');
   localStorage.setItem('alttp-entrance-shuffle-mode', s.entranceShuffle);
   localStorage.setItem('alttp-race-mode', s.raceMode);
@@ -991,12 +1148,46 @@ function save() {
   localStorage.setItem('alttp-api-ws-port', s.apiWsPort);
 }
 
+// ── The two dropdowns that replaced six checkboxes ───────────────────────────
+// Pottery and Enemy Drop are the settings the player picks; the flags the rest
+// of the tracker reads (pot key drop, enemy key drop, pot drops, enemy drops)
+// are derived from them here, in one place. Key Drop and Pots and Bones were
+// only ever "both halves at once", which a pair of dropdowns says better.
+// Which pottery modes shuffle EVERY pot in the underworld, i.e. make each one a
+// dungeon location. Must match POTTERY_DUNGEON_MODES in js/dngpanel.js: 'cave'
+// and 'cavekeys' shuffle CAVE pots (and, for cavekeys, the dungeon key pots),
+// not a dungeon's ordinary pots — listing them here sent potDrops=yes and the
+// item tracker added every pot to the dungeon's item total (Eastern read 0/7
+// instead of 0/3) while the hover card, correctly, did not. Chris, Sep 2026.
+var POTTERY_FULL = { reduced:1, clustered:1, nonempty:1, dungeon:1, lottery:1 };
+function potteryValue()   { return (document.getElementById('pottery-select')   || {}).value || 'none'; }
+function enemyDropValue() { return (document.getElementById('enemydrop-select') || {}).value || 'none'; }
+
 function mapUrl(s) {
   var entFlag = (s.entranceShuffle === 'none') ? 'no' : 'yes';
-  return 'map.html?zoom=' + s.zoom + '&enemizer=' + s.enemizer + '&gtcrystals=' + s.gtCrystals + '&gamemode=' + s.gamemode + '&dungeonitems=' + s.dungeonItems + '&swordless=' + s.swordless + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&bossshuffle=' + s.bossshuffle + '&entranceshuffle=' + entFlag + '&entrancemode=' + s.entranceShuffle + '&shopsanity=' + s.shopsanity + '&bonkshuffle=' + s.bonkShuffle + '&potdrops=' + s.potDrops + '&enemydrops=' + s.enemyDrops + '&potsbones=' + s.potsBones;
+  return 'map.html?zoom=' + s.zoom + '&enemizer=' + s.enemizer + '&gtcrystals=' + s.gtCrystals + '&gamemode=' + s.gamemode + '&dungeonitems=' + s.dungeonItems + '&dungeonshuffle=' + (s.dungeonShuffle || '') + '&swordless=' + s.swordless + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&bossshuffle=' + s.bossshuffle + '&entranceshuffle=' + entFlag + '&entrancemode=' + s.entranceShuffle + '&shopsanity=' + s.shopsanity + '&bonkshuffle=' + s.bonkShuffle + '&potdrops=' + s.potDrops + '&enemydrops=' + s.enemyDrops + '&potsbones=' + s.potsBones + '&pottery=' + s.pottery + '&logic=' + s.logicMode;
+}
+
+// The small-key store is meant to carry keys between the tracker's own windows
+// DURING a run, but localStorage outlives the app, so a fresh launch opened
+// showing the last seed's keys (broadcast view, Sep 2026). The launcher is the
+// first window of every launch, so clearing it here scopes the store to one
+// run. A live SRAM read refills it within a poll; $7EF4E0+ is the real tally.
+try { localStorage.removeItem('alttp-keys-found'); } catch (e) {}
+
+// Every other launch leaves OnlyADKD behind: the marker is what makes map.html
+// hide the overworld checks and map the item doors, so a plain launch clears it.
+function _clearOnlyAdkd() {
+  try {
+    if (localStorage.getItem('alttp-preset') === 'onlyadkd') {
+      localStorage.removeItem('alttp-preset');
+      localStorage.removeItem('alttp-preset-map-loaded');
+    }
+  } catch (e) {}
 }
 
 function launchItems() {
+  _clearOnlyAdkd();
   save();
   var s = getSettings();
   if (IS_ELECTRON) {
@@ -1005,11 +1196,12 @@ function launchItems() {
     var tbg = document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black';
     var di = s.dungeonItems || 'standard';
     // gamemode is needed here too — Retro raises every dungeon's chest count.
-    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll + '&gamemode=' + s.gamemode + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&potdrops=' + s.potDrops + '&enemydrops=' + s.enemyDrops + '&potsbones=' + s.potsBones, 'alttp-items', 'width=500,height=390,resizable=yes');
+    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&dungeonshuffle=' + (s.dungeonShuffle || '') + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll + '&gamemode=' + s.gamemode + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&potdrops=' + s.potDrops + '&enemydrops=' + s.enemyDrops + '&potsbones=' + s.potsBones + '&pottery=' + s.pottery, 'alttp-items', 'width=500,height=390,resizable=yes');
   }
 }
 
 function launchMap() {
+  _clearOnlyAdkd();
   save();
   var s    = getSettings();
   if (IS_ELECTRON) {
@@ -1034,7 +1226,22 @@ function launchTimer() {
   }
 }
 
-function launchBoth() {
+// OnlyADKD in one click. It was a preset, but a preset only fills the form —
+// this mode also wants its prebuilt entrance map loaded, which map.html keys
+// off `alttp-preset`, so the two steps are done together and both windows are
+// opened straight away.
+function launchOnlyAdkd() {
+  applyPresetSettings(BUILTIN_PRESETS.onlyadkd);
+  save();
+  try {
+    localStorage.setItem('alttp-preset', 'onlyadkd');
+    localStorage.removeItem('alttp-preset-map-loaded');
+  } catch (e) {}
+  launchBoth(true);
+}
+
+function launchBoth(keepOnlyAdkd) {
+  if (!keepOnlyAdkd) _clearOnlyAdkd();
   save();
   var s = getSettings();
   if (IS_ELECTRON) {
@@ -1046,7 +1253,7 @@ function launchBoth() {
     var tbg = document.getElementById('tracker-bg') ? document.getElementById('tracker-bg').value : 'black';
     var di = s.dungeonItems || 'standard';
     // gamemode is needed here too — Retro raises every dungeon's chest count.
-    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll + '&gamemode=' + s.gamemode + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&potdrops=' + s.potDrops + '&enemydrops=' + s.enemyDrops + '&potsbones=' + s.potsBones, 'alttp-items', 'width=500,height=390,resizable=yes');
+    window.open('itemtracker.html?scale=' + s.scale + '&bg=' + tbg + '&dungeonitems=' + di + '&dungeonshuffle=' + (s.dungeonShuffle || '') + '&bossshuffle=' + s.bossshuffle + '&pseudoboots=' + s.pseudoboots + '&mirrorscroll=' + s.mirrorscroll + '&gamemode=' + s.gamemode + '&universalkeys=' + s.universalKeys + '&keydropall=' + s.keyDropAll + '&keydrop=' + s.keyDrop + '&enemykeydrop=' + s.enemyKeyDrop + '&potdrops=' + s.potDrops + '&enemydrops=' + s.enemyDrops + '&potsbones=' + s.potsBones + '&pottery=' + s.pottery, 'alttp-items', 'width=500,height=390,resizable=yes');
     window.open(mapUrl(s), 'alttp-map', 'width=' + mapW + ',height=' + mapH + ',resizable=yes');
   }
 }
@@ -1078,7 +1285,10 @@ window.addEventListener('DOMContentLoaded', async function() {
     var el = document.getElementById(id);
     if (el && fields[id]) el.value = fields[id];
   }
-  var apiEnabledVal = saved.apiEnabled || localStorage.getItem('alttp-api-enabled') || 'no';
+  // On by default — the race overlay and any external widget read from it, and
+  // a read-only server on localhost costs nothing when nothing is listening.
+  // An explicit saved 'no' still wins.
+  var apiEnabledVal = saved.apiEnabled || localStorage.getItem('alttp-api-enabled') || 'yes';
   var apiEnabledEl = document.getElementById('api-enabled');
   if (apiEnabledEl) apiEnabledEl.checked = (apiEnabledVal === 'yes');
   var enemizer = saved.enemizer || localStorage.getItem('alttp-enemizer') || 'yes';
@@ -1093,6 +1303,16 @@ window.addEventListener('DOMContentLoaded', async function() {
   var di = saved.dungeonItems || localStorage.getItem('alttp-dungeon-items') || 'standard';
   var disel = document.getElementById('dungeonitems-select');
   if (disel) disel.value = di;
+  // The four boxes: a stored combination wins, otherwise the mode's preset.
+  var dshufSaved = saved.dungeonShuffle;
+  if (dshufSaved === undefined || dshufSaved === null) {
+    try { dshufSaved = localStorage.getItem('alttp-dungeon-shuffle'); } catch (e) { dshufSaved = null; }
+  }
+  if (dshufSaved === null || dshufSaved === undefined) dshufSaved = DSHUF_PRESETS[di] || '';
+  dshufSet(dshufSaved);
+  var dshufOther = document.getElementById('dshuf-other');
+  if (dshufOther) dshufOther.checked = (di === 'other');
+  dshufWire();
   var ukVal = saved.universalKeys || localStorage.getItem('alttp-universal-keys') || 'no';
   var universalkeysToggle = document.getElementById('universalkeys-toggle');
   if (universalkeysToggle) universalkeysToggle.checked = (ukVal === 'yes');
@@ -1129,6 +1349,34 @@ window.addEventListener('DOMContentLoaded', async function() {
     if (el) el.checked = (v === 'yes');
   });
 
+  var logicVal = saved.logicMode || localStorage.getItem('alttp-logic-mode') || 'noglitches';
+  var logicSel = document.getElementById('logicmode-select');
+  if (logicSel) logicSel.value = logicVal;
+
+  var potteryVal = saved.pottery || localStorage.getItem('alttp-pottery');
+  if (!potteryVal) {
+    // Upgrading from the checkbox era: Pot Key Drop became Pottery "Keys",
+    // Pot Drops / Pots and Bones became "Lottery".
+    var oldKeyDrop = localStorage.getItem('alttp-keydrop-all') === 'yes' ||
+                     localStorage.getItem('alttp-keydrop') === 'yes';
+    var oldPotDrop = localStorage.getItem('alttp-pots-bones') === 'yes' ||
+                     localStorage.getItem('alttp-pot-drops') === 'yes';
+    potteryVal = oldPotDrop ? 'lottery' : (oldKeyDrop ? 'keys' : 'none');
+  }
+  var potterySel = document.getElementById('pottery-select');
+  if (potterySel) potterySel.value = potteryVal;
+
+  var edVal = saved.enemyDrop || localStorage.getItem('alttp-enemy-drop-mode');
+  if (!edVal) {
+    var oldEnemyAll = localStorage.getItem('alttp-pots-bones') === 'yes' ||
+                      localStorage.getItem('alttp-enemy-drops') === 'yes';
+    var oldEnemyKey = localStorage.getItem('alttp-keydrop-all') === 'yes' ||
+                      localStorage.getItem('alttp-enemy-keydrop') === 'yes';
+    edVal = oldEnemyAll ? 'all' : (oldEnemyKey ? 'keys' : 'none');
+  }
+  var edSelEl = document.getElementById('enemydrop-select');
+  if (edSelEl) edSelEl.value = edVal;
+
   var ssVal = saved.shopsanity || localStorage.getItem('alttp-shopsanity') || 'no';
   var shopsanityToggle = document.getElementById('shopsanity-toggle');
   if (shopsanityToggle) shopsanityToggle.checked = (ssVal === 'yes');
@@ -1136,6 +1384,10 @@ window.addEventListener('DOMContentLoaded', async function() {
   var bsVal = saved.bonkShuffle || localStorage.getItem('alttp-bonk-shuffle') || 'no';
   var bonkshuffleToggle = document.getElementById('bonkshuffle-toggle');
   if (bonkshuffleToggle) bonkshuffleToggle.checked = (bsVal === 'yes');
+
+  var rpVal = saved.randomPrize || localStorage.getItem('alttp-random-prize') || 'no';
+  var randomprizeToggle = document.getElementById('randomprize-toggle');
+  if (randomprizeToggle) randomprizeToggle.checked = (rpVal === 'yes');
 
   var raceVal = saved.raceMode || localStorage.getItem('alttp-race-mode') || 'no';
   var racemodeToggle = document.getElementById('racemode-toggle');
@@ -1171,17 +1423,12 @@ window.addEventListener('DOMContentLoaded', async function() {
 // sat in this menu for a release while both of those functions had never heard
 // of them, so custom presets quietly dropped them.
 var OTHER_SETTINGS = [
-  { id: 'keydropall-toggle',     cfg: 'keyDropAll',    label: 'Key Drop',          short: 'Key Drop', keyDropFamily: true },
-  { id: 'keydrop-toggle',        cfg: 'keyDrop',       label: 'Pot Key Drop',      short: 'Pot Keys',   subsumed: true, keyDropFamily: true },
-  { id: 'enemykeydrop-toggle',   cfg: 'enemyKeyDrop',  label: 'Enemy Key Drop',    short: 'Enemy Keys', subsumed: true, keyDropFamily: true },
-  { id: 'potsbones-toggle',      cfg: 'potsBones',     label: 'Pots and Bones',   short: 'Pots+Bones' },
-  { id: 'potdrops-toggle',       cfg: 'potDrops',      label: 'Pot Drops',        short: 'Pot Drops',   subsumedByDrops: true },
-  { id: 'enemydrops-toggle',     cfg: 'enemyDrops',    label: 'Enemy Drops',      short: 'Enemy Drops', subsumedByDrops: true },
   { id: 'universalkeys-toggle',  cfg: 'universalKeys', label: 'Universal Keys',   short: 'Universal Keys' },
   { id: 'pseudoboots-toggle',    cfg: 'pseudoBoots',   label: 'Pseudo Boots',     short: 'Pseudo Boots' },
   { id: 'mirrorscroll-toggle',   cfg: 'mirrorScroll',  label: 'Mirror Scroll',    short: 'Mirror Scroll' },
   { id: 'shopsanity-toggle',     cfg: 'shopsanity',    label: 'Shop Sanity',      short: 'Shop Sanity' },
-  { id: 'bonkshuffle-toggle',    cfg: 'bonkShuffle',   label: 'Bonk Shuffle',     short: 'Bonk Shuffle' }
+  { id: 'bonkshuffle-toggle',    cfg: 'bonkShuffle',   label: 'Bonk Shuffle',     short: 'Bonk Shuffle' },
+  { id: 'randomprize-toggle',    cfg: 'randomPrize',   label: 'Random Prize Shuffle', short: 'Random Prize' }
 ];
 
 // Key Drop means both halves, so while it is on the two specific flags are
@@ -1254,6 +1501,12 @@ function syncKeyDropLock() {
 }
 
 
+// ── Enemy Drop dropdown ──────────────────────────────────────────────────────
+// A view over the two enemy checkboxes that already exist (and the two masters
+// that force them), so nothing downstream had to change: every flag, preset and
+// URL parameter still reads the checkboxes. Kept in sync both ways — pick a
+// mode here and the boxes follow; tick a box in Other Settings and this
+// follows.
 function updateOtherSettingsSummary() {
   var el = document.getElementById('other-settings-summary');
   if (!el) return;
@@ -1383,6 +1636,9 @@ var BUILTIN_PRESETS = {
     bossShuffle: true,
     enemizer: true,
     swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
   },
   standard: {
     label: 'Standard',
@@ -1393,6 +1649,9 @@ var BUILTIN_PRESETS = {
     bossShuffle: false,
     enemizer: false,
     swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
   },
   openstandard: {
     label: 'Open Standard',
@@ -1403,6 +1662,9 @@ var BUILTIN_PRESETS = {
     bossShuffle: false,
     enemizer: false,
     swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
   },
   standardkeysanity: {
     label: 'Standard KeySanity',
@@ -1413,26 +1675,440 @@ var BUILTIN_PRESETS = {
     bossShuffle: false,
     enemizer: false,
     swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
   },
   openkeysanity: {
     label: 'Open KeySanity',
     dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
     gtCrystals: '7',
     gamemode: 'open',
     entranceShuffle: false,
     bossShuffle: false,
     enemizer: false,
     swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
   },
-  crosskeys: {
-    label: 'CrossKeys',
+  // ── Community presets, taken from the reference tracker's own definitions ──
+  // Read straight out of its bundle (Sep 2026), so the settings are its, not a
+  // guess. Everything it varies that the tracker doesn't model is dropped,
+  // because none of it changes logic or counts: the goal (Ganon / fast Ganon /
+  // All Dungeons / hunts), starting items and assured swords, activated flute,
+  // ambrosia, follower and bonk shuffle, door and overworld shuffle.
+  cabookey: {
+    label: 'Cabookey',
     dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'standard',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  cabookeydrop: {
+    label: 'Cabookeydrop',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'standard',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'keys',
+    enemyDrop: 'keys',
+  },
+  adenemizer: {
+    label: 'AD Enemizer',
+    dungeonItems: 'standard',
+    dungeonShuffle: '',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: true,
+    enemizer: true,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  adkeysanity: {
+    label: 'AD Keysanity',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  adkeydropshop: {
+    label: 'AD Keydrop Shop',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'keys',
+    enemyDrop: 'none',
+    shopsanity: true,
+  },
+  open47keys: {
+    label: '4/7 Open Keys',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '4',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  mcshuffle: {
+    label: 'MC Shuffle',
+    dungeonItems: 'mapcompass',
+    dungeonShuffle: 'mc',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  crosskeyskdad: {
+    label: 'Crosskeys KD AD',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
     gtCrystals: '7',
     gamemode: 'open',
     entranceShuffle: true,
     bossShuffle: false,
     enemizer: false,
     swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'keys',
+    enemyDrop: 'keys',
+  },
+  invertedcrosskeys: {
+    label: 'Inverted Crosskeys (1.0)',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'inverted',
+    entranceShuffle: true,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  inverted1: {
+    label: 'Inverted (1.0)',
+    dungeonItems: 'standard',
+    dungeonShuffle: '',
+    gtCrystals: '7',
+    gamemode: 'inverted',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  invertedkeysanity: {
+    label: 'Inverted Keysanity (1.0)',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'inverted',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  invertedadkeysanity: {
+    label: 'Inverted AD Keysanity (1.0)',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'inverted',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  influkeys: {
+    label: 'Influkeys (1.0)',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'inverted',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  enemizerkeydrop: {
+    label: 'Enemizer Keydrop',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: true,
+    enemizer: true,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'keys',
+    enemyDrop: 'none',
+  },
+  ambrosia: {
+    label: 'Ambrosia',
+    dungeonItems: 'standard',
+    dungeonShuffle: '',
+    gtCrystals: '7',
+    gamemode: 'standard',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  ambroz1a: {
+    label: 'AmbroZ1a',
+    dungeonItems: 'standard',
+    dungeonShuffle: '',
+    gtCrystals: '7',
+    gamemode: 'retro',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+    universalKeys: true,
+  },
+  potpourri: {
+    label: 'Potpourri',
+    dungeonItems: 'mapcompasskeys',
+    dungeonShuffle: 'bk',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: true,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  potsandbones: {
+    label: 'Pots & Bones',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'standard',
+    entranceShuffle: true,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'lottery',
+    enemyDrop: 'all',
+  },
+  retrance: {
+    label: 'Retrance',
+    dungeonItems: 'mapcompass',
+    dungeonShuffle: 'mcb',
+    gtCrystals: '7',
+    gamemode: 'retro',
+    entranceShuffle: true,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+    universalKeys: true,
+  },
+  shoptillyoudrop: {
+    label: 'Shop Till You Drop',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'retro',
+    entranceShuffle: true,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'keys',
+    enemyDrop: 'keys',
+    shopsanity: true,
+  },
+
+  // Seed options whose names carry one meaning each, so they need no
+  // interpretation: the world state, the enemy shuffle, the sword.
+  retro: {
+    label: 'Retro',
+    dungeonItems: 'standard',
+    gtCrystals: '7',
+    gamemode: 'retro',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  enemizer: {
+    label: 'Enemizer',
+    dungeonItems: 'standard',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: true,
+    enemizer: true,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  swordless: {
+    label: 'Swordless',
+    dungeonItems: 'standard',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: true,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  mcboss: {
+    label: 'MCBoss',
+    dungeonItems: 'mapcompass',
+    dungeonShuffle: 'mc',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: true,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  mcbossenemizer: {
+    label: 'MCBossEnemizer',
+    dungeonItems: 'mapcompass',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: false,
+    bossShuffle: true,
+    enemizer: true,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  // Inverted 2.0, with the dungeon item shuffle stated as flags rather than a
+  // mode name: 'b' big key, 'k' small keys, 'mcbk' all four (Key Sanity).
+  invertedbk: {
+    label: 'Inverted BK (2.0)',
+    dungeonItems: 'mapcompass',
+    dungeonShuffle: 'b',
+    gtCrystals: '7',
+    gamemode: 'inverted2',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  invertedfullkeys: {
+    label: 'Inverted Full Keys (2.0)',
+    dungeonItems: 'mapcompasskeys',
+    dungeonShuffle: 'bk',
+    gtCrystals: '7',
+    gamemode: 'inverted2',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  invertedfullkeysanity: {
+    label: 'Inverted Full Keysanity (2.0)',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'inverted2',
+    entranceShuffle: false,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
+  },
+  crosskeys: {
+    label: 'CrossKeys',
+    dungeonItems: 'keysanity',
+    dungeonShuffle: 'mcbk',
+    gtCrystals: '7',
+    gamemode: 'open',
+    entranceShuffle: true,
+    bossShuffle: false,
+    enemizer: false,
+    swordless: false,
+    logicMode: 'noglitches',
+    pottery: 'none',
+    enemyDrop: 'none',
   },
   // The two AD presets. Both touch the Other Settings menu, which is what
   // proves applyPresetSettings reaches into that popup — key drop, pseudo boots
@@ -1442,8 +2118,9 @@ var BUILTIN_PRESETS = {
   // covers both, and leaving the two halves ticked underneath it would
   // resurface the moment it came off.
   adkeydrop: {
-    label: '(AD) KeyDrop',
+    label: 'AD Keydrop',
     dungeonItems: 'standard',
+    dungeonShuffle: 'mcbk',
     gtCrystals: '7',
     gamemode: 'open',
     entranceShuffle: false,
@@ -1456,6 +2133,9 @@ var BUILTIN_PRESETS = {
     enemyKeyDrop: false,
     pseudoBoots: false,
     mirrorScroll: false,
+    logicMode: 'noglitches',
+    pottery: 'keys',
+    enemyDrop: 'keys',
   },
   // The fuller one: key sanity, entrance shuffle, and the two display flags.
   // Was itself called "(AD) KeyDrop" until Aug 2026, when Chris renamed it to
@@ -1475,14 +2155,121 @@ var BUILTIN_PRESETS = {
     enemyKeyDrop: false,
     pseudoBoots: true,
     mirrorScroll: true,
+    logicMode: 'noglitches',
+    pottery: 'keys',
+    enemyDrop: 'keys',
   }
 };
+
+// ── Dungeon Item Shuffle: presets over four flags ──────────────────────────
+// Letters match js/dngpanel.js: m map, c compass, b big key, k small keys.
+var DSHUF_PRESETS = {
+  standard: '', mapcompass: 'mc', mapcompasskeys: 'mck', keysanity: 'mcbk', other: ''
+};
+function dshufBox(n) { return document.getElementById('dshuf-' + n); }
+function dshufStr() {
+  return ['map','compass','bigkey','smallkey'].map(function (n, i) {
+    var el = dshufBox(n);
+    return (el && el.checked) ? 'mcbk'[i] : '';
+  }).join('');
+}
+function dshufSet(str) {
+  ['map','compass','bigkey','smallkey'].forEach(function (n, i) {
+    var el = dshufBox(n);
+    if (el) el.checked = str.indexOf('mcbk'[i]) !== -1;
+  });
+}
+// The preset this combination is, or 'custom'. 'other' is a display mode
+// rather than a shuffle, so it never wins the match.
+function dshufPresetFor(str) {
+  for (var name in DSHUF_PRESETS) {
+    if (name !== 'other' && DSHUF_PRESETS[name] === str) return name;
+  }
+  return 'custom';
+}
+// What to store as alttp-dungeon-items for a custom combination, so anything
+// still reading the old setting lands somewhere sensible.
+function dshufLegacyMode(str) {
+  var m = dshufPresetFor(str);
+  if (m !== 'custom') return m;
+  if (str.indexOf('b') !== -1 && str.indexOf('k') !== -1) return 'keysanity';
+  if (str.indexOf('k') !== -1) return 'mapcompasskeys';
+  if (str) return 'mapcompass';
+  return 'standard';
+}
+var DSHUF_LABELS = {
+  standard: 'Standard', mapcompass: 'Map/Compass',
+  mapcompasskeys: 'Map/Compass/Small Keys', keysanity: 'Key Sanity',
+  custom: 'Custom', other: 'Other'
+};
+// The button's caption, and the hidden select that everything else reads.
+function dshufSync() {
+  var disel = document.getElementById('dungeonitems-select');
+  var other = document.getElementById('dshuf-other');
+  var sum   = document.getElementById('dshuf-summary');
+  var mode  = (other && other.checked) ? 'other' : dshufPresetFor(dshufStr());
+  if (disel) disel.value = mode;
+  if (!sum) return;
+  if (mode === 'custom') {
+    // Name what is actually ticked — "Custom" alone says nothing.
+    var on = [['map','Map'],['compass','Compass'],['bigkey','Big Key'],['smallkey','Small Keys']]
+      .filter(function (b) { var el = dshufBox(b[0]); return el && el.checked; })
+      .map(function (b) { return b[1]; });
+    sum.textContent = on.length <= 2 ? on.join(', ') : on.length + ' selected';
+    sum.style.color = '#4dff88';
+  } else {
+    sum.textContent = DSHUF_LABELS[mode] || 'Standard';
+    sum.style.color = (mode === 'standard') ? '#666' : '#4dff88';
+  }
+}
+function dshufWire() {
+  var btn   = document.getElementById('dshuf-btn');
+  var panel = document.getElementById('dshuf-panel');
+  var other = document.getElementById('dshuf-other');
+  if (btn && panel && !btn._wired) {
+    btn._wired = true;
+    btn.addEventListener('click', function (e) { e.stopPropagation(); panel.classList.toggle('open'); });
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.addEventListener('click', function () { panel.classList.remove('open'); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') panel.classList.remove('open');
+    });
+  }
+  ['map','compass','bigkey','smallkey'].forEach(function (n) {
+    var el = dshufBox(n);
+    if (!el || el._wired) return;
+    el._wired = true;
+    el.addEventListener('change', function () {
+      // Ticking a shuffled item is a choice to track them, so it clears Other.
+      if (other && other.checked) other.checked = false;
+      dshufSync();
+    });
+  });
+  if (other && !other._wired) {
+    other._wired = true;
+    // Other means the dungeon items aren't tracked at all, so nothing is shuffled.
+    other.addEventListener('change', function () {
+      if (other.checked) dshufSet('');
+      dshufSync();
+    });
+  }
+  dshufSync();
+}
 
 // Apply a settings object to the actual form controls on the page.
 function applyPresetSettings(cfg) {
   if (!cfg) return;
   var disel = document.getElementById('dungeonitems-select');
-  if (disel && cfg.dungeonItems !== undefined) disel.value = cfg.dungeonItems;
+  if (disel && cfg.dungeonItems !== undefined) {
+    disel.value = cfg.dungeonItems;
+    // The four boxes: a preset that states them wins; otherwise the mode it
+    // names is a preset over them.
+    if (cfg.dungeonShuffle !== undefined) dshufSet(cfg.dungeonShuffle);
+    else if (DSHUF_PRESETS[cfg.dungeonItems] !== undefined) dshufSet(DSHUF_PRESETS[cfg.dungeonItems]);
+    var oth = document.getElementById('dshuf-other');
+    if (oth) oth.checked = (cfg.dungeonItems === 'other');
+    if (typeof dshufSync === 'function') dshufSync();
+  }
   var gtsel = document.getElementById('gt-crystals');
   if (gtsel && cfg.gtCrystals !== undefined) gtsel.value = cfg.gtCrystals;
   var gmsel = document.getElementById('gamemode-select');
@@ -1496,6 +2283,26 @@ function applyPresetSettings(cfg) {
   if (enToggle && cfg.enemizer !== undefined) enToggle.checked = !!cfg.enemizer;
   var swToggle = document.getElementById('swordless-toggle');
   if (swToggle && cfg.swordless !== undefined) swToggle.checked = !!cfg.swordless;
+  var potSel = document.getElementById('pottery-select');
+  if (potSel && cfg.pottery !== undefined) potSel.value = cfg.pottery;
+  var lmSel = document.getElementById('logicmode-select');
+  if (lmSel && cfg.logicMode !== undefined) lmSel.value = cfg.logicMode;
+  var edSel = document.getElementById('enemydrop-select');
+  if (edSel && cfg.enemyDrop !== undefined) edSel.value = cfg.enemyDrop;
+  // Presets written before the dropdowns existed (every built-in one) say
+  // keyDropAll / potsBones / the four halves. Translate rather than rewrite
+  // them, so an old custom preset still means what its author intended.
+  // A preset SETS this menu rather than patching it (see the note above), so a
+  // preset that mentions none of these means none of them — otherwise loading
+  // Standard after OnlyADKD would leave key drop quietly on.
+  if (potSel && cfg.pottery === undefined) {
+    potSel.value = (cfg.potsBones || cfg.potDrops) ? 'lottery'
+                 : (cfg.keyDropAll || cfg.keyDrop) ? 'keys' : 'none';
+  }
+  if (edSel && cfg.enemyDrop === undefined) {
+    edSel.value = (cfg.potsBones || cfg.enemyDrops)         ? 'all'
+                : (cfg.keyDropAll || cfg.enemyKeyDrop)      ? 'keys' : 'none';
+  }
   // ── the Other Settings menu is SET, not patched ──
   // Everything above leaves an unmentioned field alone. These six don't: a
   // preset that doesn't name a flag turns it OFF. Chris, Aug 2026 — loading
@@ -1543,6 +2350,9 @@ function captureCurrentSettings() {
     bossShuffle:     !!(document.getElementById('bossshuffle-toggle') && document.getElementById('bossshuffle-toggle').checked),
     enemizer:        !!(document.getElementById('enemizer-toggle') && document.getElementById('enemizer-toggle').checked),
     swordless:       !!(document.getElementById('swordless-toggle') && document.getElementById('swordless-toggle').checked),
+    pottery:      potteryValue(),
+    enemyDrop:    enemyDropValue(),
+    logicMode:    (document.getElementById('logicmode-select') || {}).value || 'noglitches',
   };
   // The Other Settings menu, from the one list that defines it — so adding a
   // seventh flag there carries it into custom presets for free.
@@ -1573,6 +2383,13 @@ function applyPreset() {
   var sel = document.getElementById('preset-select');
   var val = sel ? sel.value : '';
   if (!val) return;
+  // map.html reads this to decide whether a preset brings its own prebuilt
+  // entrance map (OnlyADKD does). Clearing the "loaded" marker means picking
+  // the preset again re-applies that map.
+  try {
+    localStorage.setItem('alttp-preset', val);
+    localStorage.removeItem('alttp-preset-map-loaded');
+  } catch (e) {}
   if (BUILTIN_PRESETS[val]) {
     applyPresetSettings(BUILTIN_PRESETS[val]);
     return;

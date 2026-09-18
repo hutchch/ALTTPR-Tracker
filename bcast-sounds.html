@@ -13,6 +13,30 @@ html, body {
   font-size: 13px;
   height: 100%;
 }
+.profile-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; flex-wrap: wrap;
+  border-bottom: 1px solid #222;
+  flex-shrink: 0;
+}
+.profile-label { color: #9aa0a8; font-size: 12px; }
+.profile-tab {
+  background: #22242a; border: 1px solid #3a3d45; color: #c8ccd2;
+  border-radius: 4px; padding: 3px 10px; font-size: 12px; cursor: pointer;
+}
+.profile-tab.on { background: #2d6cdf; border-color: #2d6cdf; color: #fff; }
+.profile-tab.mute.on { background: #6b7078; border-color: #6b7078; }
+.profile-rename {
+  background: #22242a; border: 1px solid #2d6cdf; color: #fff;
+  border-radius: 4px; padding: 3px 8px; font-size: 12px; width: 110px;
+}
+.btn-rename {
+  margin-left: auto; background: none; border: 1px solid #3a3d45;
+  color: #9aa0a8; border-radius: 4px; padding: 3px 9px; font-size: 11px; cursor: pointer;
+}
+.mute-note {
+  padding: 14px; color: #9aa0a8; font-size: 12px; line-height: 1.6;
+}
 body {
   display: flex;
   flex-direction: column;
@@ -127,24 +151,112 @@ button.btn-test:hover { background: #1a1a2a; }
 .footer .btn-clear-all:hover { background: #2a1a1a; }
 
 input[type="file"] { display: none; }
+
+/* Per-sound volume. Stored beside the sound itself, so it belongs to that
+   sound in that profile and goes away when the sound is cleared. */
+input[type="range"].vol {
+  width: 58px; flex-shrink: 0; margin: 0;
+  accent-color: #88c; cursor: pointer;
+}
+input[type="range"].vol:disabled { opacity: 0.3; cursor: default; }
+.item-row.sub input[type="range"].vol { width: 48px; }
 </style>
 </head>
 <body>
 <h1>♪ Item Sounds</h1>
-<div class="subtitle">Assign a custom sound per item. For bow, sword, gloves, shield and tunic, per-upgrade sounds override the base sound for that specific level.</div>
+<div class="subtitle">Assign a custom sound per item, each with its own volume. For bow, sword, gloves, shield and tunic, per-upgrade sounds override the base sound for that specific level.</div>
+
+<div class="profile-bar">
+  <span class="profile-label">Profile</span>
+  <span id="profile-tabs"></span>
+  <button class="btn-rename" onclick="renameProfile()">Rename</button>
+</div>
 
 <div class="scroll-area" id="item-list"></div>
 
 <div class="footer">
-  <button class="btn-clear-all" onclick="clearAllSounds()">Clear All Sounds</button>
+  <button class="btn-clear-all" onclick="clearAllSounds()">Clear Sounds in This Profile</button>
 </div>
 
 <input type="file" id="file-picker" accept="audio/*">
 
 <script>
+// ── Sound profiles ─────────────────────────────────────────────────────────
+// Three sets of sounds the player can switch between. Profile 1 keeps the
+// original, unprefixed keys, so sounds assigned before profiles existed are
+// simply profile 1 and nothing has to be migrated. Profiles 2 and 3 prefix
+// their keys instead of copying anything — a copy would double the audio in
+// localStorage, which is the one thing that could blow its quota.
+var PROFILE_COUNT = 5;
+var MUTE_PROFILE  = PROFILE_COUNT;   // the last slot plays nothing at all
+function activeProfile() {
+  var p = parseInt(localStorage.getItem('alttp-sound-profile') || '1', 10);
+  return (p >= 1 && p <= PROFILE_COUNT) ? p : 1;
+}
+function profileName(n) {
+  if (n === MUTE_PROFILE) return 'No Sounds';
+  return localStorage.getItem('alttp-sound-profile-name-' + n) || ('Profile ' + n);
+}
+function setProfile(n) {
+  localStorage.setItem('alttp-sound-profile', String(n));
+  buildProfileTabs();
+  buildList();
+}
+
+// Rename in place. Electron has no window.prompt, so the active tab turns into
+// a text box — Enter or clicking away saves, Escape puts it back.
+function renameProfile() {
+  var n = activeProfile();
+  if (n === MUTE_PROFILE) return;         // that one's name is the point of it
+  var tab = document.querySelector('.profile-tab.on');
+  if (!tab) return;
+  var input = document.createElement('input');
+  input.className = 'profile-rename';
+  input.value = profileName(n);
+  var done = false;
+  var commit = function (save) {
+    if (done) return;
+    done = true;
+    if (save) {
+      var name = input.value.trim();
+      if (name) localStorage.setItem('alttp-sound-profile-name-' + n, name);
+      else localStorage.removeItem('alttp-sound-profile-name-' + n);
+    }
+    buildProfileTabs();
+  };
+  input.onkeydown = function (ev) {
+    if (ev.key === 'Enter')  { ev.preventDefault(); commit(true); }
+    if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
+  };
+  input.onblur = function () { commit(true); };
+  tab.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+function buildProfileTabs() {
+  var wrap = document.getElementById('profile-tabs');
+  wrap.innerHTML = '';
+  for (var n = 1; n <= PROFILE_COUNT; n++) {
+    (function (n) {
+      var b = document.createElement('button');
+      b.className = 'profile-tab' + (n === MUTE_PROFILE ? ' mute' : '') +
+                    (n === activeProfile() ? ' on' : '');
+      b.textContent = profileName(n);
+      b.onclick = function () { setProfile(n); };
+      wrap.appendChild(b);
+    })(n);
+  }
+  var rn = document.querySelector('.btn-rename');
+  if (rn) rn.disabled = (activeProfile() === MUTE_PROFILE);
+}
+
 // Items with sub:true are per-upgrade overrides for progressive items.
 // playItemSound() checks 'alttp-item-sound-{key}-{val}' first, then 'alttp-item-sound-{key}'.
 var ITEMS = [
+  // Go Mode isn't an item, but it's the one cue people most want to hear, so
+  // it sits at the top and is set per profile like everything else here.
+  { key: 'gomode',   name: 'Go Mode',             icon: 'items/gomode1.png' },
   // ── Bow ─────────────────────────────────────────────────────────────────
   { key: 'bow',      name: 'Bow (any upgrade)',   icon: 'items/bow10.png' },
   { key: 'bow-1',    name: 'Bow Only',         icon: 'items/bow10.png',  sub: true },
@@ -202,7 +314,10 @@ var ITEMS = [
 
 var _pendingKey = null;
 
-function lsKey(key) { return 'alttp-item-sound-' + key; }
+function lsKey(key) {
+  var p = activeProfile();
+  return 'alttp-item-sound-' + (p === 1 ? '' : 'p' + p + '-') + key;
+}
 
 function getSoundName(key) {
   return localStorage.getItem(lsKey(key) + '-name') || (localStorage.getItem(lsKey(key)) ? 'Custom sound' : null);
@@ -210,9 +325,26 @@ function getSoundName(key) {
 
 function hasSound(key) { return !!localStorage.getItem(lsKey(key)); }
 
+// 0-100, default full. Held at '<sound key>-vol' so it is per sound AND per
+// profile, and clearing the sound clears its level with it.
+function getVol(key) {
+  var v = parseInt(localStorage.getItem(lsKey(key) + '-vol'), 10);
+  return (isNaN(v) || v < 0 || v > 100) ? 100 : v;
+}
+function setVol(key, v) {
+  if (v >= 100) localStorage.removeItem(lsKey(key) + '-vol');
+  else localStorage.setItem(lsKey(key) + '-vol', String(v));
+}
+
 function buildList() {
   var list = document.getElementById('item-list');
   list.innerHTML = '';
+  if (activeProfile() === MUTE_PROFILE) {
+    list.innerHTML = '<div class="mute-note">Every item collect is silent while ' +
+      'this profile is selected. Nothing is deleted — pick another profile to ' +
+      'get its sounds back.</div>';
+    return;
+  }
   ITEMS.forEach(function(item) {
     var row = document.createElement('div');
     row.className = 'item-row' + (item.sub ? ' sub' : '');
@@ -232,6 +364,18 @@ function buildList() {
     status.id = 'status-' + item.key;
     var sn = getSoundName(item.key);
     status.textContent = sn ? sn : 'No sound';
+
+    var vol = document.createElement('input');
+    vol.type = 'range'; vol.min = 0; vol.max = 100;
+    vol.className = 'vol';
+    vol.id = 'vol-' + item.key;
+    vol.value = getVol(item.key);
+    vol.disabled = !hasSound(item.key);
+    vol.title = 'Volume';
+    vol.oninput = (function (k) { return function () {
+      setVol(k, parseInt(this.value, 10));
+      this.title = 'Volume ' + this.value + '%';
+    }; })(item.key);
 
     var btns = document.createElement('div');
     btns.className = 'btn-row';
@@ -259,12 +403,15 @@ function buildList() {
     row.appendChild(icon);
     row.appendChild(name);
     row.appendChild(status);
+    row.appendChild(vol);
     row.appendChild(btns);
     list.appendChild(row);
   });
 }
 
 function updateRowStatus(key) {
+  var vol = document.getElementById('vol-' + key);
+  if (vol) { vol.disabled = !hasSound(key); vol.value = getVol(key); }
   var status = document.getElementById('status-' + key);
   if (!status) return;
   var sn = getSoundName(key);
@@ -304,6 +451,7 @@ function testSound(key) {
   if (!dataUrl) return;
   try {
     var a = new Audio(dataUrl);
+    a.volume = getVol(key) / 100;      // test at the level it will actually play
     a.play().catch(function() {});
   } catch(e) {}
 }
@@ -311,6 +459,7 @@ function testSound(key) {
 function clearSound(key) {
   localStorage.removeItem(lsKey(key));
   localStorage.removeItem(lsKey(key) + '-name');
+  localStorage.removeItem(lsKey(key) + '-vol');
   updateRowStatus(key);
 }
 
@@ -319,11 +468,13 @@ function clearAllSounds() {
   ITEMS.forEach(function(item) {
     localStorage.removeItem(lsKey(item.key));
     localStorage.removeItem(lsKey(item.key) + '-name');
+    localStorage.removeItem(lsKey(item.key) + '-vol');
     updateRowStatus(item.key);
   });
 }
 
 try {
+  buildProfileTabs();
   buildList();
 } catch(e) {
   document.getElementById('item-list').innerHTML =

@@ -54,6 +54,9 @@ const API_CORE_ITEMS = [
   'bottle', 'somaria', 'byrna', 'cape', 'mirror', 'halfmagic', 'boots', 'gloves',
   'flippers', 'moonpearl', 'sword', 'shield', 'tunic', 'agahnim', 'crystals',
   'mmMedallion', 'trMedallion',
+  // The tracker's own GO-mode toggle. Not an inventory item, but overlays want
+  // it, and the WebSocket already carries it.
+  'gomode',
 ];
 // Max level per item (documentation metadata; 0..max). Defaults to 1 (on/off).
 const API_ITEM_MAX = {
@@ -339,7 +342,11 @@ function startApiServer(host, port) {
 // Start/stop the API server based on saved settings.
 function applyApiSettings(settings) {
   const s = settings || store.get('settings', {}) || {};
-  const enabled = s.apiEnabled === 'yes' || s.apiEnabled === true;
+  // Default on: a first run with nothing saved yet still serves the API, so an
+  // overlay works out of the box. Only an explicit 'no' turns it off.
+  const enabled = (s.apiEnabled === undefined || s.apiEnabled === null)
+                  ? true
+                  : (s.apiEnabled === 'yes' || s.apiEnabled === true);
   const host = (s.apiHost && String(s.apiHost).trim()) || '127.0.0.1';
   const port = parseInt(s.apiPort, 10) || 8720;
   const wsPort = parseInt(s.apiWsPort, 10) || 8201;
@@ -441,6 +448,10 @@ function wsBuildItems(snap) {
     cape: b(snap.cape), mirror: b(snap.mirror), boots: b(snap.boots),
     flippers: b(snap.flippers), moonpearl: b(snap.moonpearl), net: b(snap.net),
     book: b(snap.book), shovel: b(snap.shovel), agahnim: b(snap.agahnim),
+    // Not part of the HoellTracker channel shape, but the race overlay needs
+    // them and they cost nothing: half magic, the crystal count, and the
+    // tracker's own GO-mode toggle.
+    halfmagic: b(snap.halfmagic), crystals: n(snap.crystals), gomode: b(snap.gomode),
     triforce: 0,
   };
 }
@@ -565,8 +576,10 @@ function toFileUrl(rel) {
 // ── Launcher ──────────────────────────────────────────────────────────────────
 function createLauncher() {
   launcherWin = new BrowserWindow({
-    width: 540, height: 950,
-    minWidth: 540, minHeight: 700,
+    // The launcher body is 760px wide (two-column Settings, Timer beside
+    // Display), plus the page's own 10px margins and a little slack.
+    width: 800, height: 790,
+    minWidth: 800, minHeight: 620,
     resizable: false,
     useContentSize: true,
     title: 'Hutch-ALTTPR Tracker',
@@ -639,7 +652,16 @@ function createItemTrackerWindow(scale, wsHost, wsPort, bg, dungeonItems, bossSh
   const potDrops = ((store.get('settings', {}) || {}).potDrops) || 'no';
   const enemyDrops = ((store.get('settings', {}) || {}).enemyDrops) || 'no';
   const potsBones = ((store.get('settings', {}) || {}).potsBones) || 'no';
-  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}&bossshuffle=${bossShuffle||'yes'}&race=${race}&pseudoboots=${pseudoboots}&mirrorscroll=${mirrorscroll}&gamemode=${gamemode}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}&potdrops=${potDrops}&enemydrops=${enemyDrops}&potsbones=${potsBones}`;
+  // Pottery Shuffle and the logic mode were the only seed flags never put on
+  // the query string: both windows fell back to localStorage, and map.html's
+  // own init sets trackerSettings.pottery to 'none' first, so anything reading
+  // that saw 'none' and every cave pot vanished under Electron.
+  const pottery = ((store.get('settings', {}) || {}).pottery) || 'none';
+  const logicMode = ((store.get('settings', {}) || {}).logicMode) || 'noglitches';
+  // The four dungeon-item shuffle flags (m/c/b/k). '' is a real value here
+  // (nothing shuffled), so an absent setting is the only thing that falls back.
+  const dungeonShuffle = ((store.get('settings', {}) || {}).dungeonShuffle) || '';
+  const q = `?scale=${s}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&bg=${bg||'black'}&dungeonitems=${dungeonItems||'standard'}&dungeonshuffle=${dungeonShuffle}&bossshuffle=${bossShuffle||'yes'}&race=${race}&pseudoboots=${pseudoboots}&mirrorscroll=${mirrorscroll}&gamemode=${gamemode}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}&potdrops=${potDrops}&enemydrops=${enemyDrops}&potsbones=${potsBones}&pottery=${pottery}&logic=${logicMode}`;
   itemWin.loadURL(toFileUrl('itemtracker.html') + q);
   itemWin.on('closed', () => { itemWin = null; });
   itemTrackerBg = bg || 'black';
@@ -656,10 +678,18 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
   const pct = parseInt(zoom) || 100;
   const size = Math.round(512 * pct / 100);
   const isVert = layout === 'vertical';
+  // The same numbers map.html's resizeWindowToMap() arrives at — useContentSize
+  // means these ARE content pixels, so the page has nothing left to correct.
+  // They used to be a generous over-estimate (+360 tall), which is why the
+  // window opened large and visibly shrank a few seconds later, once the page
+  // had parsed and measured itself.
   mapWin = new BrowserWindow({
-    width:  isVert ? size + 60 : size * 2 + 80,
-    height: isVert ? size * 2 + 360 : size + 360,
+    // Must match map.html's resizeWindowToMap(): 10px of padding on every side,
+    // a 12px gap between the two maps, and 63px of top and bottom bars.
+    width:  isVert ? size + 20 : size * 2 + 32,
+    height: isVert ? size * 2 + 12 + 83 : size + 83,
     resizable: true,
+    show: false,              // …and nothing is shown until the first paint
     useContentSize: true,
     title: 'Map',
     backgroundColor: '#0d0d0d',
@@ -675,6 +705,15 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
     }
   });
   mapWin.setMenuBarVisibility(false);
+  // Shown on the first paint, with a backstop so a page that never reports
+  // ready-to-show can't leave the user with no window at all.
+  const showMap = () => { if (mapWin && !mapWin.isDestroyed() && !mapWin.isVisible()) mapWin.show(); };
+  // did-finish-load, not ready-to-show: the page resizes itself to the exact
+  // map size while its scripts run, and ready-to-show fires before that — so
+  // the window appeared at main's guess and then visibly shrank.
+  mapWin.webContents.once('did-finish-load', showMap);
+  mapWin.once('ready-to-show', () => setTimeout(showMap, 400));
+  setTimeout(showMap, 3000);
   // Read from the store rather than adding another positional parameter to an
   // already long signature — same approach gamemode uses in the item tracker.
   const universalKeys = ((store.get('settings', {}) || {}).universalKeys) || 'no';
@@ -684,9 +723,16 @@ function openMap(zoom, layout, enemizer, gtCrystals, wsHost, wsPort, gamemode, d
   const potDrops = ((store.get('settings', {}) || {}).potDrops) || 'no';
   const enemyDrops = ((store.get('settings', {}) || {}).enemyDrops) || 'no';
   const potsBones = ((store.get('settings', {}) || {}).potsBones) || 'no';
+  // Pottery Shuffle and the logic mode were the only seed flags never put on
+  // the query string: both windows fell back to localStorage, and map.html's
+  // own init sets trackerSettings.pottery to 'none' first, so anything reading
+  // that saw 'none' and every cave pot vanished under Electron.
+  const pottery = ((store.get('settings', {}) || {}).pottery) || 'none';
+  const logicMode = ((store.get('settings', {}) || {}).logicMode) || 'noglitches';
+  const dungeonShuffle2 = ((store.get('settings', {}) || {}).dungeonShuffle) || '';
   const shopsanity = ((store.get('settings', {}) || {}).shopsanity) || 'no';
   const bonkShuffle = ((store.get('settings', {}) || {}).bonkShuffle) || 'no';
-  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&swordless=${swordless||'no'}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}&bossshuffle=${bossShuffle||'yes'}&entranceshuffle=${entranceShuffle||'no'}&entrancemode=${entranceMode||'none'}&shopsanity=${shopsanity}&bonkshuffle=${bonkShuffle}&potdrops=${potDrops}&enemydrops=${enemyDrops}&potsbones=${potsBones}`;
+  const q = `?zoom=${pct}&layout=${layout||'horizontal'}&enemizer=${enemizer||'yes'}&gtcrystals=${gtCrystals||7}&wshost=${wsHost||'localhost'}&wsport=${wsPort||23074}&gamemode=${gamemode||'standard'}&dungeonitems=${dungeonItems||'standard'}&dungeonshuffle=${dungeonShuffle2}&swordless=${swordless||'no'}&universalkeys=${universalKeys}&keydropall=${keyDropAll}&keydrop=${keyDrop}&enemykeydrop=${enemyKeyDrop}&bossshuffle=${bossShuffle||'yes'}&entranceshuffle=${entranceShuffle||'no'}&entrancemode=${entranceMode||'none'}&shopsanity=${shopsanity}&bonkshuffle=${bonkShuffle}&potdrops=${potDrops}&enemydrops=${enemyDrops}&potsbones=${potsBones}&pottery=${pottery}&logic=${logicMode}`;
   mapWin.loadURL(toFileUrl('map.html') + q);
   mapWin.on('closed', () => { mapWin = null; });
 }

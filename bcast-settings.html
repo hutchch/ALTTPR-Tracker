@@ -646,26 +646,6 @@ html, body { margin: 0; background: #1a1a1a; height: auto; min-height: 100%; wid
         </div>
       </div>
 
-      <div class="settings-section">
-        <h4>Go Mode Sound</h4>
-        <div class="settings-row">
-          <label><input type="checkbox" id="opt-gomode-sound"> Play sound on Go Mode</label>
-        </div>
-        <div class="settings-sub" id="gomode-sound-sub">
-          <div class="settings-row">
-            <label class="bsettings-btn" style="cursor:pointer;margin:0;">
-              Browse...
-              <input type="file" accept="audio/*" id="opt-gomode-sound-file" style="display:none;">
-            </label>
-            <span id="gomode-sound-status" style="font-size:10px;color:#888;">No file</span>
-          </div>
-          <div class="settings-row">
-            <button type="button" class="bsettings-btn" id="opt-gomode-sound-clear" style="margin:0;">Clear</button>
-            <button type="button" class="bsettings-btn" id="opt-gomode-sound-test" style="margin:0;">▶ Test</button>
-          </div>
-        </div>
-      </div>
-
       <!-- Go Mode Spark Lines hidden (Max build only) -->
 
       <div class="settings-section">
@@ -899,8 +879,7 @@ function openSettings() {
   document.getElementById('opt-map-anim').checked       = SETTINGS.mapAnimEnabled;
   document.getElementById('opt-compass-anim').checked   = SETTINGS.compassAnimEnabled;
   document.getElementById('opt-bigkey-anim').checked    = SETTINGS.bigKeyAnimEnabled;
-  document.getElementById('opt-gomode-sound').checked   = SETTINGS.gomodeSoundEnabled;
-  updateGomodeSoundStatus();
+  // (Go Mode's sound moved to Item Sounds — its controls are gone from here.)
   document.querySelectorAll('input[name="anim-bg"]').forEach(function(r) { r.checked = (r.value === SETTINGS.animBg); });
   var _rp2 = SETTINGS.animRandomPool || {};
   [['opt-rand-stars','stars'],['opt-rand-starburst','starburst'],['opt-rand-matrix','matrix'],['opt-rand-triforce','triforce'],['opt-rand-lightning','lightning'],['opt-rand-image','image']].forEach(function(pair){
@@ -926,6 +905,7 @@ function syncFillSubEnabled() {
 }
 function syncGomodeSoundSub() {
   var sub = document.getElementById('gomode-sound-sub');
+  if (!sub) return;
   if (SETTINGS.gomodeSoundEnabled) sub.classList.remove('disabled');
   else                              sub.classList.add('disabled');
 }
@@ -967,6 +947,7 @@ function buildSparkSwatches() {
 }
 function updateGomodeSoundStatus() {
   var el = document.getElementById('gomode-sound-status');
+  if (!el) return;
   if (el) el.textContent = SETTINGS.gomodeSoundData ? 'File loaded' : 'No file';
 }
 function playGomodeSound() {
@@ -1146,34 +1127,7 @@ function wireSettingsHandlers() {
     applyDungeonBox();
   });
 
-  // Go Mode Sound
-  document.getElementById('opt-gomode-sound').addEventListener('change', function(e) {
-    SETTINGS.gomodeSoundEnabled = e.target.checked;
-    saveSettings(); syncGomodeSoundSub();
-  });
-  document.getElementById('opt-gomode-sound-file').addEventListener('change', function(e) {
-    var file = e.target.files && e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function() {
-      SETTINGS.gomodeSoundData = reader.result;
-      try { localStorage.setItem('alttp-broadcast-gomode-sound-data', reader.result); } catch(err) {
-        alert('Audio file too large to store. Try a smaller file.');
-        SETTINGS.gomodeSoundData = '';
-      }
-      updateGomodeSoundStatus();
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  });
-  document.getElementById('opt-gomode-sound-clear').addEventListener('click', function() {
-    SETTINGS.gomodeSoundData = '';
-    try { localStorage.removeItem('alttp-broadcast-gomode-sound-data'); } catch(e) {}
-    updateGomodeSoundStatus();
-  });
-  document.getElementById('opt-gomode-sound-test').addEventListener('click', function() {
-    playGomodeSound();
-  });
+  // Go Mode Sound: set per profile in the Item Sounds window now.
   // Go Mode Sparklines disabled in this build — no event listeners needed
   var SPARK_PRESETS = {
     green:  ['#22cc55','#66ff88','#aaffbb','#448855','#225533','#88aa99'],

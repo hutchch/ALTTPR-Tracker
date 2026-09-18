@@ -394,6 +394,12 @@ html.dfill-on .dungeon-slot.prize-obtained {
 /* Pendant dungeons: circle sits in the counts column, under the chest count */
 .dungeon-counts-pendant > .boss-circle { margin-top: 2px; }
 
+/* Show Boss = off: the circles are hidden outright. This is a SEPARATE class
+   from no-boss-shuffle below — that one only locks the circles, it does not
+   hide them, and reusing it was why unticking "Show Boss" appeared to do
+   nothing. */
+html.hide-boss .boss-circle { display: none; }
+
 /* Boss Shuffle = No: bosses are vanilla fixed assignments. Circles stay visible
    but are non-interactive (pointer-events off, no hover highlight). */
 html.no-boss-shuffle .boss-circle {
@@ -708,7 +714,13 @@ html.no-boss-shuffle .boss-circle:hover {
 .stat-bonk,
 .stat-revival,
 .stat-flute {
-    margin-left: 8px;
+    /* Was 8px, and .stat-box adds another 8px of padding on the left, which put
+       the labels ~19px in from the column edge — the gap Chris kept seeing in
+       front of them. 2px here plus the 3px override below leaves the labels
+       just clear of the crystal boxes. Keep in step with `inset` in
+       equalizeTopBoxes(). */
+    margin-left: 2px;
+    padding-left: 3px;
 }
 
 .stat-death {
