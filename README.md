@@ -1,6 +1,6 @@
 ***
 <h1>ALTTPR Tracker </h1>
-<h2>(v1.1.17 release)</h2>
+<h2>(v1.1.18 release)</h2>
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
 
@@ -60,7 +60,9 @@ User Guide: [User Guide](https://github.com/hutchch/ALTTPR-Tracker/wiki)
 Emulator setup can be found: [Emulator Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Emulator-Setup)
 
 Windows Emulator Setup Guides
+
 **ATTENTION: SNES9x has multiple versions, only SNES9x-EMUNWA and SNES9x-RR will work.**
+
 - [Windows RetroArch Setup](https://github.com/hutchch/ALTTPR-TRACKER/wiki/Retroarch-Setup)
 - [Windows Bizhawk Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/Bizhawk)
 - [Windows SNES9x-EMUNWA Setup](https://github.com/hutchch/ALTTPR-Tracker/wiki/SNES9x%E2%80%90EMUNWA)
