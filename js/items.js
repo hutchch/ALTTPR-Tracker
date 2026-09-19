@@ -126,7 +126,7 @@ let previousSRAM = null;
 // Bumped with every change to this file, relayed in the broadcast snapshot so
 // the map's gear menu can show which build the ITEM TRACKER is running — the
 // two windows are packaged together but reload independently.
-window.ITEMS_BUILD = '1124k';
+window.ITEMS_BUILD = '1125g';
 let _bombClearTimer = null; // debounce: only clear bombs after sustained 0 reading
 
 const items = {
@@ -1019,22 +1019,79 @@ window.seedCountsFor = function(key) {
 // The game's own per-dungeon "checks done" tally, or null when the tracker
 // should stick to counting location bits.
 //
-//     $F5F4B0, one 16-bit slot per dungeon, low byte at 2i
+//     $F5F4B0, 16-bit slot per dungeon, low byte at 2i
 //
 // It sits inside the 0x500 room read the tracker already issues, so this costs
-// nothing. Slot order is SEED_COUNT_SLOT, the same as the seed's own tables.
+// nothing. Slot order is SEED_COUNT_SLOT, which matches the ROM's exactly:
+// Sewers 0, HC 1, EP 2, DP 3, CT 4, SP 5, PD 6, MM 7, SW 8, IP 9, TH 10,
+// TT 11, TR 12, GT 13.
+//
+// CONFIRMED against a live seed (Chris, Sep 2026). With Hyrule Castle finished
+// at 108 checks and nothing else touched, $F5F4B0..$F5F4DF read:
+//
+//     0x4b0: 00 00 6c 00 00 00 00 00 00 00 00 00 00 00 00 00
+//     0x4c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+//
+// 0x6c = 108, sitting at 0x4b2 — exactly `0x4b0 + 2 * SEED_COUNT_SLOT.hc`. The
+// table is 14 SIXTEEN-BIT slots spanning 0x4b0..0x4cb, which is why 0x4c0 is
+// zero here: those are the slots for SW through GT, none of them cleared yet.
+//
+// Do NOT "correct" this to z3randomizer's sram.asm, which puts
+// DungeonLocationsChecked at $7EF4C0 with one byte per dungeon. That is a
+// different ROM's map; ALTTPR does not populate it, and reading `0x4c0 + slot`
+// made every dungeon read zero (1125a, reverted).
+//
+// The Swamp Palace "51 of 81 enemies" report was never this counter — that is
+// the Enemies row on the hover card, which counts per-enemy bits out of
+// POT_LOCATIONS and is over-listed. See POTTERY-DROPS-README.md.
 //
 // Returns null outside a drop mode ON PURPOSE — every other mode counts bits,
 // which is what all of the key-drop work was verified against. Widening this is
 // a decision, not a tidy-up.
+// Every location a dungeon has BEFORE any shuffle adds more — its own chests,
+// dungeon items included. `ALL_LOC` inside applyDungeonItemMaxes was the only
+// copy; the drop rollup needs it too, to work out how many of a drop-mode
+// dungeon's locations are pots and enemies rather than chests.
+//
+// CT is the one that isn't DUNGEON_LOCATIONS.ct.length (that list carries Boss
+// as a fourth line). Verified against a full clear: 59 - 2 - 25 pots = 32
+// enemy drops, which is exactly what the cartridge holds (Chris, Sep 2026).
+window.BASE_LOC = { hc:8, ep:6, dp:6, toh:6, ct:2, pod:14, sp:10, sw:8, tt:8,
+                    ip:8, mm:8, tr:12, gt:27 };
+
+// Everything in a dungeon that ISN'T one of its own chests — i.e. the pots and
+// enemy drops together — as { done, total }, or null outside a drop mode.
+//
+// Both terms come from figures confirmed against a full 13-dungeon clear:
+//   total = the seed's own location count  -  BASE_LOC
+//   done  = the cartridge's checks-done counter  -  chests counted from bits
+//
+// The drop rollup subtracts its (verified) pot figures from these to get the
+// enemy row, instead of matching per-enemy bitmasks. Those masks over-list by
+// 49% game-wide and mis-assign bits — Swamp Palace read 51 of 81 with every
+// enemy dead, where the truth is 55 of 55 (Chris, Sep 2026).
+window.dungeonNonChest = function (key) {
+    if (!window.anyDropModeFlag()) return null;
+    var d = dungeons[key];
+    var base = window.BASE_LOC[key];
+    if (!d || base === undefined) return null;
+    var total = (d.maxChests || 0) - base;
+    var done  = (d.chestsMax  || 0) - (d.chestBits || 0);
+    if (total < 0) return null;
+    return { done: Math.max(0, Math.min(done, total)), total: total };
+};
+
 window.CHECKS_DONE_OFFSET = 0x4b0;
 window.checksDoneFor = function(key, roomData) {
     if (!window.anyDropModeFlag()) return null;
     var slot = window.SEED_COUNT_SLOT[key];
     if (slot === undefined || !roomData) return null;
     var at = window.CHECKS_DONE_OFFSET + 2 * slot;
-    if (at >= roomData.length) return null;
-    return roomData[at];
+    if (at + 1 >= roomData.length) return null;
+    // Genuinely 16-bit — the dump shows every high byte at 00, and GT already
+    // reaches 198 in Pots and Bones. Reading the low byte alone worked but put
+    // a 255 ceiling under a field that doesn't have one.
+    return roomData[at] | (roomData[at + 1] << 8);
 };
 
 // How many of a dungeon's locations are taken by its map, compass and big key.
@@ -1201,7 +1258,7 @@ window.applyDungeonItemMaxes = function() {
     // Key drop rides along: kdLoc() adds its locations to the total and the
     // dungeon's own maxSmallKeys / dungeonItemSlots already count its keys and
     // HC's big key drop, so each term stays in exactly one place.
-    var ALL_LOC = { hc:8, ep:6, dp:6, toh:6, pod:14, sp:10, sw:8, tt:8, ip:8, mm:8, tr:12, gt:27 };
+    var ALL_LOC = window.BASE_LOC;
     var flags = window.dungeonShuffle();
     Object.keys(ALL_LOC).forEach(function(k) {
         var dd = dungeons[k];
@@ -1680,6 +1737,7 @@ function _resetKeyDropTallies() {
         dungeons[k].keyDropCount = 0;
         if (typeof deviceAttached !== 'undefined' && deviceAttached) {
             dungeons[k].chestsMax = 0;
+            dungeons[k].chestBits = 0;   // travels with chestsMax — see below
             dungeons[k].itemCount = 0;
         }
     });
@@ -2839,6 +2897,14 @@ function _broadcastItemSnapNow() {
     ['hc','ct','ep','dp','toh','pod','sp','sw','tt','ip','mm','tr','gt'].forEach(function(_k) {
         snap[_k+'SmallKeys'] = (window.trackerItems && window.trackerItems[_k+'SmallKeys']) || 0;
         snap[_k+'SmallKeysMax'] = (window.trackerItems && window.trackerItems[_k+'SmallKeysMax']) || 0;
+        // Pots + enemy drops together, for the map's drop rollup. Published
+        // from THIS loop, not the dungeon loop below — that one skips hc and
+        // ct, so HC's enemy row arrived on only one of the two snapshots and
+        // flashed between the derived figure and the old mask fallback on
+        // alternate polls (Chris, Sep 2026). Both builders use this same list.
+        var _nc = window.dungeonNonChest ? window.dungeonNonChest(_k) : null;
+        snap[_k+'NonChestDone']  = _nc ? _nc.done  : null;
+        snap[_k+'NonChestTotal'] = _nc ? _nc.total : null;
     });
     snap.epBigKey     = (window.trackerItems && window.trackerItems.epBigKey)     || 0;
     snap.dpBigKey     = (window.trackerItems && window.trackerItems.dpBigKey)     || 0;
@@ -3426,8 +3492,19 @@ function processRoomData(data) {
             // very read, counts every location type, and needs no knowledge of
             // where anything lives. Used ONLY here — every other mode keeps the
             // bit counting it was verified with.
+            // Keep the chest-only figure before the counter replaces it: the
+            // drop rollup needs "checks done MINUS chests done" to work out how
+            // many pots and enemies have been collected.
             var _seedChecks = window.checksDoneFor(key, data);
-            if (_seedChecks !== null) chestsOpened = _seedChecks;
+            if (_seedChecks !== null) {
+                // High-water like chestsMax, and it MUST be cleared wherever
+                // chestsMax is. Left behind on its own it kept a finished
+                // dungeon's chest count against a reverted save's checks-done,
+                // so `done` went negative and clamped to 0 — Turtle Rock read
+                // 0 of 27 with two enemies dead (Chris, Sep 2026).
+                dungeons[key].chestBits = Math.max(chestsOpened, dungeons[key].chestBits || 0);
+                chestsOpened = _seedChecks;
+            }
 
             // High-water mark: chest count never goes down (handles flickering SRAM on BizHawk etc.)
             chestsOpened = Math.max(chestsOpened, dungeons[key].chestsMax || 0);
@@ -3827,6 +3904,13 @@ function processInventoryData(data) {
         ['hc','ct','ep','dp','toh','pod','sp','sw','tt','ip','mm','tr','gt'].forEach(function(_k) {
             snap[_k+'SmallKeys'] = (window.trackerItems && window.trackerItems[_k+'SmallKeys']) || 0;
             snap[_k+'SmallKeysMax'] = (window.trackerItems && window.trackerItems[_k+'SmallKeysMax']) || 0;
+            // The pots/enemies split, same as the full builder. Publishing it
+            // from only one of the two made the enemy row flash: every other
+            // broadcast dropped the keys, the map's host answered null, and the
+            // rollup fell back to the old masks for that frame (Chris, Sep 2026).
+            var _nc2 = window.dungeonNonChest ? window.dungeonNonChest(_k) : null;
+            snap[_k+'NonChestDone']  = _nc2 ? _nc2.done  : null;
+            snap[_k+'NonChestTotal'] = _nc2 ? _nc2.total : null;
         });
         snap.epBigKey     = (window.trackerItems && window.trackerItems.epBigKey)     || 0;
         snap.dpBigKey     = (window.trackerItems && window.trackerItems.dpBigKey)     || 0;
@@ -4151,6 +4235,7 @@ function resetItemTracker() {
         d.smallKeyMax   = 0;
         d.itemCount     = 0;
         d.chestsMax     = 0;
+        d.chestBits     = 0;
         d.skipped       = 0;
         d.bigkeyState   = 0;
         d.compassState  = 0;

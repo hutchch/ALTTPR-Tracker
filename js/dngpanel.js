@@ -26,7 +26,7 @@
 
 // Bumped with every change to this file. The map's gear menu shows it, so a
 // stale packaged build can be spotted without guessing (Chris, Sep 2026).
-window.DNGPANEL_BUILD = '1124y';
+window.DNGPANEL_BUILD = '1125a';
 
 var DNG_PANEL_CSS = `
 /* ── Dungeon hover panel ── */
@@ -1991,6 +1991,24 @@ function dropRollup(key) {
     if (wantPots  && e.pots)  e.pots.forEach(function (p) { tally(p, pots); });
     if (wantDrops && e.drops) e.drops.forEach(function (p) { tally(p, drops); });
   });
+  // ── the enemy row, from the cartridge rather than from our masks ──
+  // POT_LOCATIONS' per-enemy bit arrays are wrong: they over-list by ~49%
+  // game-wide (1021 listed against 685 real) and mis-assign bits within a room,
+  // so matching them both invents locations and misses collected ones — Swamp
+  // Palace read 51 of 81 with every enemy dead, against a real 55 of 55.
+  //
+  // The pot arrays from the same generator ARE right (13 of 13 dungeons read
+  // N/N on a full clear), and the host can say how many of the dungeon's
+  // locations are not chests at all. Pots subtracted from that is the enemy
+  // row, with no enemy table involved (Chris, Sep 2026).
+  var nc = hostCall('nonChest', key);
+  if (wantDrops && nc && nc.total !== null && nc.total !== undefined) {
+    drops.total = Math.max(0, nc.total - pots.total);
+    drops.done  = Math.max(0, Math.min(nc.done - pots.done, drops.total));
+    // `blocked` was counted off the same bad masks; the enemy side has no
+    // per-location requirements to report anyway.
+    drops.blocked = 0;
+  }
   var rows = [];
   if (pots.total)  rows.push(pots);
   if (drops.total) rows.push(drops);
