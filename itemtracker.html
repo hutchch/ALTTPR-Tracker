@@ -107,6 +107,7 @@
           <label><input type="checkbox" id="item-opt-dungeon-fill"> Dungeon Fill</label>
           <label><input type="checkbox" id="item-opt-dungeon-box"> Dungeon Box</label>
           <label><input type="checkbox" id="item-opt-show-boss"> Show Boss</label>
+          <label><input type="checkbox" id="item-opt-dungeon-chests"> Show Dungeon Chests</label>
         </div>
         <div class="its-sub-label">All Chests Collected</div>
         <div class="its-radios">
@@ -147,8 +148,165 @@
   </div>
 </div>
 
-<script src="js/items.js"></script>
+<script src="js/dngpanel.js?v=1125a"></script>
 <script>
+// The pot / enemy-drop table is only read by the dungeon card's rollup, and
+// only in the two shuffle modes that use it — fetch it on demand rather than
+// carrying 57KB into every session. map.html does the same.
+window.ensurePotLocations = function() {
+  if (window.POT_LOCATIONS || window._potLoading) return;
+  window._potLoading = true;
+  var sc = document.createElement('script');
+  sc.src = 'js/potlocations.js?v=1122l';
+  sc.onload = function() { if (window.refreshDungeonPanel) window.refreshDungeonPanel(); };
+  sc.onerror = function() { console.warn('pot locations could not be loaded'); };
+  document.head.appendChild(sc);
+};
+(function() {
+  var p = new URLSearchParams(location.search);
+  var pottery = p.get('pottery') || localStorage.getItem('alttp-pottery') || 'none';
+  var drops   = p.get('enemydrops') || localStorage.getItem('alttp-enemy-drops') || 'no';
+  if (pottery !== 'none' || drops === 'yes') window.ensurePotLocations();
+  // A setting changed in the map window arrives here as a storage event.
+  window.addEventListener('storage', function(ev) {
+    if (ev.key === 'alttp-pottery' || ev.key === 'alttp-enemy-drops') {
+      if (ev.newValue && ev.newValue !== 'none' && ev.newValue !== 'no') window.ensurePotLocations();
+    }
+  });
+})();
+</script>
+<script src="js/items.js?v=1125g"></script>
+<script>
+// ── Dungeon hover panel (js/dngpanel.js, shared with the map) ─────────────────
+// The item tracker knows the real dungeon state — counts, map/compass/big key,
+// completion, and which boss was picked — so it supplies all of that. It has no
+// logic engine, so there is no Status row here; the map keeps that.
+// Availability comes from the map (type 'dungeoncolors'), the only window with
+// the logic engine. Restored from localStorage at load so a tracker opened
+// second still has colors before the map's next refresh.
+try { window._dngColors = JSON.parse(localStorage.getItem('alttp-dungeon-colors') || '{}'); } catch(e) { window._dngColors = {}; }
+window.applyDungeonColors = function(colors) {
+  if (!colors) return;
+  window._dngColors = colors;
+  if (window.refreshDungeonPanel) window.refreshDungeonPanel();
+};
+window.addEventListener('storage', function(e) {
+  if (e.key !== 'alttp-dungeon-colors' || !e.newValue) return;
+  try { window.applyDungeonColors(JSON.parse(e.newValue)); } catch(ex) {}
+});
+// A map that was already open when this window launched has nothing new to
+// send (it only broadcasts on change), so ask for the current set once.
+setTimeout(function() {
+  try { if (window._itemsBc) window._itemsBc.postMessage({ type: 'requestColors' }); } catch(e) {}
+}, 400);
+
+window.DngPanelHost = {
+  // Smaller type here: the tracker window is narrow, and the panel must stay
+  // readable at its own size no matter how far the tracker itself is scaled up.
+  compact: true,
+  // "Show Dungeon Chests" in the tracker's settings menu; off by default. Off =
+  // the card keeps its name, status, counts and icons but drops the chest list.
+  locations: function() { return ITEM_SETTINGS.dungeonChests === true; },
+  status: function(key) {
+    // No map open yet → no colors; the line shows just the location name.
+    return window.dngStatusFromColor((window._dngColors || {})[key]);
+  },
+  // The prize this dungeon holds, for the card's icon row. Read from the slot's
+  // own image, which is where every prize change (manual cycle, ROM auto-mark)
+  // already lands — so there is no second copy to keep in step.
+  prize: function(key) {
+    var img = document.querySelector('[data-dungeon-key="' + key + '"] .prize-img');
+    if (!img || !img.src) return null;
+    var src = img.src;
+    var name = src.indexOf('greenpendant') !== -1 ? 'greenpendant'
+             : src.indexOf('redcrystal')   !== -1 ? 'redcrystal'
+             : src.indexOf('pendant')      !== -1 ? 'pendant'
+             : src.indexOf('unknown')      !== -1 ? 'unknown'
+             : 'crystal';
+    return { name: name, obtained: src.indexOf('0.png') !== -1 };
+  },
+  // Pots + enemy drops together, for the card's drop rollup. items.js owns the
+  // arithmetic; this is just the hook.
+  nonChest: function(key) {
+    return window.dungeonNonChest ? window.dungeonNonChest(key) : null;
+  },
+  counts: function(key) {
+    var d = (window.dungeons || {})[key];
+    if (!d) return null;
+    var effMax = Math.max(0, (d.maxItems || 0) - (d.skipped || 0));
+    var c = {
+      items:    Math.min(d.itemCount || 0, effMax),
+      maxItems: effMax,
+      // Chests the player waved off (left-click while autotracking). They never
+      // set a flag, so the card has to be told or they'd sit "left" forever.
+      skipped:  d.skipped || 0,
+      // Keys COLLECTED ($7EF4E0+, which only ever rises) — the count the
+      // logic and the card both answer to.
+      keys:     d.smallKeyCount || 0,
+      keysFound: Math.max(d.smallKeyCount || 0, d.smallKeyMax || 0),
+      maxKeys:  d.maxSmallKeys  || 0,
+      bigkey:   d.bigkeyState   || 0
+    };
+    // A dungeon without a map or compass slot leaves the field out entirely, so
+    // the panel omits that icon instead of drawing a permanently dim one.
+    if (!d.noMap)     c.map     = d.mapState     || 0;
+    if (!d.noCompass) c.compass = d.compassState || 0;
+    return c;
+  },
+  completion: function(key) {
+    var slot = document.querySelector('.dungeon-slot[data-dungeon-key="' + key + '"]');
+    if (!slot) return null;
+    return {
+      fullyCleared: slot.classList.contains('completed-full'),
+      // 'prize-obtained' is the boss-down-but-items-remain state.
+      cleared:      slot.classList.contains('prize-obtained')
+    };
+  },
+  // Live item states for the per-location rules. `items` is items.js's own
+  // object (a top-level const, so it's reachable by name); window.trackerItems
+  // in this window only carries keys and medallions.
+  items: function() {
+    var out = {};
+    ['bow','boomerang','hookshot','bomb','mushroom','powder','firerod','icerod',
+     'bombos','ether','quake','lamp','hammer','shovel','flute','net','book',
+     'somaria','byrna','cape','mirror','boots','gloves','flippers','moonpearl',
+     'sword','shield','tunic','agahnim'].forEach(function(k) {
+      try { out[k] = (items[k] && items[k].currentState) || 0; } catch (e) { out[k] = 0; }
+    });
+    return out;
+  },
+  bossOk: function(key) {
+    var d = (window.dungeons || {})[key];
+    if (!d || !d.bossState) return null;   // no boss picked / unknown boss
+    if (typeof BOSS_REQUIREMENTS === 'undefined') return null;
+    var req = BOSS_REQUIREMENTS[d.bossState];
+    return req ? !!req() : null;
+  }
+};
+
+// Delegated hover: dungeon slots are rebuilt whenever the layout or dungeon-item
+// mode changes, so binding per element would need re-binding every time.
+document.addEventListener('mouseover', function(e) {
+  // The card only exists here when "Show Dungeon Chests" is on: without the
+  // chest list it was just the counts the slot already shows (Chris: "that is
+  // too much"). The map's hover is unaffected.
+  if (ITEM_SETTINGS.dungeonChests !== true) return;
+  var t = e.target;
+  // CT is a .ct-group rather than a .dungeon-slot, but it carries the same key.
+  var slot = (t && t.closest)
+    ? t.closest('.dungeon-slot[data-dungeon-key], .ct-group[data-dungeon-key]') : null;
+  if (!slot || slot === window._dngHoverSlot) return;
+  window._dngHoverSlot = slot;
+  if (window.showDungeonPanel) window.showDungeonPanel(slot.dataset.dungeonKey, slot);
+});
+document.addEventListener('mouseout', function(e) {
+  if (!window._dngHoverSlot) return;
+  var to = e.relatedTarget;
+  if (to && window._dngHoverSlot.contains(to)) return;
+  window._dngHoverSlot = null;
+  if (window.hideDungeonPanel) window.hideDungeonPanel();
+});
+
 // ── Set up BroadcastChannel so items.js can broadcast to map ──────────────────
 try { window._itemsBc = new BroadcastChannel('alttp-tracker'); } catch(e) {}
 
@@ -169,6 +327,14 @@ try {
     // World State changed in the map's settings menu (Retro in particular
     // changes chest counts and the key readouts). applyWorldStateChange is
     // idempotent, so the storage-event path arriving too is a no-op.
+    if (e.data && e.data.type === 'setprize') {
+      if (window.setDungeonPrize) window.setDungeonPrize(e.data.key, e.data.name);
+      return;
+    }
+    if (e.data && e.data.type === 'dungeoncolors') {
+      window.applyDungeonColors(e.data.data);
+      return;
+    }
     if (e.data && e.data.type === 'worldstate') {
       if (typeof window.applyWorldStateChange === 'function') {
         window.applyWorldStateChange(e.data.data);
@@ -197,6 +363,14 @@ try {
         window.applyEnemyDropsChange(_v);
       } else if (_k === 'alttp-pots-bones' && typeof window.applyPotsBonesChange === 'function') {
         window.applyPotsBonesChange(_v);
+      } else if (_k === 'alttp-random-prize' && typeof window.applyRandomPrizeChange === 'function') {
+        window.applyRandomPrizeChange(_v);
+      }
+      return;
+    }
+    if (e.data && e.data.type === 'dngskip') {
+      if (typeof window.onDngSkipChanged === 'function') {
+        window.onDngSkipChanged(e.data.key, e.data.count);
       }
       return;
     }
@@ -263,8 +437,8 @@ try {
   document.addEventListener('DOMContentLoaded', function() {
     var lbl = document.getElementById('item-mode-label');
     if (lbl) {
-      var modeLabels = { standard: 'STD', mapcompass: 'MC', mapcompasskeys: 'MCK', keysanity: 'KS', other: 'O' };
-      lbl.textContent = modeLabels[window._dungeonItemsMode] || 'STD';
+      // js/items.js owns the wording — one definition for every writer.
+      lbl.textContent = window.dungeonModeLabel ? window.dungeonModeLabel() : 'STD';
     }
     var raceLbl = document.getElementById('item-race-label');
     if (raceLbl) raceLbl.textContent = window._raceMode ? 'RACE' : '';
@@ -334,7 +508,13 @@ function broadcastPrizes() {
         obtained:     src.includes('1.png'),
         mapState:     dungeons[key] ? (dungeons[key].mapState || 0) : 0,
         otherCleared: dungeons[key] ? (dungeons[key].otherCleared || false) : false,
-        allItems:     dungeons[key] ? (dungeons[key].itemCount >= dungeons[key].maxItems) : false,
+        // Against the EFFECTIVE target: a chest the player waved off lowers what
+        // the dungeon still owes, so skipping the rest finishes it — the map
+        // then shades it as done rather than leaving it boss-cleared forever.
+        allItems:     dungeons[key]
+                        ? (dungeons[key].itemCount >=
+                           Math.max(0, (dungeons[key].maxItems || 0) - (dungeons[key].skipped || 0)))
+                        : false,
         bossCleared:  dungeons[key] ? (dungeons[key].bossDefeated || false) : false
       };
     });
@@ -420,6 +600,7 @@ var ITEM_SETTINGS = {
   dungeonFillEnabled: true,   // completion tints shown when true
   dungeonBoxEnabled:  true,   // dark slot container shown when true
   showBoss:           true,   // false = hide all boss circles (vanilla bosses)
+  dungeonChests:      false,  // hover card's per-chest list; off by default
   defaultPrize:  'crystal',   // crystal | unknown — starting dungeon prize
   checksColor:   'white',     // white | black | grey | custom (CHECKS number)
   checksCustom:  '#ffffff'
@@ -452,15 +633,21 @@ function loadItemSettings() {
     ITEM_SETTINGS.checksCustom   = localStorage.getItem('alttp-itemtracker-checks-custom') || ITEM_SETTINGS.checksCustom;
     ITEM_SETTINGS.dungeonFillEnabled = localStorage.getItem('alttp-itemtracker-dungeon-fill') !== 'false';
     ITEM_SETTINGS.dungeonBoxEnabled  = localStorage.getItem('alttp-itemtracker-dungeon-box')  !== 'false';
-    // Show Boss: respect the URL/launcher boss-shuffle setting on first run,
-    // then track the local checkbox override. URL param wins on launch.
-    var _urlBoss = new URLSearchParams(window.location.search).get('bossshuffle');
-    if (_urlBoss === 'no')       ITEM_SETTINGS.showBoss = false;
-    else if (_urlBoss === 'yes') ITEM_SETTINGS.showBoss = true;
-    else {
-      var _stored = localStorage.getItem('alttp-itemtracker-show-boss');
-      if (_stored !== null) ITEM_SETTINGS.showBoss = _stored !== 'false';
+    ITEM_SETTINGS.dungeonChests      = localStorage.getItem('alttp-itemtracker-dungeon-chests') === 'true';
+    // Show Boss: on unless the user turned it off here. It is deliberately NOT
+    // tied to the bossshuffle URL param any more — with boss shuffle off the
+    // circles still show the vanilla bosses, which is worth seeing, and the
+    // launcher passing bossshuffle=no was switching this off on every launch.
+    // One-time repair: a build that briefly defaulted this off wrote 'false'
+    // into the key, so the old value is discarded once.
+    // (v3: the same stale 'false' turned up again on profiles that had already
+    // been through the v2 repair, so it is discarded once more.)
+    if (localStorage.getItem('alttp-itemtracker-show-boss-v3') !== '1') {
+      localStorage.removeItem('alttp-itemtracker-show-boss');
+      localStorage.setItem('alttp-itemtracker-show-boss-v3', '1');
     }
+    var _stored = localStorage.getItem('alttp-itemtracker-show-boss');
+    if (_stored !== null) ITEM_SETTINGS.showBoss = _stored !== 'false';
   } catch (e) {}
   // URL bg (from the launcher / a transparent-toggle recreate) wins
   var urlBg = new URLSearchParams(window.location.search).get('bg');
@@ -486,13 +673,17 @@ function saveItemSettings() {
     localStorage.setItem('alttp-itemtracker-dungeon-fill',   ITEM_SETTINGS.dungeonFillEnabled ? 'true' : 'false');
     localStorage.setItem('alttp-itemtracker-dungeon-box',    ITEM_SETTINGS.dungeonBoxEnabled  ? 'true' : 'false');
     localStorage.setItem('alttp-itemtracker-show-boss',      ITEM_SETTINGS.showBoss            ? 'true' : 'false');
+    localStorage.setItem('alttp-itemtracker-dungeon-chests', ITEM_SETTINGS.dungeonChests     ? 'true' : 'false');
   } catch (e) {}
 }
 
 // Show / hide every boss circle. Driven by html.no-boss-shuffle, same class
 // the launcher's "Boss Shuffle = No" early IIFE sets, so both paths share CSS.
 function applyShowBoss() {
-  document.documentElement.classList.toggle('no-boss-shuffle', !ITEM_SETTINGS.showBoss);
+  // hide-boss, NOT no-boss-shuffle: that class belongs to the boss-shuffle
+  // setting and only locks the circles (pointer-events: none), so toggling it
+  // here left the circles on screen and the checkbox looked dead.
+  document.documentElement.classList.toggle('hide-boss', !ITEM_SETTINGS.showBoss);
 }
 
 function saveItemBgImage(dataUrl) {
@@ -636,6 +827,7 @@ function openItemSettings() {
   document.getElementById('item-opt-dungeon-fill').checked = ITEM_SETTINGS.dungeonFillEnabled;
   document.getElementById('item-opt-dungeon-box').checked  = ITEM_SETTINGS.dungeonBoxEnabled;
   document.getElementById('item-opt-show-boss').checked    = ITEM_SETTINGS.showBoss;
+  document.getElementById('item-opt-dungeon-chests').checked = ITEM_SETTINGS.dungeonChests;
   syncItemFillSub();
   updateItemBgImageStatus();
   document.getElementById('item-settings-overlay').classList.remove('hidden');
@@ -748,6 +940,19 @@ function wireItemSettingsHandlers() {
     ITEM_SETTINGS.showBoss = e.target.checked;
     saveItemSettings(); applyShowBoss();
   });
+  document.getElementById('item-opt-dungeon-chests').addEventListener('change', function(e) {
+    ITEM_SETTINGS.dungeonChests = e.target.checked;
+    saveItemSettings();
+    // Turning it off takes the card away immediately, rather than leaving a
+    // stale one on screen until the pointer moves.
+    if (!ITEM_SETTINGS.dungeonChests) {
+      window._dngHoverSlot = null;
+      if (window.hideDungeonPanel) window.hideDungeonPanel();
+    } else if (window.refreshDungeonPanel) {
+      window.refreshDungeonPanel();
+    }
+  });
+
   // Background image picker
   var fileInput = document.getElementById('item-bg-image-file');
   if (fileInput) {
