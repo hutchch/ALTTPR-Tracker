@@ -126,7 +126,7 @@ let previousSRAM = null;
 // Bumped with every change to this file, relayed in the broadcast snapshot so
 // the map's gear menu can show which build the ITEM TRACKER is running — the
 // two windows are packaged together but reload independently.
-window.ITEMS_BUILD = '1125g';
+window.ITEMS_BUILD = '1125h';
 let _bombClearTimer = null; // debounce: only clear bombs after sustained 0 reading
 
 const items = {
@@ -2921,6 +2921,8 @@ function _broadcastItemSnapNow() {
     ['hc','ct'].forEach(function (_k) {
         snap[_k+'BigKey'] = ((window.dungeons && window.dungeons[_k]) || {}).bigkeyState || 0;
     });
+    snap.romName = window.ROM_NAME || '';
+    snap.romIsDoor = !!window.ROM_IS_DOOR;
     snap.gomode = items['gomode'] ? items['gomode'].currentState : 0;
     // Include dungeon prize and chest data
     var dngKeys = ['ep','dp','toh','pod','sp','sw','tt','ip','mm','tr','gt'];
@@ -3223,6 +3225,12 @@ function _sramReadOnce() {
     // anything else = pendant). Same source the reference tracker uses. Read
     // once per connection and only a few times — a ROM that doesn't answer
     // (hardware without ROM reads, some forks) just leaves prizes manual.
+    if (!window.ROM_NAME && _romNameTries < 5) {
+        _romNameTries++;
+        ws.send(JSON.stringify({ Opcode: 'GetAddress', Space: 'SNES',
+            Operands: [ROM_NAME_ADDR.toString(16), ROM_NAME_LEN.toString(16)] }));
+    }
+
     if (!window._dungeonPrizeByKey && _romPrizeTries < 5) {
         _romPrizeTries++;
         _romPrizeNums = null;
@@ -3249,6 +3257,44 @@ function _sramReadOnce() {
 // $180050: 13 bytes, its type — 0x40 crystal, otherwise pendant.
 // Crystal numbers 5 and 6 are the red ones (masks 0x04 / 0x01); pendant 0x04 is
 // the green one. Index per dungeon is the randomizer's own order.
+// ── Which randomizer built this ROM ──────────────────────────────────────────
+// $7FC0, 21 bytes, the cartridge title. codemann8's Door randomizer writes
+//   ER<ver>_<team>_<player>_<seed>      e.g. "ER156_1_1_052409646"
+// (Rom.py: `rom.name = bytearray(f'ER{...}_{team+1}_{player}_{world.seed:09}')`).
+//
+// Worth one 21-byte read because an `ER` prefix settles a question nothing else
+// can: that randomizer's Inverted is our Inverted 2.0. $18004A says "inverted"
+// but not WHICH inverted, and a hand-loaded ROM carries no seed link to ask
+// (Chris, Sep 2026).
+const ROM_NAME_ADDR = 0x7fc0;
+const ROM_NAME_LEN  = 0x15;
+var _romNameTries = 0;
+
+function processRomName(data) {
+    var name = '';
+    for (var i = 0; i < data.length; i++) {
+        var c = data[i];
+        if (c === 0) break;
+        name += (c >= 32 && c < 127) ? String.fromCharCode(c) : '';
+    }
+    if (!name) return;
+    window.ROM_NAME    = name;
+    window.ROM_IS_DOOR = /^ER\d/.test(name);
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+    if (!window.ROM_IS_DOOR) return;
+
+    // Door seed + the player picked Inverted 1.0 → they meant 2.0. Only ever
+    // promotes; a player who chose 2.0 already, or any other world state, is
+    // left alone.
+    var mode = window._worldStateOverride ||
+               (function () { try { return localStorage.getItem('alttp-gamemode'); } catch (e) { return null; } })();
+    if (mode !== 'inverted') return;
+    window.applyWorldStateChange('inverted2');
+    try { if (window._itemsBc) window._itemsBc.postMessage({ type: 'worldstate', data: 'inverted2' }); } catch (e) {}
+    window.ROM_PROMOTED_INVERTED = true;
+    console.log('[rom] ' + name + ' is a Door randomizer seed — Inverted promoted to 2.0');
+}
+
 const ROM_PRIZE_NUM_ADDR  = 0x1209b;
 const ROM_PRIZE_TYPE_ADDR = 0x180050;
 const ROM_PRIZE_LEN       = 0xd;
@@ -3320,6 +3366,8 @@ function processSRAMData(data) {
         processKeyDropData(data);
     } else if (data.length === SEEDCOUNT_LEN) {
         processSeedCounts(data);
+    } else if (data.length === ROM_NAME_LEN) {
+        processRomName(data);
     } else if (data.length === ROM_PRIZE_LEN) {
         // The two prize tables come back the same size and in the order asked.
         if (!_romPrizeNums) _romPrizeNums = data;

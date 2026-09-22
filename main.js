@@ -592,7 +592,17 @@ function createLauncher() {
     }
   });
   launcherWin.setMenuBarVisibility(false);
-  launcherWin.loadURL(toFileUrl('index.html'));
+  // Cache-busted, for the same reason every renderer script carries ?v=NNNN:
+  // Electron caches file:// pages across relaunches, so an edited index.html
+  // can keep serving the previous copy — which looks exactly like a change
+  // that didn't work (Chris, Sep 2026, chasing a seed-link fix that was
+  // already in the file). The launcher is small; there is nothing to gain by
+  // caching it. mtime rather than Date.now() so a rebuild is one entry, not
+  // one per launch.
+  var _idxV = APP_VERSION;
+  try { _idxV = String(require('fs').statSync(path.join(getRoot(), 'index.html')).mtimeMs); }
+  catch (e) {}
+  launcherWin.loadURL(toFileUrl('index.html') + '?v=' + encodeURIComponent(_idxV));
   launcherWin.on('closed', () => {
     launcherWin = null;
     // Closing the launcher shuts down the whole app: close every other window

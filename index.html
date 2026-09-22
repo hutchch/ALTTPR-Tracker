@@ -180,6 +180,12 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   letter-spacing: 0.5px; margin-bottom: 2px;
 }
 #preset-select { width: 100%; }
+/* The seed hash, rendered as the game's own five file-select icons. */
+#seed-link-status .seed-hash-icon  { height: 22px; width: auto; vertical-align: middle;
+                                     margin-right: 2px; image-rendering: pixelated; }
+#seed-link-status .seed-hash-emoji { font-size: 18px; vertical-align: middle; margin-right: 2px; }
+#seed-link-status .seed-hash-name  { margin-right: 4px; opacity: .85; }
+#seed-link-status .seed-hash-text  { margin-left: 6px; vertical-align: middle; opacity: .85; }
 .preset-btn {
   width: 100%; padding: 6px 8px; font-size: 12px; font-weight: bold;
   cursor: pointer; background: #2a2a14; color: #ffd700;
@@ -728,7 +734,7 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
           <option value="mcbossenemizer">MCBossEnemizer</option>
           <option value="crosskeys">CrossKeys</option>
         </select>
-        <button type="button" class="preset-btn" id="preset-apply-btn" onclick="applyPreset()">Load Preset</button>
+        <button type="button" class="preset-btn" id="preset-apply-btn" onclick="launchPreset()">Launch Preset</button>
         <button type="button" class="preset-btn preset-btn-save" id="preset-save-btn" onclick="saveCustomPreset()">Save Preset</button>
         <button type="button" class="preset-btn preset-btn-delete" id="preset-delete-btn" onclick="deleteCustomPreset()" style="display:none">Delete Preset</button>
       </div>
@@ -741,8 +747,8 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   <span class="toggle-slider"></span>
   </label>
   <span class="toggle-label-text" id="racemode-toggle-label">No</span>
-  <label for="seed-link">Seed Link (alttpr.com)</label>
-  <input id="seed-link" type="text" placeholder="https://alttpr.com/en/h/xxxxxxxxxx" autocomplete="off">
+  <label for="seed-link">Seed Link (alttpr / gwaa / avianart)</label>
+  <input id="seed-link" type="text" placeholder="https://alttpr.com/en/h/… or https://new.alttpr.gwaa.kiwi/seed/…" autocomplete="off">
   <button type="button" id="seed-link-btn" onclick="loadSeedSettings()">Read</button>
   </div>
   <div id="seed-link-status"></div>
@@ -830,17 +836,163 @@ var DUNGEON_ITEMS_MAP = {
 // Accepts a full permalink (with or without a #meta fragment or language
 // segment), or a bare hash.
 function parseSeedHash(raw) {
+  var src = parseSeedSource(raw);
+  return src ? src.hash : null;
+}
+
+// Which site a link came from, and where its metadata lives.
+//
+//   alttpr.com   https://alttpr.com/hash/<hash>            -> data.spoiler.meta
+//   gwaa mirror  https://api.alttpr.gwaa.kiwi/seed/<hash>  -> data.meta
+//
+// A bare hash is assumed to be alttpr.com, which is what it has always meant.
+function parseSeedSource(raw) {
   if (!raw) return null;
   var s = String(raw).trim().split('#')[0].split('?')[0].replace(/\/+$/, '');
   var m = s.match(/alttpr\.com\/(?:[a-z]{2}\/)?h\/([A-Za-z0-9_-]+)/i);
-  if (m) return m[1];
-  if (/^[A-Za-z0-9_-]{6,}$/.test(s)) return s;   // bare hash
+  if (m) return { kind: 'alttpr', hash: m[1], site: 'alttpr.com',
+                  url: 'https://alttpr.com/hash/' + encodeURIComponent(m[1]) };
+  // Any gwaa host — new.alttpr.gwaa.kiwi/seed/<hash> today, but the seed page
+  // and the API are different hosts, so match the domain rather than a
+  // particular subdomain.
+  m = s.match(/alttpr\.gwaa\.kiwi\/seed\/([A-Za-z0-9_-]+)/i);
+  if (m) return { kind: 'gwaa', hash: m[1], site: 'alttpr.gwaa.kiwi',
+                  url: 'https://api.alttpr.gwaa.kiwi/seed/' + encodeURIComponent(m[1]) };
+  // avianart: same randomizer family as gwaa, so the same meta vocabulary —
+  // only the endpoint and where the block sits in the response differ.
+  m = s.match(/avianart\.games\/perm\/([A-Za-z0-9_-]+)/i);
+  if (m) return { kind: 'avianart', hash: m[1], site: 'avianart.games',
+                  url: 'https://avianart.games/api.php?action=permlink&hash=' + encodeURIComponent(m[1]) };
+  if (/^[A-Za-z0-9_-]{6,}$/.test(s)) return { kind: 'alttpr', hash: s, site: 'alttpr.com',
+                  url: 'https://alttpr.com/hash/' + encodeURIComponent(s) };
   return null;
 }
 
-function seedStatus(msg, cls) {
+// ── The file-select hash ─────────────────────────────────────────────────────
+// The five item icons the game shows on the save screen. gwaa and avianart put
+// it in the metadata as text; alttpr.com does NOT — its `hash` field is the
+// permalink id ("JG30dEk3M3"), not the icons.
+//
+// It is still there, just in the patch: five item indices at ROM $180215.
+// Verified against a SahasrahBot race seed whose icons were
+// Hookshot/Shovel/Bombos/Ether/Book — the patch holds [2,13,8,9,16] at exactly
+// that address (Chris, Sep 2026).
+// Index order lifted from the seed sites' own icon table, not guessed. The
+// trap is index 7, GREEN PENDANT — an item that isn't in the inventory at all.
+// Leaving it out shifted everything after it by one, so 6 read as Fire Rod
+// instead of Ice Rod and 18 as Cane of Somaria instead of Green Potion
+// (Chris, Sep 2026: 4G67BqnOMZ = Ice Rod/Green Potion/Green Potion/Bug Net/
+// Mushroom, bytes [6,18,18,15,4]).
+//
+// Second entry per item is the file in items/, or null where we have no
+// picture — those fall back to their name.
+var HASH_ICONS = [
+  ['Bow','bow02.png'],            ['Boomerang','boomerang10.png'],
+  ['Hookshot','hookshot1.png'],   ['Bomb','bomb10.png'],
+  ['Mushroom','mushroom1.png'],   ['Powder','powder10.png'],
+  ['Ice Rod','icerod1.png'],      ['Green Pendant','greenpendant1.png'],
+  ['Bombos','bombos10.png'],      ['Ether','ether10.png'],
+  ['Quake','quake10.png'],        ['Lamp','lamp1.png'],
+  ['Hammer','hammer1.png'],       ['Shovel','shovel1.png'],
+  ['Ocarina','flute10.png'],      ['Bug Net','net1.png'],
+  ['Book','book1.png'],           ['Bottle','bottle_empty.png'],
+  ['Green Potion','bottle_green.png'], ['Somaria','caneofsomaria1.png'],
+  ['Cape','cape1.png'],           ['Mirror','mirror1.png'],
+  ['Boots','boots1.png'],         ['Gloves','gloves1.png'],
+  ['Flippers','flippers1.png'],   ['Pearl','moonpearl1.png'],
+  ['Shield','shield3.png'],       ['Green Tunic','mail0.png'],
+  ['Heart','❤️'],            ['Map','map1.png'],
+  ['Compass','compass1.png'],     ['Key','bigkey1.png']
+];
+var HASH_ROM_ADDR = 0x180215;
+
+// The patch is a list of { "<offset>": [bytes] }. Find whichever block covers
+// the hash address and read the five indices out of it.
+function hashFromPatch(patch) {
+  if (!Array.isArray(patch)) return '';
+  for (var i = 0; i < patch.length; i++) {
+    for (var k in patch[i]) {
+      var off = parseInt(k, 10), b = patch[i][k];
+      if (!b || !b.length || isNaN(off)) continue;
+      if (off > HASH_ROM_ADDR || off + b.length < HASH_ROM_ADDR + 5) continue;
+      var at = HASH_ROM_ADDR - off, out = [];
+      for (var j = 0; j < 5; j++) {
+        var row = HASH_ICONS[b[at + j]];
+        out.push(row ? row[0] : '?');
+      }
+      return out.join(', ');
+    }
+  }
+  return '';
+}
+
+// The hash as its five icons, with the names as hover text and as the fallback
+// for anything we have no picture for.
+// The sites don't all spell the icons the same way — avianart says "Cane" for
+// the Cane of Somaria, and several use the inventory name where the icon table
+// uses a shorter one. Map the variants onto our table rather than printing the
+// raw word next to five pictures (Chris, Sep 2026).
+// Keys are normalised (lowercased, non-alphanumerics stripped), so one entry
+// covers "Bug Net", "bugnet" and "bug-net" without listing each. Only genuinely
+// different words need to be here.
+//
+// The sites like a generic noun where the icon set has a specific item: avianart
+// says "Rod" for the Ice Rod and "Potion" for the Green Potion — and there is
+// only one of each in the hash set, so the generic term is unambiguous. Note
+// there is NO fire rod icon, which is why "rod" can safely mean the ice one
+// (Chris, Sep 2026).
+var HASH_ALIASES = {
+  rod: 'Ice Rod', icerod: 'Ice Rod',
+  potion: 'Green Potion', greenpotion: 'Green Potion',
+  cane: 'Somaria', caneofsomaria: 'Somaria',
+  magicpowder: 'Powder', bugnet: 'Bug Net', net: 'Bug Net',
+  flute: 'Ocarina', ocarinainactive: 'Ocarina', ocarinaactive: 'Ocarina',
+  moonpearl: 'Pearl',
+  tunic: 'Green Tunic', mail: 'Green Tunic', greenmail: 'Green Tunic',
+  bigkey: 'Key', smallkey: 'Key',
+  emptybottle: 'Bottle',
+  heartcontainer: 'Heart', heartpiece: 'Heart',
+  pendant: 'Green Pendant', greenpendant: 'Green Pendant',
+  bombs: 'Bomb', bomb: 'Bomb',
+  lantern: 'Lamp',
+  glove: 'Gloves', powerglove: 'Gloves', titansmitt: 'Gloves',
+  boot: 'Boots', pegasusboots: 'Boots',
+  bookofmudora: 'Book',
+  bowandarrows: 'Bow', silverarrows: 'Bow', bowandsilverarrows: 'Bow',
+  redboomerang: 'Boomerang', blueboomerang: 'Boomerang',
+  mirrorshield: 'Shield'
+};
+function hashKey(s) { return String(s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+function seedHashHTML(hashText) {
+  var byName = {}, byKey = {};
+  HASH_ICONS.forEach(function (r) { byName[r[0]] = r[1]; byKey[hashKey(r[0])] = r[0]; });
+  var parts = String(hashText).split(',').map(function (t) { return t.trim(); })
+                              .filter(function (t) { return t; });
+  var icons = '', names = [];
+  parts.forEach(function (raw) {
+    var k = hashKey(raw);
+    var n = byKey[k] || HASH_ALIASES[k] || raw;
+    var img = byName[n];
+    names.push(n);
+    if (img && img.indexOf('.png') !== -1) {
+      icons += '<img class="seed-hash-icon" src="items/' + img + '" alt="' + n + '" title="' + n + '">';
+    } else if (img) {
+      // an emoji stands in where items/ has no sprite — the heart container
+      icons += '<span class="seed-hash-emoji" title="' + n + '">' + img + '</span>';
+    } else {
+      icons += '<span class="seed-hash-name" title="' + n + '">' + n + '</span>';
+    }
+  });
+  // Icons first, names after, the way the seed sites show it.
+  return icons + '<span class="seed-hash-text">(' + names.join('/') + ')</span>';
+}
+
+function seedStatus(msg, cls, html) {
   var el = document.getElementById('seed-link-status');
   if (!el) return;
+  el.style.color = (cls === 'err') ? '#e74c3c' : (cls === 'ok' ? '#2ecc71' : '');
+  if (html) { el.innerHTML = html; el.title = msg || ''; return; }
   el.textContent = msg;
   // The line is clipped to one row, so keep the whole message on hover.
   el.title = msg || '';
@@ -872,6 +1024,91 @@ function isOnValue(v) {
            s === 'no' || s === 'false' || s === '0');
 }
 
+// gwaa and avianart both run the Door/Overworld randomizer, whose meta uses its own
+// vocabulary. Translate it into the alttpr.com names applySeedMeta already
+// reads, so one mapping function serves both sites.
+//
+// Anything with no counterpart here is simply not carried over — door shuffle,
+// intensity, the whole ow_* family, trap doors, tile swap. loadSeedSettings
+// warns when one of those is non-vanilla, because the tracker's logic cannot
+// model that seed at all.
+// Dotted numeric compare, "0.7.1.5" style. Missing or unparsable reads as
+// older, so an absent version never promotes a seed to 2.0 by accident.
+function versionAtLeast(have, want) {
+  if (!have) return false;
+  var a = String(have).split('.').map(Number), b = String(want).split('.').map(Number);
+  for (var i = 0; i < Math.max(a.length, b.length); i++) {
+    var x = a[i], y = b[i] || 0;
+    if (!isFinite(x)) return false;
+    if (x > y) return true;
+    if (x < y) return false;
+  }
+  return true;
+}
+
+var GWAA_POTTERY = {
+  none:'none', keys:'keys', cave:'cave', cavekeys:'cavekeys', reduced:'reduced',
+  clustered:'clustered', nonempty:'nonempty', dungeon:'dungeon', lottery:'lottery'
+};
+function doorMetaToAlttpr(g) {
+  var m = {}, v;
+  function set(k, val) { if (val !== undefined && val !== null) m[k] = val; }
+
+  // This randomizer family's Inverted IS our Inverted 2.0 — the glove no longer
+  // climbs Death Mountain, the flute reaches the Dark World, and so on.
+  //
+  // Tried gating this on versions.Overworld >= 0.7.1.5 and the data says no:
+  // a gwaa seed reporting Overworld 0.7.0.3 is 2.0, and an avianart seed
+  // reporting 0.7.1.5 is 2.0 as well. Both are Door 1.5.6-u. So the fork is the
+  // signal, not the overworld version (Chris, Sep 2026). versionAtLeast() is
+  // kept below in case a genuinely 1.0 Door seed ever turns up to gate on.
+  set('mode', (String(g.mode || '').toLowerCase() === 'inverted') ? 'inverted2' : g.mode);
+  set('weapons', g.weapons);
+  set('shuffle', g.shuffle);            // entrance shuffle; 'vanilla' when off
+  set('entry_crystals_tower', g.gt_crystals);
+  set('pseudoboots', g.pseudoboots);
+  set('bonk_drops',  g.bonk_drops);
+  m['enemizer.boss_shuffle']  = g.boss_shuffle  || 'none';
+  m['enemizer.enemy_shuffle'] = g.enemy_shuffle || 'none';
+
+  // Four independent flags there, one mode name here. 'none' is off; anything
+  // else (dungeon / wild / universal…) counts as shuffled.
+  function on(x) { return x !== undefined && x !== null &&
+                          String(x).toLowerCase() !== 'none' && x !== false; }
+  // keyshuffle: "universal" is NOT small-key shuffle — it means keys are bought
+  // from shops and belong to no dungeon, which is our Universal Keys toggle.
+  // Treating any non-"none" as shuffled ticked the small-key box as well and
+  // gave the dungeons key counts they don't have (Chris, Sep 2026).
+  var universal = String(g.keyshuffle || '').toLowerCase() === 'universal';
+  var keyOn = on(g.keyshuffle) && !universal;
+  m.universal_keys = universal;
+
+  var mc = on(g.mapshuffle) && on(g.compassshuffle);
+  if (on(g.bigkeyshuffle) && keyOn && mc)            m.dungeon_items = 'full';
+  else if (mc && keyOn)                              m.dungeon_items = 'mcs';
+  else if (mc)                                       m.dungeon_items = 'mc';
+  else if (!on(g.mapshuffle) && !on(g.compassshuffle) &&
+           !on(g.bigkeyshuffle) && !keyOn)           m.dungeon_items = 'standard';
+  // …and the flags themselves, because combinations like "big key only" (the
+  // avianart seed's bigkeyshuffle: "wild") have no legacy mode name at all and
+  // would otherwise be dropped. The panel is the real setting now.
+  m.dungeon_shuffle = (on(g.mapshuffle) ? 'm' : '') + (on(g.compassshuffle) ? 'c' : '') +
+                      (on(g.bigkeyshuffle) ? 'b' : '') + (keyOn ? 'k' : '');
+
+  // Settings alttpr.com has no equivalent for — passed through under names
+  // applySeedMeta reads below.
+  v = g.pottery;   if (v !== undefined) m.pottery   = GWAA_POTTERY[String(v).toLowerCase()] || null;
+  v = g.dropshuffle;
+  if (v !== undefined) m.enemy_drop = (String(v).toLowerCase() === 'none') ? 'none'
+                                    : (String(v).toLowerCase() === 'keys') ? 'keys' : 'all';
+  set('shopsanity',  g.shopsanity);
+  if (g.prizeshuffle !== undefined)
+    m.random_prize = String(g.prizeshuffle).toLowerCase() !== 'none';
+  set('mirrorscroll', g.mirrorscroll);
+  set('logic',       g.logic);
+  return m;
+}
+
 function applySeedMeta(meta) {
   var applied = [], skipped = [];
 
@@ -895,6 +1132,18 @@ function applySeedMeta(meta) {
     } else {
       skipped.push('dungeon_items "' + diStr + '"');
     }
+  }
+
+  // The four flags straight from the seed, where it gave them. Runs after the
+  // mode above so it wins — a flag set with no legacy mode name (big key on its
+  // own) still reaches the panel.
+  var dshuf = metaValue(meta, 'dungeon_shuffle');
+  if (dshuf !== undefined && dshuf !== null && typeof dshufSet === 'function') {
+    dshufSet(String(dshuf));
+    var dsOther = document.getElementById('dshuf-other');
+    if (dsOther) dsOther.checked = false;
+    if (typeof dshufSync === 'function') dshufSync();
+    applied.push('dungeon shuffle "' + dshuf + '"');
   }
 
   // Ganon's Tower Requirement — only accept a value the dropdown actually has.
@@ -995,12 +1244,74 @@ function applySeedMeta(meta) {
     }
   }
 
+  // ── settings only the gwaa/Door randomizer reports ──
+  // Pottery Shuffle: the dropdown's own values, so a direct set is enough.
+  var pot = metaValue(meta, 'pottery');
+  if (pot !== undefined && pot !== null) {
+    var potSel = document.getElementById('pottery-select');
+    var potStr = String(pot).trim().toLowerCase();
+    if (potSel && Array.prototype.some.call(potSel.options, function(o) { return o.value === potStr; })) {
+      potSel.value = potStr;
+      applied.push('pottery ' + potStr);
+    } else {
+      skipped.push('pottery "' + potStr + '"');
+    }
+  }
+
+  // Enemy Drop: none / keys / all, same three the dropdown offers.
+  var edv = metaValue(meta, 'enemy_drop');
+  if (edv !== undefined && edv !== null) {
+    var edSel = document.getElementById('enemydrop-select');
+    var edStr = String(edv).trim().toLowerCase();
+    if (edSel && Array.prototype.some.call(edSel.options, function(o) { return o.value === edStr; })) {
+      edSel.value = edStr;
+      applied.push('enemy drop ' + edStr);
+    } else {
+      skipped.push('enemy_drop "' + edStr + '"');
+    }
+  }
+
+  // Logic mode.
+  var lgc = metaValue(meta, 'logic');
+  if (lgc !== undefined && lgc !== null) {
+    var lgSel = document.getElementById('logicmode-select');
+    var lgStr = String(lgc).trim().toLowerCase();
+    if (lgSel && Array.prototype.some.call(lgSel.options, function(o) { return o.value === lgStr; })) {
+      lgSel.value = lgStr;
+      applied.push('logic ' + lgStr);
+    } else {
+      skipped.push('logic "' + lgStr + '"');
+    }
+  }
+
+  // Two plain toggles. Written to the checkbox, not the storage key — save()
+  // writes the key from the checkbox, so a direct write is lost on next save
+  // (the same trap bonk shuffle hit above).
+  [['shopsanity',    'shopsanity-toggle',    'shopsanity'],
+   ['mirrorscroll',  'mirrorscroll-toggle',  'mirror scroll'],
+   ['universal_keys','universalkeys-toggle', 'universal keys'],
+   ['random_prize',  'randomprize-toggle',   'random prize shuffle']].forEach(function (row) {
+    var raw = metaValue(meta, row[0]);
+    if (raw === undefined || raw === null) return;
+    var on = (raw === true || String(raw).toLowerCase() === 'true' || String(raw) === '1');
+    var el = document.getElementById(row[1]);
+    if (!el) { skipped.push(row[0]); return; }
+    el.checked = on;
+    applied.push(row[2] + ' ' + (on ? 'on' : 'off'));
+  });
+
   // Re-sync the Yes/No labels and persist, same as applyPresetSettings does.
   ['entranceshuffle','bossshuffle','enemizer','universalkeys','keydropall','keydrop','enemykeydrop','swordless','pseudoboots','mirrorscroll','shopsanity','bonkshuffle','racemode'].forEach(function(name) {
     var t = document.getElementById(name + '-toggle');
     var l = document.getElementById(name + '-toggle-label');
     if (t && l) l.textContent = t.checked ? 'Yes' : 'No';
   });
+  // The Other Settings button shows a summary of the boxes inside its panel,
+  // and that summary is driven by their `change` events — which don't fire when
+  // the boxes are set from code. applyPresetSettings already calls this; a seed
+  // read has to as well, or the button reads "None" over ticked boxes
+  // (Chris, Sep 2026).
+  if (typeof updateOtherSettingsSummary === 'function') updateOtherSettingsSummary();
   save();
 
   return { applied: applied, skipped: skipped };
@@ -1010,24 +1321,86 @@ async function loadSeedSettings() {
   var input = document.getElementById('seed-link');
   var btn   = document.getElementById('seed-link-btn');
   var raw   = (input && input.value) || '';
-  var hash  = parseSeedHash(raw);
-  if (!hash) {
-    if (/avianart\.games/i.test(raw)) {
-      seedStatus('avianart links are not supported yet — its settings are not served ' +
-                 'at a public URL the way alttpr.com\'s are.', 'err');
-    } else {
-      seedStatus('Could not read a seed hash from that — paste a full alttpr.com permalink.', 'err');
-    }
+  var src   = parseSeedSource(raw);
+  var hash  = src && src.hash;
+  if (!src) {
+    seedStatus('Could not read a seed hash from that — paste a full permalink from ' +
+               'alttpr.com, alttpr.gwaa.kiwi or avianart.games.', 'err');
     return;
   }
   if (btn) btn.disabled = true;
-  seedStatus('Reading seed ' + hash + '…', '');
+  seedStatus('Reading seed ' + hash + ' from ' + src.site + '…', '');
   try {
-    var res = await fetch('https://alttpr.com/hash/' + encodeURIComponent(hash));
+    var res = await fetch(src.url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
-    // Seed metadata lives under spoiler.meta; tolerate a flatter shape too.
-    var meta = (data && data.spoiler && data.spoiler.meta) || (data && data.meta) || null;
+    var meta, _best = 0;
+    if (src.kind === 'gwaa' || src.kind === 'avianart') {
+      // The mirror's own flattened block. spoiler.meta exists too, but every
+      // value there is wrapped per player ({"1": "standard"}), so the top-level
+      // copy is the one worth reading.
+      // The block moves around, and worse, a DECOY sits where you'd look:
+      //   gwaa      data.meta                     74 keys
+      //   avianart  data.response.meta             2 keys  <- stub
+      //             data.response.spoiler.meta    74 keys  <- the real one
+      // Taking the first candidate that exists picked avianart's 2-key stub,
+      // so only the settings this mapper defaults unconditionally came out —
+      // boss shuffle, enemizer, an empty dungeon-shuffle string — and every
+      // one read with set() was skipped (Chris, Sep 2026: "applied 5
+      // settings", GT still 0). Take the RICHEST candidate instead of the
+      // first, which is true whatever the next site does.
+      var graw = null;
+      [data && data.meta,
+       data && data.response && data.response.meta,
+       data && data.spoiler && data.spoiler.meta,
+       data && data.response && data.response.spoiler && data.response.spoiler.meta
+      ].forEach(function (cand) {
+        if (!cand || typeof cand !== 'object') return;
+        var n = Object.keys(cand).length;
+        if (n > _best) { _best = n; graw = cand; }
+      });
+      window._lastSeedMetaRaw = graw;
+      meta = graw ? doorMetaToAlttpr(graw) : null;
+      // Door and overworld shuffles change the game past what this tracker
+      // models, so say so rather than applying half a seed silently.
+      var offPiste = [];
+      if (graw) {
+        if (graw.door_shuffle && String(graw.door_shuffle).toLowerCase() !== 'vanilla') offPiste.push('door shuffle');
+        if (graw.ow_layout    && String(graw.ow_layout).toLowerCase()    !== 'vanilla') offPiste.push('overworld layout');
+        if (graw.ow_crossed   && String(graw.ow_crossed).toLowerCase()   !== 'none')    offPiste.push('crossed overworld');
+        if (graw.ow_mixed) offPiste.push('mixed overworld');
+      }
+      window._lastSeedOffPiste = offPiste;
+    } else {
+      // alttpr.com: metadata lives under spoiler.meta; tolerate a flatter shape.
+      meta = (data && data.spoiler && data.spoiler.meta) || (data && data.meta) || null;
+      _best = meta ? Object.keys(meta).length : 0;
+      window._lastSeedMetaRaw = meta;
+      // The VT randomizer has no pottery or drop shuffle, so its seeds never
+      // mention them — and a skipped setting keeps whatever the last seed left
+      // behind. Reading an alttpr seed after a gwaa one kept Pottery on a seed
+      // that cannot have it (Chris, Sep 2026). Absent here means off, so say so
+      // rather than leaving it. (`enemizer.pot_shuffle` in that meta is the old
+      // pot-CONTENTS shuffle, nothing to do with pottery locations.)
+      // Same for everything in the Other Settings menu except Pseudo Boots,
+      // which alttpr does report. An absent field is skipped, so without this
+      // a door-family seed's Universal Keys or Bonk Shuffle stayed ticked over
+      // an alttpr seed that has no such option (Chris, Sep 2026).
+      if (meta) meta = Object.assign({}, meta, {
+        pottery: 'none', enemy_drop: 'none',
+        universal_keys: false, mirrorscroll: false, shopsanity: false,
+        bonk_drops: false, random_prize: false
+      });
+    }
+    // Only the door-family sites hide a decoy stub next to the real block;
+    // alttpr.com's meta is a single object of whatever size, so holding it to a
+    // field count would reject a legitimately small one.
+    if (meta && _best < 10 && (src.kind === 'gwaa' || src.kind === 'avianart')) {
+      window._lastSeedData = data;
+      seedStatus('Seed read, but its settings block only had ' + _best +
+                 ' fields — nothing usable. See window._lastSeedData.', 'err');
+      return;
+    }
     if (!meta) {
       window._lastSeedData = data;   // for debugging from the console
       seedStatus('Seed loaded but it has no settings metadata (spoiler.meta). Nothing applied.', 'err');
@@ -1040,13 +1413,27 @@ async function loadSeedSettings() {
     // detail is still available on window._lastSeedApplied. Problems are
     // always reported, otherwise a failed read looks identical to a good one.
     window._lastSeedApplied = r;
+    var offP = window._lastSeedOffPiste || [];
     if (!r.applied.length) {
       seedStatus('Seed read, but none of the mapped settings were present.', 'err');
+    } else if (offP.length) {
+      seedStatus('Applied. This seed also uses ' + offP.join(' and ') +
+                 ', which the tracker does not model — its logic will be wrong.', 'err');
     } else {
-      seedStatus('', '');
+      // The file-select hash — the five item icons the game shows on the save
+      // screen. Better than a list of what was applied: the form already shows
+      // that, and this is the one thing it can't, so it's how you confirm the
+      // ROM you're about to play is the seed you just read (Chris, Sep 2026).
+      var raw = window._lastSeedMetaRaw || {};
+      // alttpr.com's meta.hash is the permalink id, not the icons — only take a
+      // hash that reads as icon names, otherwise dig it out of the patch.
+      var h = raw.hash || metaValue(meta, 'hash') || '';
+      if (!/[A-Za-z], /.test(h)) h = hashFromPatch(data && data.patch) || '';
+      if (h) seedStatus('Hash: ' + h, '', seedHashHTML(h));
+      else   seedStatus('Read ' + hash + ' — ' + r.applied.length + ' settings', '');
     }
   } catch (e) {
-    seedStatus('Could not reach alttpr.com (' + e.message + '). ' +
+    seedStatus('Could not reach ' + src.site + ' (' + e.message + '). ' +
       'This needs the desktop app — a plain browser will block the request.', 'err');
   } finally {
     if (btn) btn.disabled = false;
@@ -2401,6 +2788,16 @@ function applyPreset() {
   }
 }
 
+// The button next to the dropdown. Picking the preset already loaded it, so
+// this only opens the two windows — anything the player changed by hand after
+// selecting is kept rather than being reset back to the preset.
+function launchPreset() {
+  var sel = document.getElementById('preset-select');
+  // OnlyADKD's marker tells map.html to use its prebuilt entrance map, and
+  // launchBoth clears that marker unless told to keep it.
+  launchBoth(!!sel && sel.value === 'onlyadkd');
+}
+
 function saveCustomPreset() {
   var input = document.getElementById('preset-modal-input');
   if (input) input.value = '';
@@ -2476,7 +2873,23 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Escape') presetModalClose();
   });
   var sel = document.getElementById('preset-select');
-  if (sel) sel.addEventListener('change', updateDeleteBtn);
+  // Picking a preset loads it straight away; the button is only for launching
+  // (Chris, Sep 2026). Fires on user interaction only, so restoring the saved
+  // settings at startup can't be overwritten by whatever option happens to be
+  // marked `selected` in the markup.
+  if (sel) sel.addEventListener('change', function () {
+    updateDeleteBtn();
+    applyPreset();
+    // The preset has just overwritten the form, so a seed link still sitting
+    // there — and the hash beside it — describe settings that are no longer
+    // loaded. Clear both rather than leave them contradicting the form
+    // (Chris, Sep 2026).
+    var link = document.getElementById('seed-link');
+    if (link) link.value = '';
+    seedStatus('', '');
+    window._lastSeedMetaRaw = null;
+    window._lastSeedApplied = null;
+  });
 });
 
 // ── User Guide ───────────────────────────────────────────────────────────────

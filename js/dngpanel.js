@@ -26,7 +26,7 @@
 
 // Bumped with every change to this file. The map's gear menu shows it, so a
 // stale packaged build can be spotted without guessing (Chris, Sep 2026).
-window.DNGPANEL_BUILD = '1125a';
+window.DNGPANEL_BUILD = '1125b';
 
 var DNG_PANEL_CSS = `
 /* ── Dungeon hover panel ── */
@@ -1265,8 +1265,16 @@ var LOC_RULES = {
       if (c.keys >= 5) return 'available';
       return c.keys >= 3 ? 'possible' : 'unavail';
     },
+    // The lava chest. Two keys physically reaches it, but spending them here is
+    // a choice most players don't make — the chest is commonly skipped, so
+    // calling it available at 2 of 4 overstated it. Possible until every key is
+    // in hand, available once none of them is needed elsewhere (Chris, Sep
+    // 2026). Key drop already used that shape at 4/6.
     'Big Key Chest':               function (c) {
-      if (!c.keydrop) return c.keys >= 2 ? 'available' : 'unavail';
+      if (!c.keydrop) {
+        if (c.keys >= (c.maxKeys || 4)) return 'available';
+        return c.keys >= 2 ? 'possible' : 'unavail';
+      }
       if (c.keys >= 6) return 'available';
       return c.keys >= 4 ? 'possible' : 'unavail';
     },
