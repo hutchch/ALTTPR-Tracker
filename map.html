@@ -1114,6 +1114,12 @@ window.fluteDW = function () {
 };
 window.fluteToDDM = function () { return window.fluteDW(); };
 
+// Non-inverted: Titan's Mitts + Moon Pearl + bombs reaches East DW by bomb-jump = out of logic
+window.dwEastByBomb = function () {
+  var it = window.trackerItems || {};
+  return !!(it.moonpearl && it.gloves >= 2 && it.bomb);
+};
+
 function dungeonColor(key) {
   var it = window.trackerItems;
   var hasMedallion = function(dungeonKey) {
@@ -1332,6 +1338,7 @@ function dungeonColor(key) {
         : (it.moonpearl && (it.agahnim || (it.gloves >= 2 && it.flippers) || (it.hammer && it.gloves >= 1)));
       if (!dwEastPOD) {
         if (inverted && it.bomb) return 'purple'; // inverted: bomb-jump to East DW = out of logic
+        if (!inverted && window.dwEastByBomb()) return 'purple';
         return 'red';
       }
       if (!it.hammer || !it.lamp || !it.bow) return 'yellow';
@@ -2088,7 +2095,7 @@ function checkLogic(it) {
              var _synth73 = window._entSyntheticFoundRegions || [];
              if (_synth73.indexOf('North East Dark World') !== -1) return (pearl && glove) ? 'green' : 'red';
            }
-           return (dwEast&&glove) ? 'green' : 'red';
+           return (dwEast&&glove) ? 'green' : (window.dwEastByBomb() ? 'purple' : 'red');
          },
     74:  function() { return (flippers||glove) ? 'green' : 'purple'; }, // King Zora: out of logic without flippers or gloves
     75:  function() {
@@ -2410,7 +2417,7 @@ function checkLogic(it) {
              return _pyrFound ? 'green' : 'red';
            }
            if (inv3) return dwEast ? 'green' : (bomb ? 'purple' : 'red'); // inverted: bomb-jump to East DW = out of logic
-           return (aga||dwEast) ? 'green' : 'red';
+           return (aga||dwEast) ? 'green' : (window.dwEastByBomb() ? 'purple' : 'red');
          },
     93:  function() {
            var _entSh93 = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
