@@ -126,7 +126,7 @@ let previousSRAM = null;
 // Bumped with every change to this file, relayed in the broadcast snapshot so
 // the map's gear menu can show which build the ITEM TRACKER is running — the
 // two windows are packaged together but reload independently.
-window.ITEMS_BUILD = '1125h';
+window.ITEMS_BUILD = '1126b';
 let _bombClearTimer = null; // debounce: only clear bombs after sustained 0 reading
 
 const items = {
@@ -1072,6 +1072,19 @@ window.BASE_LOC = { hc:8, ep:6, dp:6, toh:6, ct:2, pod:14, sp:10, sw:8, tt:8,
 // enemy dead, where the truth is 55 of 55 (Chris, Sep 2026).
 window.dungeonNonChest = function (key) {
     if (!window.anyDropModeFlag()) return null;
+    // CT has no `dungeons` entry, so without this it fell back to the enemy
+    // masks and read 40 against a real 32 (34 locations less its 2 chests —
+    // Chris, Sep 2026). Same sum from the seed, the checks-done counter and
+    // its two chest bits.
+    if (key === 'ct') {
+        var cs = window.seedCountsFor('ct'), rd = previousRoomData;
+        if (!cs) return null;
+        var ctTotal = cs.locations - window.BASE_LOC.ct;
+        var ctChecks = rd ? window.checksDoneFor('ct', rd) : 0;
+        var ctChests = rd ? ((rd[0x1c0] & 0x10) ? 1 : 0) + ((rd[0x1a0] & 0x10) ? 1 : 0) : 0;
+        if (ctTotal < 0) return null;
+        return { done: Math.max(0, Math.min((ctChecks || 0) - ctChests, ctTotal)), total: ctTotal };
+    }
     var d = dungeons[key];
     var base = window.BASE_LOC[key];
     if (!d || base === undefined) return null;
@@ -3212,7 +3225,9 @@ function _sramReadOnce() {
     // Skipped entirely when the flag is off — the region is meaningless in a
     // ROM without key drop, and there's no reason to pay for the read.
     // Pottery shuffle flags its pots in the same block, so it needs the read too.
-    if (window.anyKeyDropFlag() || window.potteryFlag()) {
+    // Enemy Drop: Underworld too — cave enemies clear from this block, and
+    // without it they never did (Chris, Sep 2026).
+    if (window.anyKeyDropFlag() || window.potteryFlag() || window.anyDropModeFlag()) {
         ws.send(JSON.stringify({
             Opcode: 'GetAddress',
             Space: 'SNES',

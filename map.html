@@ -939,7 +939,7 @@ window.SRAM_FLAGS = {
   19: [[0x246,0x10],[0x246,0x20],[0x246,0x40],[0x246,0x80],[0x247,0x04]],
   20: [0x240,0x10],
   21: [0x078,0x80],
-  22: [[0x078,0x10],[0x078,0x20],[0x078,0x40]],
+  22: [[0x078,0x10],[0x078,0x20],[0x078,0x40],[0x078,0x80]],   // + Bottom Right (was 21)
   23: [0x280,0x10],
   24: [0x285,0x10],
   25: [0x28a,0x10],
@@ -2674,6 +2674,12 @@ window.checkColor = function(id) {
   var fn = checkLogic(it)[id];
   return fn ? fn() : 'green';
 };
+// A check's colour as if the player also held `extra` — for a room of the same
+// cave that wants less than the check does.
+window.checkColorWith = function(id, extra) {
+  var fn = checkLogic(Object.assign({}, window.trackerItems || {}, extra))[id];
+  return fn ? fn() : 'green';
+};
 })();
 </script>
 <script src="js/dngpanel.js?v=1125b"></script>
@@ -2732,8 +2738,9 @@ var CHECKS = [
   [18,  39.00, 29.30, "Bonk Rock Cave",         "lw"],
   [19,  65.20, 93.40, "Mini Moldorm Cave (5)",  "lw"],
   [20,  90.90, 76.90, "Ice Rod Cave",           "lw"],
-  [21,  83.20,  9.60, "Hookshot Cave Bot. R",   "dw"],
-  [22,  83.20,  7.50, "Hookshot Cave (3)",      "dw"],
+  // 21 (Hookshot Cave Bot. R) is a row on 22 now; its rule still lives in
+  // checkLogic and colours that row (Chris, Sep 2026).
+  [22,  83.20,  7.50, "Hookshot Cave (4)",      "dw"],
   [65,   9.00, 47.30, "Bottle Merchant",        "lw"],
   [66,  81.40, 45.00, "Sahasrahla NPC",         "lw"],
   [68,  16.20, 51.10, "Sick Kid",               "lw"],
@@ -3369,7 +3376,7 @@ window.ensurePotLocations = function(cb) {
   if (window._potLoadQueue) { if (cb) window._potLoadQueue.push(cb); return; }
   window._potLoadQueue = cb ? [cb] : [];
   var sc = document.createElement('script');
-  sc.src = 'js/potlocations.js?v=1126d';
+  sc.src = 'js/potlocations.js?v=1126g';
   sc.onload = function() {
     var q = window._potLoadQueue || []; window._potLoadQueue = null;
     buildPotDots();
@@ -3410,6 +3417,7 @@ function potPlaces() {
     // Rock Cave has 4). [5] marks the sub as an enemy so potSubsForPlaces can
     // show pots and enemies independently. Room 0 is Ganon's room, not the
     // Pyramid ledge check the name would pin it to — left out.
+    var rank = 0;
     var add = function(isDrop) { return function(p) {
       var place = p[5] || e.name;
       // "None" is a room the source never named. Its enemies landed on whatever
@@ -3417,7 +3425,10 @@ function potPlaces() {
       // Sep 2026).
       if (place === 'None') return;
       var v = _potPlaces[place] || (_potPlaces[place] = { subs: [] });
-      v.subs.push([p[2], p[0], p[1], 'potloc', p[4], isDrop]);
+      // [6] = the enemy's place in its room's list. The per-enemy masks don't
+      // match the bits the cartridge sets (DROP-COUNTING.md §4), so a room's
+      // enemies clear by how many of its bits are set, not which.
+      v.subs.push([p[2], p[0], p[1], 'potloc', p[4], isDrop, isDrop ? rank++ : undefined]);
     }; };
     (e.pots || []).forEach(add(false));
     if (+r !== 0) (e.drops || []).forEach(add(true));
@@ -6457,7 +6468,7 @@ var CHECK_SUBS = {
   // what a player sees, so the labels are swapped here (bits untouched).
   17:  [['Upper - Far Left', 0x1de, 0x10], ['Upper - Left', 0x1de, 0x20], ['Upper - Right', 0x1de, 0x40], ['Upper - Far Right', 0x1de, 0x80], ['Upper - Middle', 0x1df, 0x01], ['Lower - Left', 0x1fe, 0x10], ['Lower - Right', 0x1fe, 0x20]],
   19:  [['Far Left', 0x246, 0x10], ['Left', 0x246, 0x20], ['Right', 0x246, 0x40], ['Far Right', 0x246, 0x80], ['Generous Guy', 0x247, 0x04]],
-  22:  [['Top Right', 0x078, 0x10], ['Top Left', 0x078, 0x20], ['Bottom Left', 0x078, 0x40]],
+  22:  [['Top Right', 0x078, 0x10], ['Top Left', 0x078, 0x20], ['Bottom Left', 0x078, 0x40], ['Bottom Right', 0x078, 0x80]],
   96:  [['Secret Room - Left', 0x022, 0x10], ['Secret Room - Middle', 0x022, 0x20], ['Secret Room - Right', 0x022, 0x40]],
   97:  [['Link\'s Uncle', 0x3c6, 0x01], ['Secret Passage', 0x0aa, 0x10]],
   98:  [['Map Chest', 0x0e4, 0x10], ['Map Guard Key Drop', 0x0e5, 0x80, 'drop'],
@@ -6528,7 +6539,10 @@ function checkRoom(id) {
 // Two checks can share a room — Hookshot Cave's single Bottom Right chest (21)
 // and its three-chest check (22) both read room 0x3c — and the room's pots
 // belong to one of them, not both.
-var POT_CHECK_SKIP = { 21: 1 };   // Hookshot Cave Bot. R — 22 lists them
+var POT_CHECK_SKIP = {};
+// Rows that were checks of their own, and the rule that still colours them:
+// Bottom Right wants boots or the hookshot, the other three the hookshot.
+var CHECK_SUB_RULE = { '22/Bottom Right': 21 };
 
 function potSubsFor(id) {
   // Coerced, because half the repaint loops walk Object.keys and hand this a
@@ -6576,9 +6590,19 @@ function potSubsForPlaces(places) {
     var many = places.length > 1;
     v.subs.forEach(function(sub) {
       if (sub[5] ? !foes : !pots) return;
-      out.push([(many ? pl + ' ' : '') + sub[0], sub[1], sub[2], sub[3], sub[4], pl]);
+      out.push([(many ? pl + ' ' : '') + sub[0], sub[1], sub[2], sub[3], sub[4], pl, sub[6]]);
     });
   });
+  // Enemies read in room order, #1 first, even when one room is split across
+  // places (Hookshot Cave's #1 is on the bonk islands, #2-3 on the hook
+  // islands — Chris, Sep 2026). Pots keep their places.
+  var foesAt = [], foeRows = [];
+  out.forEach(function(r, i) { if (r[6] !== undefined) { foesAt.push(i); foeRows.push(r); } });
+  // A room's enemies #1-8 sit in its odd byte and #9+ in the even one before
+  // it, so order by room, then odd byte first, then high bit first.
+  var foeKey = function(r) { return (r[1] & ~1) * 1024 + ((r[1] & 1) ? 0 : 512) + (255 - r[2]); };
+  foeRows.sort(function(a, b) { return foeKey(a) - foeKey(b); });
+  foesAt.forEach(function(i, k) { out[i] = foeRows[k]; });
   return out;
 }
 
@@ -6656,6 +6680,11 @@ var POT_PLACE_USE_CHECK = {
   // — all three carry their own requirement in the pot data instead (Chris,
   // Sep 2026).
   'Hookshot Cave (Hook Islands)': 1,
+  // Spiral Cave's door reads unreachable in the entrance graph while the check
+  // is green (Chris, Sep 2026).
+  'Spiral Cave (Top)':            1,
+  'Spiral Cave (Bottom)':         1,
+  'Mimic Cave':                   1,   // enemies follow the check (Chris, Sep 2026)
   'Superbunny Cave (Top)': 1,
   'Superbunny Cave (Bottom)': 1
 };
@@ -6747,6 +6776,12 @@ function checkSubOpen(sub) {
     var kd = window._lastKeyDropData;
     var off = sub[1] + (sub[3] === 'drop' ? 0x250 : 0);   // 'potloc' offsets are already absolute
     if (sub[3] === 'potloc') off = sub[1];
+    if (sub[6] !== undefined) {           // cave enemy: count the room's bits
+      if (!kd) return false;
+      var base = off & ~1, n = 0, b = (kd[base] << 8) | kd[base + 1];
+      for (; b; b &= b - 1) n++;
+      return n > sub[6];
+    }
     return !!(kd && window.sramCleared(kd, [off, sub[2]]));
   }
   return null;   // caller reads it from the room data
@@ -6901,6 +6936,14 @@ function checkSubStatus(id, sub, status) {
     // hammer, a glove and the cape or byrna, while the reference pot data also
     // wants a magic upgrade on top — which left the pots reading unavailable
     // over a cave the tracker says is doable.
+    // Bonk Islands: Hookshot Cave's access, then boots or hookshot to get across
+    // (Chris, Sep 2026). The check itself wants the hookshot, so ask it as if
+    // the player held one.
+    if (sub[3] === 'potloc' && sub[5] === 'Hookshot Cave (Bonk Islands)') {
+      var _it = window.trackerItems || {};
+      if (!(_it.boots >= 1 || _it.hookshot >= 1)) return { word: 'unavailable', cls: 'unavail' };
+      return window.dngStatusFromColor(window.checkColorWith(22, { hookshot: 1 }));
+    }
     if (sub[3] === 'potloc' && POT_PLACE_USE_CHECK[sub[5]]) {
       return checkSubFromCard(id, sub[0], status) || status;
     }
@@ -6923,6 +6966,9 @@ function checkSubStatus(id, sub, status) {
   var subOpen = _subData ? window.sramCleared(_subData, [sub[1], sub[2]])
                          : !!checkSubCleared[id + '/' + sub[0]];
   if (checkState[id] || subOpen) return { word: 'cleared', cls: 'cleared' };
+  // A row folded in from a check of its own keeps that check's rule.
+  var ownRule = typeof CHECK_SUB_RULE !== 'undefined' ? CHECK_SUB_RULE[id + '/' + sub[0]] : undefined;
+  if (ownRule !== undefined) return window.dngStatusFromColor(window.checkColor(ownRule));
   // A location the dungeon card already reasons about takes the card's word.
   var fromCard = checkSubFromCard(id, sub[0], status);
   if (fromCard) return fromCard;
