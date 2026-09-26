@@ -26,7 +26,7 @@
 
 // Bumped with every change to this file. The map's gear menu shows it, so a
 // stale packaged build can be spotted without guessing (Chris, Sep 2026).
-window.DNGPANEL_BUILD = '1126a';
+window.DNGPANEL_BUILD = '1126c';
 
 var DNG_PANEL_CSS = `
 /* ── Dungeon hover panel ── */
@@ -791,6 +791,7 @@ function ipDeep(c) {
 // hammer — out of logic rather than impossible. Asked of ipDeep with a hammer
 // granted, so the key tiers stay in one place.
 function ipBigKey(c) {
+  if (!c.keydrop && c.keys >= 1 && c.item('hammer')) return 'available';
   var res = ipDeep(c);
   if (res !== 'unavail') return res;
   // The Cane of Somaria reaches it on its own — not something to call in
@@ -817,6 +818,13 @@ function ipInvGlove(c, res) {
 function ipBack(c, res) {
   if (res === 'unavail' || res === 'bossitem') return res;
   return (c.item('hookshot') || c.item('somaria')) ? res : 'ool';
+}
+// Without key drop, one small key and the hammer take the other way round the
+// gap, so these rooms are in logic with neither hookshot nor Somaria (Chris,
+// Sep 2026 — Big Key Chest, Spike Room, Freezor Chest, Iced T Room).
+function ipBackKey(c, res) {
+  if (!c.keydrop && c.keys >= 1 && c.item('hammer') && res !== 'unavail' && res !== 'bossitem') return res;
+  return ipBack(c, res);
 }
 
 // A plain key threshold that only applies under key drop.
@@ -1190,14 +1198,18 @@ var LOC_RULES = {
     'Big Key Chest':    ipBigKey,
     'Conveyor Key Drop': function (c) { return c.keys >= 1 ? 'available' : 'unavail'; },
     'Spike Room':       function (c) {
-      if (!c.keydrop) return ipBack(c, 'available');
+      if (!c.keydrop) return ipBackKey(c, 'available');
       if (c.keys >= 3 && c.item('hookshot')) return 'available';
       return ipBack(c, (c.keys >= 3 && c.item('hammer')) ? 'possible' : 'unavail');
     },
     'Hammer Block Key Drop': ipDeep,
-    'Map Chest':        function (c) { return ipInvGlove(c, ipDeep(c)); },
-    'Freezor Chest':    function (c) { return ipBack(c, ipKeys(c, 2)); },
-    'Iced T Room':      function (c) { return ipBack(c, ipKeys(c, 2)); },
+    'Map Chest':        function (c) {
+      // Same one-key route as the Big Key Chest (Chris, Sep 2026).
+      if (!c.keydrop && c.keys >= 1 && c.item('hammer')) return ipInvGlove(c, 'available');
+      return ipInvGlove(c, ipDeep(c));
+    },
+    'Freezor Chest':    function (c) { return ipBackKey(c, ipKeys(c, 2)); },
+    'Iced T Room':      function (c) { return ipBackKey(c, ipKeys(c, 2)); },
     'Many Pots Pot Key': function (c) { return c.keys >= 2 ? 'available' : 'unavail'; },
     'Big Chest':        function (c) {
       if (!c.bigkey) return 'unavail';

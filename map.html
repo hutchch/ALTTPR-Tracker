@@ -2695,7 +2695,7 @@ window.checkColorWith = function(id, extra) {
 };
 })();
 </script>
-<script src="js/dngpanel.js?v=1126a"></script>
+<script src="js/dngpanel.js?v=1126c"></script>
 <script src="js/entrances_data.js"></script>
 <script src="logic/ref_logic_entrances.js"></script>
 <script src="logic/ref_logic_entrances_owg.js"></script>
@@ -4221,11 +4221,12 @@ window._applyInvertedDungeons(_inverted);
       found.push('Upper East Death Mountain');
       if (isInverted && found.indexOf('Inverted Upper East Death Mountain') === -1) found.push('Inverted Upper East Death Mountain');
     }
-    // Dark DM Ledge (TR laser bridge) + mirror + pearl → mirror lands on the
-    // Spiral Cave ledge, drop down → Lower East LW DM: Spiral Cave (Bottom),
-    // Hookshot Fairy, Paradox Cave (Bottom) and (Middle). Open world only —
-    // in inverted the mirror doesn't go Dark → Light.
-    if (!isInverted && hasMirror && (ti.moonpearl || 0) >= 1 &&
+    // Dark DM Ledge (TR laser bridge) + mirror → mirror lands on the Spiral
+    // Cave ledge, drop down → Lower East LW DM: Spiral Cave (Bottom), Hookshot
+    // Fairy, Paradox Cave (Bottom) and (Middle). No pearl: you arrive in the
+    // Light World in your own form (Chris, Sep 2026). Open world only — in
+    // inverted the mirror doesn't go Dark → Light.
+    if (!isInverted && hasMirror &&
         found.indexOf('Dark Death Mountain Ledge') !== -1 &&
         found.indexOf('Lower East Death Mountain') === -1) {
       found.push('Lower East Death Mountain');
