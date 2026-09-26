@@ -26,7 +26,7 @@
 
 // Bumped with every change to this file. The map's gear menu shows it, so a
 // stale packaged build can be spotted without guessing (Chris, Sep 2026).
-window.DNGPANEL_BUILD = '1125b';
+window.DNGPANEL_BUILD = '1126a';
 
 var DNG_PANEL_CSS = `
 /* ── Dungeon hover panel ── */
@@ -442,11 +442,16 @@ function saveDngLocCleared() { /* nothing to save — see above */ }
 // the marks above — a skip belongs to the file being played, not to the app.
 // The per-dungeon COUNT lives on the dungeon (js/items.js `skipped`), which is
 // what lowers the target; this map only remembers which lines to strike out.
+// 1 = skipped, and it takes an item off the dungeon's total (the chest held
+// an item you won't collect). 2 = skipped, but it held one of the dungeon's own
+// items (map, compass, key), so the item total is untouched (Chris, Sep 2026).
 var dngLocSkipped = {};
 
 function dngSkipCount(dk) {
   var pre = dk + '/', n = 0;
-  Object.keys(dngLocSkipped).forEach(function (id) { if (id.indexOf(pre) === 0) n++; });
+  Object.keys(dngLocSkipped).forEach(function (id) {
+    if (id.indexOf(pre) === 0 && dngLocSkipped[id] === 1) n++;
+  });
   return n;
 }
 
@@ -458,7 +463,9 @@ function pushDngSkip(dk) {
 
 window.dngLocSkipToggle = function (dk, loc) {
   var id = dk + '/' + loc;
-  if (dngLocSkipped[id]) delete dngLocSkipped[id]; else dngLocSkipped[id] = 1;
+  // none -> skipped -> skipped (dungeon item) -> none
+  var v = dngLocSkipped[id];
+  if (v === 1) dngLocSkipped[id] = 2; else if (v === 2) delete dngLocSkipped[id]; else dngLocSkipped[id] = 1;
   pushDngSkip(dk);
   refresh();
 };
@@ -1743,11 +1750,12 @@ function buildDungeonPanelHTML(key, titlePrefix) {
       var label = (DUNGEON_LOC_LABELS[locKey] || {})[n] || n;
       // Skipped by hand: struck out, and it no longer counts against the target.
       var skippable = n !== 'Boss' && cls !== 'cleared';
-      if (skippable && dngLocSkipped[locKey + '/' + n]) { word = 'skipped'; cls = 'skipped'; }
+      var skipV = skippable && dngLocSkipped[locKey + '/' + n];
+      if (skipV) { word = skipV === 2 ? 'skipped (dungeon item)' : 'skipped'; cls = 'skipped'; }
       if (n === 'Boss') { bossWord = word; bossCls = cls; }
       body += '<div class="dp-row' + (skippable ? ' dp-skip' : '') + '"' +
               (skippable ? ' data-dk="' + locKey + '" data-loc="' + n.replace(/"/g, '&quot;') + '"' +
-                           ' title="Click to skip this location"' : '') +
+                           ' title="Click: skip (takes an item off the total). Again: skipped dungeon item (total unchanged). Again: undo."' : '') +
               '><span class="dp-label">' + label +
               '</span><span class="dp-val ' + cls + '">' + (word || '&nbsp;') + '</span></div>';
     });

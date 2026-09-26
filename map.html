@@ -430,8 +430,8 @@ body {
 /* ── Check annotations (right-click → tag with item) ── */
 .dot-annotation {
   position: absolute;
-  top: -4px; right: -4px;
-  width: 16px; height: 16px;
+  top: -11px; right: -11.5px;   /* up and out, so the dot's colour shows */
+  width: 22px; height: 22px;
   pointer-events: none;
   z-index: 3;
   filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
@@ -441,7 +441,7 @@ body {
   display: flex; align-items: center; justify-content: center;
   background: #000; color: #fff;
   border-radius: 50%;
-  font-size: 11px; font-weight: bold;
+  font-size: 14px; font-weight: bold;
   font-family: Arial, sans-serif;
 }
 
@@ -2213,13 +2213,23 @@ function checkLogic(it) {
            // player walk the outdoor paths to Spectacle Rock — no lamp needed (fully outdoors).
            if (_isEntShuffle86) {
              var _synth86 = window._entSyntheticFoundRegions || [];
-             // climbDM covers vanilla DM access (glove or flute) — no lamp needed outdoors.
-             var _dmReached86 = climbDM ||
+             // The flute or a found west DM region. Not the glove: with entrances
+             // shuffled, lifting the rock only opens Old Man Cave's door, which
+             // leads wherever the seed sent it — so a glove plus an unrelated
+             // Death Mountain connector lit this up (Chris, Sep 2026).
+             var _dmReached86 = flute ||
                                 _synth86.indexOf('Upper West Death Mountain') !== -1 ||
                                 _synth86.indexOf('Inverted Upper West Death Mountain') !== -1 ||
                                 _synth86.indexOf('Lower West Death Mountain') !== -1 ||
-                                _synth86.indexOf('Inverted Lower West Death Mountain') !== -1;
+                                _synth86.indexOf('Inverted Lower West Death Mountain') !== -1 ||
+                                // Lower east DM + hookshot across the bridge to the west
+                                // side — e.g. Dark DM Ledge + mirror + pearl drops you in
+                                // lower east DM (Chris, Sep 2026).
+                                (hookshot && _synth86.indexOf('Lower East Death Mountain') !== -1);
              if (_dmReached86) return mirror ? 'green' : 'orange';
+             // Falling through to the vanilla rule below would let the glove
+             // back in, so stop here in open mode.
+             if (!_inv) return 'red';
            }
            if (_inv) {
              if (!glove) return 'red';
@@ -2462,15 +2472,18 @@ function checkLogic(it) {
     100: function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
            var _entShuffleBat = !!(window.trackerSettings && window.trackerSettings.entranceShuffle);
+           // Fake powder: mushroom still held (1, not turned in) + somaria —
+           // out of logic, but it gets the bat (Chris, Sep 2026).
+           var fakePowder = it.mushroom === 1 && somaria;
+           var bat = function(reach) { return !reach ? 'red' : powder ? 'green' : fakePowder ? 'purple' : 'red'; };
            // Entrance shuffle: cave physically found — only powder needed
-           if (_entShuffleBat) return powder ? 'green' : 'red';
-           if (_inv) return (powder && hammer) ? 'green' : 'red';
-           if (!powder) return 'red';
+           if (_entShuffleBat) return bat(true);
+           if (_inv) return bat(hammer);
            // Standard: powder + (hammer OR mirror-back-from-DW). The mirror
            // path lands at the specific DW tile that only titans mitt + pearl
            // can reach — the looser dwNW (glove+hammer etc.) gets you into
            // DW NW but not to that tile, so it doesn't suffice here.
-           return (hammer || (pearl && titan && mirror)) ? 'green' : 'red';
+           return bat(hammer || (pearl && titan && mirror));
          },
     101: function() {
            var _inv = window.trackerSettings && window.trackerSettings.inverted;
@@ -2682,7 +2695,7 @@ window.checkColorWith = function(id, extra) {
 };
 })();
 </script>
-<script src="js/dngpanel.js?v=1125b"></script>
+<script src="js/dngpanel.js?v=1126a"></script>
 <script src="js/entrances_data.js"></script>
 <script src="logic/ref_logic_entrances.js"></script>
 <script src="logic/ref_logic_entrances_owg.js"></script>
@@ -4072,6 +4085,10 @@ window._applyInvertedDungeons(_inverted);
     // a Superbunny Cave (Top) connector already produces the right result, so
     // Turtle Rock shares its region rather than getting a new cascade.
     'Turtle Rock':                        'Isolated East Dark Death Mountain Ledge',
+    // TR's laser-bridge ledge. Its own dead end in the Dark World, but mirroring
+    // off it lands on the Spiral Cave ledge — cascade below (Chris, Sep 2026).
+    'Dark Death Mountain Ledge (West)':   'Dark Death Mountain Ledge',
+    'Dark Death Mountain Ledge (East)':   'Dark Death Mountain Ledge',
     'Archery Game':                        'South Dark World',
     // Bumper Cave (Top) is "never" accessible in Open vanilla logic, but physically
     // the exit lands on the northwest DW ledge adjacent to the main West Dark World.
@@ -4203,6 +4220,15 @@ window._applyInvertedDungeons(_inverted);
         found.indexOf('Upper East Death Mountain') === -1) {
       found.push('Upper East Death Mountain');
       if (isInverted && found.indexOf('Inverted Upper East Death Mountain') === -1) found.push('Inverted Upper East Death Mountain');
+    }
+    // Dark DM Ledge (TR laser bridge) + mirror + pearl → mirror lands on the
+    // Spiral Cave ledge, drop down → Lower East LW DM: Spiral Cave (Bottom),
+    // Hookshot Fairy, Paradox Cave (Bottom) and (Middle). Open world only —
+    // in inverted the mirror doesn't go Dark → Light.
+    if (!isInverted && hasMirror && (ti.moonpearl || 0) >= 1 &&
+        found.indexOf('Dark Death Mountain Ledge') !== -1 &&
+        found.indexOf('Lower East Death Mountain') === -1) {
+      found.push('Lower East Death Mountain');
     }
     if (found.indexOf('Upper Dark Death Mountain') !== -1 && found.indexOf('Lower East Dark Death Mountain') === -1) {
       found.push('Lower East Dark Death Mountain');
@@ -6611,8 +6637,8 @@ function showPotHover(el, name, places) {
   var subs = potSubsForPlaces(places);
   // Same reachability the marker is coloured by — the card used to say
   // "available" over a red dot.
-  var word = potEntranceReachable(name) ? 'available' : 'unavailable';
-  var cls  = potEntranceReachable(name) ? 'available' : 'unavail';
+  var reach = potReachStatus(name);
+  var word = reach.word, cls = reach.cls;
   var open = 0;
   var rows = subs.map(function(sub) {
     var done = checkSubOpen(sub);
@@ -6625,7 +6651,7 @@ function showPotHover(el, name, places) {
   });
   // The header answers the same question the dot's colour does, requirements
   // included — it used to read "available" over a red marker.
-  var gettable = rows.filter(function(r) { return r.cls === 'available'; }).length;
+  var gettable = rows.filter(function(r) { return r.cls !== 'unavail' && r.cls !== 'cleared'; }).length;
   var head = !open ? { word: 'cleared', cls: 'cleared' }
            : !gettable ? { word: 'unavailable', cls: 'unavail' }
            : { word: word, cls: cls };
@@ -6699,13 +6725,31 @@ var POT_PLACE_USE_CHECK = {
 // door" really is the question the table answers, and a found entrance is the
 // whole point.
 var POT_REACH_VIA = {
-  'Fairy Ascension Cave (Top)':        'Paradox Cave (Bottom)',
-  'Fairy Ascension Cave (Bottom)':     'Paradox Cave (Bottom)',
   'Death Mountain Return Cave (West)': 'Old Man House (Top)'
 };
 
+// Doors that take a check's colour outright, purple included. Fairy
+// Ascension is the same stretch of east Death Mountain as Paradox Cave; the
+// entrance graph made it wait on the flute when west DM access was enough
+// (Chris, Sep 2026).
+var POT_REACH_CHECK = {
+  'Fairy Ascension Cave (Top)':    17,   // Paradox Cave
+  'Fairy Ascension Cave (Bottom)': 17
+};
+var POT_UNREACH = { word: 'unavailable', cls: 'unavail' };
+
+// { word, cls } for a door — available / out of logic / unavailable.
+function potReachStatus(name) {
+  var es = window.trackerSettings && window.trackerSettings.entranceShuffle;
+  if (!es && POT_REACH_CHECK[name] !== undefined) {
+    return window.dngStatusFromColor(window.checkColor(POT_REACH_CHECK[name])) || POT_UNREACH;
+  }
+  return potEntranceReachable(name) ? { word: 'available', cls: 'available' } : POT_UNREACH;
+}
+
 function potEntranceReachable(name) {
   if (!(window.trackerSettings && window.trackerSettings.entranceShuffle)) {
+    if (POT_REACH_CHECK[name] !== undefined) return potReachStatus(name).cls !== 'unavail';
     name = POT_REACH_VIA[name] || name;
   }
   if (_potReachCache[name] !== undefined) return _potReachCache[name];
@@ -6748,9 +6792,10 @@ function refreshPotDots() {
     // checkEntranceAvailability, not entranceUnavailable: the latter is the
     // entrance-shuffle marker's rule and returns false flat when the shuffle
     // is off, which left every pot marker green.
-    var reachable = potEntranceReachable(name);
-    var cls = 'dot pot-dot ' + ((reachable && gettable) ? 'available' : 'unavail');
-    if (reachable && gettable && gettable < left) {
+    var reach = potReachStatus(name).cls;     // available / ool / unavail
+    var reachable = reach !== 'unavail';
+    var cls = 'dot pot-dot ' + ((reachable && gettable) ? reach : 'unavail');
+    if (reach === 'available' && gettable && gettable < left) {
       // Some of what's left is out of reach for want of an item.
       var q = Math.round(gettable / left * 4);
       if (q >= 1 && q <= 3) cls = 'dot pot-dot possible q' + q;
@@ -6944,6 +6989,14 @@ function checkSubStatus(id, sub, status) {
       if (!(_it.boots >= 1 || _it.hookshot >= 1)) return { word: 'unavailable', cls: 'unavail' };
       return window.dngStatusFromColor(window.checkColorWith(22, { hookshot: 1 }));
     }
+    // A cave enemy is in the check's cave: it reads whatever the check reads.
+    // The door-by-door entrance graph called Spectacle Rock Cave unreachable
+    // with lamp, glove and sword while its chest was green (Chris, Sep 2026).
+    // Bumper Cave's beetles are just inside the bottom door, before the cape
+    // the ledge check needs, so they keep the door's answer.
+    if (sub[3] === 'potloc' && sub[6] !== undefined && sub[5] !== 'Bumper Cave (bottom)') {
+      return checkSubFromCard(id, sub[0], status) || status;
+    }
     if (sub[3] === 'potloc' && POT_PLACE_USE_CHECK[sub[5]]) {
       return checkSubFromCard(id, sub[0], status) || status;
     }
@@ -6956,8 +7009,12 @@ function checkSubStatus(id, sub, status) {
     if (sub[3] === 'potloc') {
       var ent = potPlaceEntrance(sub[5]);
       if (ent) {
-        return potEntranceReachable(ent) ? { word: 'available', cls: 'available' }
-                                         : { word: 'unavailable', cls: 'unavail' };
+        if (!potEntranceReachable(ent)) return { word: 'unavailable', cls: 'unavail' };
+        // An enemy is in the check's room, so it is no more in logic than the
+        // check is: out of logic there (Spectacle Rock Cave without the lamp)
+        // is out of logic here (Chris, Sep 2026). Pots keep their own answer.
+        if (sub[6] !== undefined && status && status.cls === 'ool') return status;
+        return { word: 'available', cls: 'available' };
       }
     }
     return checkSubFromCard(id, sub[0], status) || status;
