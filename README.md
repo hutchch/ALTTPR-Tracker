@@ -86,6 +86,10 @@ Windows Emulator Setup Guides
 <a target="_blank" href="https://img.ge/en/WwQeFA3EZM1Jyyp"><img  src="https://img.ge/i/xA8mf60.png" alt="image.png"/></a>
 
 ***
+Do you want to test the current [Beta build](https://github.com/hutchch/ALTTPR-Tracker-Beta/releases/tag/Beta)?
+NOTE: This has the latest fixes and enhancements.  These will be included in the next release
+
+***
 ### Alternative Trackers:
 Here are some alternate trackers.  Please take a look and try them out 
  - [HoellTracker](https://github.com/lordhoell/HoellTracker) (The Lord Himself - Release is on the right side)
