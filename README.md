@@ -87,6 +87,7 @@ Windows Emulator Setup Guides
 
 ***
 Do you want to test the current [Beta build](https://github.com/hutchch/ALTTPR-Tracker-Beta/releases/tag/Beta)?
+
 NOTE: This has the latest fixes and enhancements.  These will be included in the next release
 
 ***
