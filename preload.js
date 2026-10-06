@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion:   ()  => ipcRenderer.invoke('get-app-version'),
   checkForUpdates: ()  => ipcRenderer.invoke('check-for-updates'),
   installUpdate:   ()  => ipcRenderer.invoke('install-update'),
+  applyPatch:      ()  => ipcRenderer.invoke('apply-patch'),
   openExternal:    (url) => ipcRenderer.invoke('open-external', url),
   openCheckList:     ()  => ipcRenderer.send('open-checklist'),
   saveEntState: (json) => ipcRenderer.invoke('save-ent-state', json),

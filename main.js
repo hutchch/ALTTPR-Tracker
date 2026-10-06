@@ -73,6 +73,13 @@ const API_DUNGEON_NAMES = {
   mm: 'Misery Mire', tr: 'Turtle Rock', gt: "Ganon's Tower",
 };
 const apiDungeonState = {};
+// Where Link is right now: a dungeon key, or null on the overworld / in a cave.
+// Hyrule Castle and Agahnim's Tower have no /dungeons entry, so they are named
+// here for /location.
+let apiCurrentDungeon = null;
+let apiCurrentFloor   = null;   // '1F', 'B1' … while in a dungeon
+let apiCurrentWorld   = null;   // 'lw' | 'dw'
+const API_LOCATION_NAMES = Object.assign({ hc: 'Hyrule Castle', ct: "Agahnim's Tower" }, API_DUNGEON_NAMES);
 API_DUNGEONS.forEach((k) => { apiDungeonState[k] = { name: API_DUNGEON_NAMES[k] }; });
 let apiServer     = null;
 let apiServerInfo = { host: null, port: null };
@@ -123,6 +130,18 @@ function buildOpenApiSpec(host, port) {
       },
     };
   });
+  paths['/location'] = {
+    get: {
+      summary: 'Get the dungeon the player is in right now',
+      operationId: 'getLocation',
+      responses: {
+        200: {
+          description: 'Current dungeon, or null on the overworld / in a cave',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Location' } } },
+        },
+      },
+    },
+  };
   // Dungeons: all + one explicit endpoint per dungeon.
   paths['/dungeons'] = {
     get: {
@@ -201,6 +220,17 @@ function buildOpenApiSpec(host, port) {
             compass:       { type: 'integer' },
             bossState:     { type: 'integer', description: '0 = unknown / vanilla boss' },
             bossOk:        { type: 'boolean' },
+            inside:        { type: 'boolean', description: 'True while the player is in this dungeon' },
+          },
+        },
+        Location: {
+          type: 'object',
+          properties: {
+            dungeon: { type: 'string', nullable: true,
+                       description: 'hc | ct | ep | dp | toh | pod | sp | sw | tt | ip | mm | tr | gt, or null on the overworld / in a cave' },
+            name:    { type: 'string', nullable: true },
+            floor:   { type: 'string', nullable: true, description: '1F, 2F … or B1, B2 … while in a dungeon' },
+            world:   { type: 'string', nullable: true, description: 'lw (Light World) or dw (Dark World)' },
           },
         },
         Dungeons: {
@@ -240,6 +270,7 @@ function apiHandleRequest(req, res) {
       + '<li><code>/items/{item}</code> — a single item, e.g. <a href="/items/sword">/items/sword</a></li>'
       + '<li><a href="/dungeons">/dungeons</a> — all dungeon states</li>'
       + '<li><code>/dungeons/{dungeon}</code> — a single dungeon, e.g. <a href="/dungeons/ip">/dungeons/ip</a></li>'
+      + '<li><a href="/location">/location</a> — the dungeon the player is in right now (or null)</li>'
       + '<li><a href="/openapi.json">/openapi.json</a> — OpenAPI spec</li>'
       + '</ul></body></html>');
     return;
@@ -280,6 +311,49 @@ function apiHandleRequest(req, res) {
       return;
     }
     apiSend(res, 405, { error: 'Method not allowed', item });
+    return;
+  }
+
+  if (pathname === '/location' && req.method === 'GET') {
+    apiSend(res, 200, { dungeon: apiCurrentDungeon,
+                        name: apiCurrentDungeon ? (API_LOCATION_NAMES[apiCurrentDungeon] || apiCurrentDungeon) : null,
+                        floor: apiCurrentDungeon ? apiCurrentFloor : null,
+                        world: apiCurrentWorld });
+    return;
+  }
+
+  // ── Dungeon map overlay ──
+  // An OBS browser source: http://<host>:<port>/overlay/dungeon-map. It follows
+  // tracker:location on the overlay WebSocket and shows the current dungeon's
+  // map (Chris, Oct 2026). Served here rather than as a local file so OBS needs
+  // no path into the app, and so the images can live outside it.
+  if ((pathname === '/overlay/dungeon-map' || pathname === '/overlay/dungeon-map.html') && req.method === 'GET') {
+    try {
+      const html = fs.readFileSync(path.join(__dirname, 'overlays', 'dungeon-map.html'));
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+      res.end(html);
+    } catch (e) { apiSend(res, 404, { error: 'Overlay missing' }); }
+    return;
+  }
+  if (pathname === '/overlay/config' && req.method === 'GET') {
+    apiSend(res, 200, { wsPort: wsServerInfo.port });
+    return;
+  }
+  // Anything else under /overlay/ is a file beside the page — its maps/
+  // folder above all. The page finds its images by relative path, so it works
+  // the same opened from here or as a local file in OBS.
+  if (pathname.indexOf('/overlay/') === 0 && req.method === 'GET') {
+    const root = path.join(__dirname, 'overlays');
+    const f = path.resolve(root, decodeURIComponent(pathname.slice('/overlay/'.length)));
+    const types = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+                    '.webp': 'image/webp', '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript' };
+    const type = types[path.extname(f).toLowerCase()];
+    if (type && f.startsWith(root + path.sep) && fs.existsSync(f) && fs.statSync(f).isFile()) {
+      res.writeHead(200, { 'Content-Type': type, 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+      res.end(fs.readFileSync(f));
+    } else {
+      apiSend(res, 404, { error: 'Not found', path: pathname });
+    }
     return;
   }
 
@@ -471,6 +545,7 @@ function wsBuildDungeons(snap) {
       hasMap:          !!snap[k + 'Map'],
       prizeCollected:  !!snap[k + 'PrizeObtained'],
       prizeType:       wsPrizeType(snap[k + 'Prize']),
+      inside:          snap.currentDungeon === k,
     };
   });
   return out;
@@ -488,6 +563,11 @@ function wsPushFromSnap(snap) {
   wsSetChannel('sni:item-update', wsBuildItems(snap));
   wsSetChannel('sni:dungeon-update', dungeons);
   wsSetChannel('tracker:medallions', meds);
+  // Current location, as its own channel (null = overworld or a cave).
+  const here = snap.currentDungeon || null;
+  wsSetChannel('tracker:location', { dungeonId: here, name: here ? (API_LOCATION_NAMES[here] || here) : null,
+                                     floor: here ? (snap.currentFloor || null) : null,
+                                     world: snap.currentWorld || null });
   // Granular prize/medallion change events.
   API_DUNGEONS.forEach((k) => {
     const pt = dungeons[k].prizeType;
@@ -891,8 +971,12 @@ ipcMain.on('api-items-update', (event, snap) => {
       compass:       num(snap[k + 'Compass']),
       bossState:     num(snap[k + 'BossState']),
       bossOk:        snap[k + 'BossOk'] !== false,
+      inside:        snap.currentDungeon === k,
     };
   });
+  if (snap.currentDungeon !== undefined) apiCurrentDungeon = snap.currentDungeon || null;
+  if (snap.currentFloor   !== undefined) apiCurrentFloor   = snap.currentFloor   || null;
+  if (snap.currentWorld   !== undefined) apiCurrentWorld   = snap.currentWorld   || null;
   // Push the same snapshot to the overlay WebSocket clients.
   wsPushFromSnap(snap);
 });
@@ -1152,6 +1236,124 @@ ipcMain.handle('get-app-version', () => APP_VERSION);
 ipcMain.handle('install-update', () => {
   const { shell } = require('electron');
   shell.openExternal(RELEASES_URL);
+});
+
+// ── Apply Patch ─────────────────────────────────────────────────────────────
+// A .trkpatch is JSON: { format: 1, base, target, files: { "rel/path": base64 },
+// delete: ["rel/path"] }, built by tools/make-patch.js from two version
+// folders. The app ships its files unpacked (asar is off), so a patch only has
+// to replace them in the app folder. Every file it touches is backed up first
+// to _patch_backup/<time>/, and a failure part-way restores them (Chris, Oct
+// 2026: a way to test changes without a full download).
+const PATCH_ROOT = __dirname;   // Resources/app when packaged — where main.js and the pages live
+function patchPath(rel) {
+  const p = path.resolve(PATCH_ROOT, String(rel));
+  if (!p.startsWith(PATCH_ROOT + path.sep)) throw new Error('Unsafe path in patch: ' + rel);
+  return p;
+}
+ipcMain.handle('apply-patch', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const pick = await dialog.showOpenDialog(win, {
+    title: 'Apply Patch', properties: ['openFile'],
+    filters: [{ name: 'Tracker patch', extensions: ['trkpatch'] }]
+  });
+  if (pick.canceled || !pick.filePaths.length) return { ok: false, canceled: true };
+
+  let patch;
+  try { patch = JSON.parse(fs.readFileSync(pick.filePaths[0], 'utf8')); }
+  catch (e) { return { ok: false, error: 'That is not a tracker patch file.' }; }
+  if (!patch || patch.format !== 1 || !patch.files || typeof patch.files !== 'object') {
+    return { ok: false, error: 'That is not a tracker patch file.' };
+  }
+  const allNames = Object.keys(patch.files);
+  const allDels  = Array.isArray(patch.delete) ? patch.delete : [];
+  try { allNames.concat(allDels).forEach(patchPath); } catch (e) { return { ok: false, error: e.message }; }
+  // The patch holds what changed between the two folders it was built from;
+  // compare it with what is installed here and only touch files that actually
+  // differ — re-applying a patch, or applying it to a build that already has
+  // it, changes nothing (Chris, Oct 2026).
+  const names = allNames.filter(function (rel) {
+    try { return !fs.readFileSync(patchPath(rel)).equals(Buffer.from(patch.files[rel], 'base64')); }
+    catch (e) { return true; }   // missing here → it's new
+  });
+  const dels = allDels.filter(function (rel) { return fs.existsSync(patchPath(rel)); });
+  if (!names.length && !dels.length) {
+    await dialog.showMessageBox(win, {
+      type: 'info', buttons: ['OK'],
+      message: 'Already up to date — every file in this patch matches what is installed.'
+    });
+    return { ok: true, count: 0, upToDate: true };
+  }
+
+  if (patch.base && patch.base !== APP_VERSION) {
+    const r = await dialog.showMessageBox(win, {
+      type: 'warning', buttons: ['Cancel', 'Apply anyway'], defaultId: 0, cancelId: 0,
+      message: 'This patch is for version ' + patch.base + '.',
+      detail: 'This tracker is version ' + APP_VERSION + '. Applying it to a different version can leave the files out of step.'
+    });
+    if (r.response !== 1) return { ok: false, canceled: true };
+  }
+
+  const backup = path.join(PATCH_ROOT, '_patch_backup', new Date().toISOString().replace(/[:.]/g, '-'));
+  const existed = {};
+  const done = [];
+  try {
+    for (const rel of names.concat(dels)) {
+      const p = patchPath(rel);
+      existed[rel] = fs.existsSync(p);
+      if (existed[rel]) {
+        const b = path.join(backup, rel);
+        fs.mkdirSync(path.dirname(b), { recursive: true });
+        fs.copyFileSync(p, b);
+      }
+    }
+    for (const rel of names) {
+      const p = patchPath(rel);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, Buffer.from(patch.files[rel], 'base64'));
+      done.push(rel);
+    }
+    for (const rel of dels) {
+      const p = patchPath(rel);
+      if (fs.existsSync(p)) { fs.unlinkSync(p); done.push(rel); }
+    }
+  } catch (e) {
+    // Put back what was already changed, so a half-applied patch can't leave
+    // the app mixing two versions.
+    for (const rel of done) {
+      try {
+        const p = patchPath(rel);
+        if (existed[rel]) fs.copyFileSync(path.join(backup, rel), p);
+        else if (fs.existsSync(p)) fs.unlinkSync(p);
+      } catch (_) {}
+    }
+    const perm = e.code === 'EACCES' || e.code === 'EPERM';
+    return { ok: false, error: perm
+      ? 'No permission to write to the app folder (' + PATCH_ROOT + '). On Windows, run the tracker as administrator once to apply the patch.'
+      : 'Patch failed and was rolled back: ' + e.message };
+  }
+
+  // Keep only the three newest backups (Chris, Oct 2026). The folder names
+  // are ISO timestamps, so they sort oldest-first as plain strings.
+  try {
+    const root = path.join(PATCH_ROOT, '_patch_backup');
+    const sets = fs.readdirSync(root, { withFileTypes: true })
+      .filter(function (d) { return d.isDirectory(); })
+      .map(function (d) { return d.name; }).sort();
+    sets.slice(0, Math.max(0, sets.length - 3)).forEach(function (n) {
+      fs.rmSync(path.join(root, n), { recursive: true, force: true });
+    });
+  } catch (_) {}   // pruning is housekeeping — never fail a good patch over it
+
+  const r = await dialog.showMessageBox(win, {
+    type: 'info', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1,
+    message: 'Patch applied — ' + names.length + ' file' + (names.length === 1 ? '' : 's') + ' updated' +
+             (dels.length ? ', ' + dels.length + ' removed' : '') + '.',
+    detail: (patch.target ? 'Version ' + patch.target + '. ' : '') +
+            'Restart the tracker to load it. The replaced files are backed up in ' + backup + '.'
+  });
+  if (r.response === 0) { app.relaunch(); app.exit(0); }
+  return { ok: true, count: names.length, target: patch.target || '' };
 });
 
 ipcMain.handle('open-external', (event, url) => {
