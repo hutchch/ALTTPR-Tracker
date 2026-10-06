@@ -1,7 +1,7 @@
 {
   "name": "hutch-alttpr-tracker",
   "productName": "Hutch-ALTTPR Tracker",
-  "version": "1.1.16",
+  "version": "1.1.19.1005a",
   "description": "A Link to the Past Randomizer item and map tracker with autotracking.",
   "main": "main.js",
   "scripts": {
@@ -39,6 +39,7 @@
       "bcast-sounds.html",
       "announce/**/*",
       "entrances_data.json",
+      "onlyadkd.json",
       "logic/**/*",
       "items.css",
       "js/**/*",
@@ -109,5 +110,9 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }
+  },
+  "allowScripts": {
+    "electron-winstaller@5.4.0": true,
+    "electron@41.10.7": true
   }
 }
