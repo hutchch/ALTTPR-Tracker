@@ -568,6 +568,15 @@ function wsPushFromSnap(snap) {
   wsSetChannel('tracker:location', { dungeonId: here, name: here ? (API_LOCATION_NAMES[here] || here) : null,
                                      floor: here ? (snap.currentFloor || null) : null,
                                      world: snap.currentWorld || null });
+  // GT big key count, for overlays/announce.html (null from an older item tracker).
+  if (snap.gtBk) wsSetChannel('tracker:gt-bk', snap.gtBk);
+  // Pendants, crystals and heart pieces, for the announce overlay's overworld view.
+  if (snap.progress) wsSetChannel('tracker:progress', snap.progress);
+  // The dungeon Link is in, as an announce card (null outside dungeons).
+  if (snap.dungeonCard !== undefined) {
+    const dc = snap.dungeonCard;
+    wsSetChannel('tracker:dungeon-card', dc ? Object.assign({ name: API_LOCATION_NAMES[dc.id] || dc.id }, dc) : null);
+  }
   // Granular prize/medallion change events.
   API_DUNGEONS.forEach((k) => {
     const pt = dungeons[k].prizeType;
