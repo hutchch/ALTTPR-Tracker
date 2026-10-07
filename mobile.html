@@ -30,6 +30,11 @@
   document.getElementById('map').src = 'map.html?mobile=1' + (gap ? '&gap=' + encodeURIComponent(gap) : '');
   // The item tracker reports where its empty middle band is; the map fills it.
   addEventListener('message', function (e) {
+    // The item tracker's settings are open: the map steps aside so they can be tapped.
+    if (e.data && e.data.type === 'mobile-settings') {
+      document.getElementById('map').style.visibility = e.data.open ? 'hidden' : '';
+      return;
+    }
     if (!e.data || e.data.type !== 'mobile-mid') return;
     var m = document.getElementById('map');
     m.style.top = e.data.top + 'px';
