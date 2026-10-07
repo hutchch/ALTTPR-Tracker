@@ -126,7 +126,7 @@ let previousSRAM = null;
 // Bumped with every change to this file, relayed in the broadcast snapshot so
 // the map's gear menu can show which build the ITEM TRACKER is running — the
 // two windows are packaged together but reload independently.
-window.ITEMS_BUILD = '1126r';
+window.ITEMS_BUILD = '1126t';
 let _bombClearTimer = null; // debounce: only clear bombs after sustained 0 reading
 
 const items = {
@@ -3494,7 +3494,7 @@ window.dungeonCardState = function () {
         // null = this dungeon has none (Agahnim's Tower has no map, compass or big key)
         map:        (k === 'ct' || !d.mapAddr) ? null : !!d.mapState,
         compass:    (k === 'ct' || d.noCompass) ? null : !!d.compassState,
-        bigKey:     (k === 'ct' || d.noBigKeyItem) ? null : !!d.bigkeyState,
+        bigKey:     k === 'ct' ? null : !!d.bigkeyState, // HC always has one (Ball-and-Chain drop), same as the tracker
         boss:       k === 'ct' ? 'Agahnim' : k === 'gt' ? 'Agahnim 2'
                   : (CARD_BOSS_NAMES[d.bossState || 0] || null),
         // The item tracker's boss picture (boss/boss<n>.png; 0 = unknown).

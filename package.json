@@ -1,7 +1,7 @@
 {
   "name": "hutch-alttpr-tracker",
   "productName": "Hutch-ALTTPR Tracker",
-  "version": "1.1.19.1005a",
+  "version": "1.1.19.1007",
   "description": "A Link to the Past Randomizer item and map tracker with autotracking.",
   "main": "main.js",
   "scripts": {
@@ -37,6 +37,7 @@
       "broadcast.html",
       "bcast-settings.html",
       "bcast-sounds.html",
+      "mobile.html",
       "announce/**/*",
       "entrances_data.json",
       "onlyadkd.json",
