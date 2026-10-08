@@ -26,7 +26,7 @@
 
 // Bumped with every change to this file. The map's gear menu shows it, so a
 // stale packaged build can be spotted without guessing (Chris, Sep 2026).
-window.DNGPANEL_BUILD = '1127n';
+window.DNGPANEL_BUILD = '1127p';
 
 var DNG_PANEL_CSS = `
 /* ── Dungeon hover panel ── */
@@ -958,13 +958,6 @@ function ipKeys(c, need) {
   return c.keys >= need ? 'available' : 'unavail';
 }
 
-// TR's back half under Key Drop: five keys and the big key does it outright;
-// three keys plus the boss item is the possible reading.
-function trDeep(c) {
-  if (!c.bigkey) return 'unavail';
-  if (c.keys >= 5) return 'available';
-  return (c.keys >= 3 && c.bossOk !== false) ? 'possible' : 'unavail';
-}
 // The Eye Bridge sits past the Crystaroller Room's key door; the only key door
 // after it is the pair before the boss. So one key short of TR's total still
 // reaches the bridge for certain — only the boss needs the last one (Chris,
@@ -1322,12 +1315,14 @@ var LOC_RULES = {
     'Big Chest':     function (c) {
       // The hammer smashes the floor above it — no way in without one, in any
       // mode.
-      // One small key, the big key and the hammer — key drop or not (Chris,
-      // Oct 2026; it wanted three keys under key drop). With keys unshuffled
-      // the count is normally taken as met, but TT's one key sits in a chest
-      // you have to open first, so here it must actually be picked up.
+      if (!c.bigkey || !c.item('hammer')) return 'unavail';
+      // Key Drop: two keys possible, three available (Chris, Oct 2026).
+      if (c.keydrop) return ttTier(c, 3, 2);
+      // Vanilla: one small key. With keys unshuffled the count is normally
+      // taken as met, but TT's one key sits in a chest you have to open first,
+      // so here it must actually be picked up.
       var k = c.keysFree ? c.held : c.keys;
-      return (c.bigkey && c.item('hammer') && k >= 1) ? 'available' : 'unavail';
+      return k >= 1 ? 'available' : 'unavail';
     },
     'Boss':          function (c) {
       if (!c.bigkey) return 'unavail';
@@ -1442,7 +1437,7 @@ var LOC_RULES = {
   tr: {
     // Vanilla TR has four keys; Key Drop shuffle raises it to six and moves
     // every threshold, so each rule keeps its old answer and adds a key-drop
-    // branch. trDeep() is the shared back-half tier.
+    // branch.
     'Compass Chest':               function () { return 'available'; },
     'Roller Room - Left':          function (c) { return c.item('firerod') ? 'available' : 'unavail'; },
     'Roller Room - Right':         function (c) { return c.item('firerod') ? 'available' : 'unavail'; },
@@ -1451,8 +1446,7 @@ var LOC_RULES = {
       return c.keys >= (c.keydrop ? 2 : 1) ? 'available' : 'unavail';
     },
     'Pokey 2 Key Drop':            function (c) {
-      if (c.keys >= 5) return 'available';
-      return c.keys >= 3 ? 'possible' : 'unavail';
+      return c.keys >= 3 ? 'available' : 'unavail';   // Chris, Oct 2026
     },
     // The lava chest. Two keys physically reaches it, but spending them here is
     // a choice most players don't make — the chest is commonly skipped, so
@@ -1467,12 +1461,13 @@ var LOC_RULES = {
       if (c.keys >= 6) return 'available';
       return c.keys >= 4 ? 'possible' : 'unavail';
     },
+    // Key drop: big key + three keys (Chris, Oct 2026).
     'Big Chest':                   function (c) {
-      if (c.keydrop) return trDeep(c);
+      if (c.keydrop) return (c.bigkey && c.keys >= 3) ? 'available' : 'unavail';
       return (c.bigkey && c.keys >= 2) ? 'available' : 'unavail';
     },
     'Crystaroller Room':           function (c) {
-      if (c.keydrop) return trDeep(c);
+      if (c.keydrop) return (c.bigkey && c.keys >= 3) ? 'available' : 'unavail';
       return (c.bigkey && c.keys >= 2) ? 'available' : 'unavail';
     },
     // Two keys reaches the bridge, three makes it certain (three/five under key drop).
