@@ -939,6 +939,7 @@ window.addEventListener('click', function (e) {
   window.trackerSettings.shopsanity  = (p.get('shopsanity')  || localStorage.getItem('alttp-shopsanity')   || 'no') === 'yes';
   window.trackerSettings.bonkShuffle = (p.get('bonkshuffle') || localStorage.getItem('alttp-bonk-shuffle') || 'no') === 'yes';
   window.trackerSettings.randomPrize = (localStorage.getItem('alttp-random-prize') || 'no');
+  window.trackerSettings.doorShuffle = p.get('doorshuffle') || localStorage.getItem('alttp-door-shuffle') || 'none';
 })();
 </script>
 <script>
@@ -1835,6 +1836,33 @@ window.dungeonColor = dungeonColor;
     } catch (e) {
     } finally { _busy = false; }
     return c;
+  };
+})();
+
+// ── Door Shuffle ─────────────────────────────────────────────────────────────
+// With the rooms shuffled, which items a dungeon needs inside can't be known,
+// so a reachable dungeon is green only with everything that could matter in
+// hand (the reference tracker's list), else yellow. Red still means the way in
+// is shut (Chris, Oct 2026).
+// shortcut: a red that comes from a vanilla room requirement (rather than the
+// way in) stays red under doors; split entrance and interior if that bites.
+(function () {
+  var _base = window.dungeonColor;
+  window.dungeonColor = function (key) {
+    var c = _base(key);
+    var mode = window.doorShuffleMode ? window.doorShuffleMode() : 'none';
+    if (mode === 'none' || c !== 'green') return c;
+    var it = window.trackerItems || {}, s = window.trackerSettings || {};
+    var kit = it.firerod && it.somaria && it.flippers && it.hookshot && it.boots &&
+              it.bow && it.hammer && it.gloves >= 1 && it.bomb && it.lamp &&
+              (it.sword || s.swordless === 'yes') &&
+              (s.bossShuffle === 'no' || it.icerod);
+    if (!kit) return 'yellow';
+    // Shuffled keys: Crossed never says how many a dungeon needs.
+    if (window.shuffleSmallKeys && window.shuffleSmallKeys() &&
+        (mode === 'crossed' || (it[key + 'SmallKeys'] || 0) < (it[key + 'MaxSmallKeys'] || 0))) return 'yellow';
+    if (window.shuffleBigKey && window.shuffleBigKey() && key !== 'hc' && key !== 'ct' && !it[key + 'BigKey']) return 'yellow';
+    return 'green';
   };
 })();
 
@@ -2810,7 +2838,7 @@ window.checkColorWith = function(id, extra) {
 };
 })();
 </script>
-<script src="js/dngpanel.js?v=1127p"></script>
+<script src="js/dngpanel.js?v=1127q"></script>
 <script src="js/entrances_data.js"></script>
 <script src="logic/ref_logic_entrances.js"></script>
 <script src="logic/ref_logic_entrances_owg.js"></script>
@@ -2839,7 +2867,7 @@ window.checkColorWith = function(id, extra) {
   if (set) window.logic_entrances = set;
 })();
 </script>
-<script src="logic/ent_logic.js?v=1120a"></script>
+<script src="logic/ent_logic.js?v=1120b"></script>
 <script>
 'use strict';
 
@@ -4278,10 +4306,17 @@ window._applyInvertedDungeons(_inverted);
     // In OPEN (non-inverted) mode, these labels mean the player has super-bunny DW
     // access at that entrance location — the surrounding DW area IS reachable.
     var _passThroughLabels = { 'Link': true, 'Sanc': true, 'Mount': true };
+    if (window.trackerSettings && window.trackerSettings.inverted2) _passThroughLabels.Bomb = true;   // 2.0's start
     function addFor(name) {
-      if (isInverted && _passThroughLabels[entLabels && entLabels[name]]) return;
       var region = ENT_ENTRANCE_REGION[name];
       if (!region) return;
+      // Inverted: a start label in the Dark World (home) is where you spawn, so
+      // its region is yours — Link on Turtle Rock (Chris, Oct 2026). One in the
+      // Light World still grants nothing: you'd arrive a bunny, and the balcony
+      // case above stands.
+      // shortcut: LW start labels grant nothing in inverted; add bunny-only grants if needed.
+      if (isInverted && _passThroughLabels[entLabels && entLabels[name]] &&
+          region.indexOf('Dark') === -1) return;
       // Passthrough label (Sanc/Link/Mount) on an entrance whose physical region is
       // "Hyrule Castle Balcony": granting HC Balcony would make HC W/E and Agahnim's
       // Tower show as available via canReach|Hyrule Castle Balcony checks. Instead,
@@ -4350,6 +4385,14 @@ window._applyInvertedDungeons(_inverted);
         found.indexOf('Dark Death Mountain Ledge') !== -1 &&
         found.indexOf('Lower East Death Mountain') === -1) {
       found.push('Lower East Death Mountain');
+    }
+    // The TR / Superbunny (Top) ledge walks onto Upper Dark DM — Superbunny Cave
+    // (Top), Hookshot Cave, GT — and the drops below (Chris, Oct 2026; same rule
+    // canReachUpperDarkDeathMountain() uses for a connector there).
+    if (found.indexOf('Isolated East Dark Death Mountain Ledge') !== -1 &&
+        found.indexOf('Upper Dark Death Mountain') === -1) {
+      found.push('Upper Dark Death Mountain');
+      if (isInverted && found.indexOf('Inverted Dark Death Mountain') === -1) found.push('Inverted Dark Death Mountain');
     }
     if (found.indexOf('Upper Dark Death Mountain') !== -1 && found.indexOf('Lower East Dark Death Mountain') === -1) {
       found.push('Lower East Dark Death Mountain');
@@ -4876,7 +4919,8 @@ window._applyInvertedDungeons(_inverted);
       if (_lwOk(lnames[j])) return true;
       // Label text identifies a LW pass-through building (Sanc/Link/Mount) on any entrance
       var _lv = (labels[lnames[j]] || '').toLowerCase().trim();
-      if (_lv.indexOf('sanc') === 0 || _lv.indexOf('link') === 0 || _lv.indexOf('mount') === 0) return true;
+      if (!(window.trackerSettings || {}).inverted2 &&   // 2.0's starts are Dark World
+          (_lv.indexOf('sanc') === 0 || _lv.indexOf('link') === 0 || _lv.indexOf('mount') === 0)) return true;
     }
     return false;
   }
@@ -5862,7 +5906,7 @@ window._applyInvertedDungeons(_inverted);
       btn.style.color = (pair[1] === 'Dark') ? '#fff' : '#111';
       btn.addEventListener('click', function() {
         if (!activeName) return;
-        entLabels[activeName] = pair[1];
+        entLabels[activeName] = btn.textContent;   // not pair[1]: the Link button reads Bomb in 2.0
         saveLabels();
         renderLabel(activeName);
         refreshSyntheticConnections();
@@ -5889,6 +5933,9 @@ window._applyInvertedDungeons(_inverted);
 
   // Highlight grid buttons whose code is currently assigned to any entrance.
   function refreshKeyLocationMarks() {
+    // Inverted 2.0 starts you in the Big Bomb Shop, not Link's House (Chris, Oct 2026).
+    var _linkBtn = popupCols.querySelector('.ent-popup-btn[data-code="LINK"]');
+    if (_linkBtn) _linkBtn.textContent = (window.trackerSettings || {}).inverted2 ? 'Bomb' : 'Link';
     var usedCodes = {};
     Object.keys(entLabels).forEach(function(name) {
       usedCodes[entLabels[name]] = true;

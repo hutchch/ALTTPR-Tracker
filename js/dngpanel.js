@@ -26,7 +26,18 @@
 
 // Bumped with every change to this file. The map's gear menu shows it, so a
 // stale packaged build can be spotted without guessing (Chris, Sep 2026).
-window.DNGPANEL_BUILD = '1127p';
+window.DNGPANEL_BUILD = '1127q';
+
+// Door Shuffle (launcher → Other Settings): 'none', 'basic' or 'crossed'.
+// Basic shuffles the rooms inside each dungeon; Crossed mixes rooms between
+// dungeons. Either way a chest's location in the dungeon no longer says what
+// it takes to reach it, so per-chest logic is switched off (Chris, Oct 2026).
+window.doorShuffleMode = function () {
+  var v = (window.trackerSettings || {}).doorShuffle;
+  if (!v) { try { v = localStorage.getItem('alttp-door-shuffle'); } catch (e) {} }
+  return (v === 'basic' || v === 'crossed') ? v : 'none';
+};
+function doorsOn() { return window.doorShuffleMode() !== 'none'; }
 
 var DNG_PANEL_CSS = `
 /* ── Dungeon hover panel ── */
@@ -1902,7 +1913,7 @@ function buildDungeonPanelHTML(key, titlePrefix) {
   if (maxChests !== undefined) {
     chests = chests || 0;
     html += row('Items', chests + '/' + maxChests,
-                (maxChests > 0 && chests >= maxChests) ? 'available' : '');
+                (typeof maxChests === 'number' && maxChests > 0 && chests >= maxChests) ? 'available' : '');
   }
 
   // Small keys. CT reports a count with no max.
@@ -1915,7 +1926,9 @@ function buildDungeonPanelHTML(key, titlePrefix) {
   var found = (c.keysFound !== undefined) ? c.keysFound : it[dk + 'SmallKeysMax'];
   if (found === undefined || found < keys) found = keys;
   if (diMode !== 'other') {
-    if (maxKeys > 0) {
+    if (maxKeys === '?') {
+      html += row('Small Keys', (found || 0) + '/?', '');   // Crossed: not seen yet
+    } else if (maxKeys > 0) {
       html += row('Small Keys', (found || 0) + '/' + maxKeys,
                   (found || 0) >= maxKeys ? 'available' : '');
     } else if (key === 'ct' && found) {
@@ -1943,6 +1956,10 @@ function buildDungeonPanelHTML(key, titlePrefix) {
   var locKey = dk;
   var locs   = locsFor(locKey);
   var showLocs = hostCall('locations', key);
+  if (doorsOn()) {
+    html += row('Door Shuffle', window.doorShuffleMode() === 'crossed' ? 'Crossed' : 'Basic', '');
+    showLocs = false;
+  }
   if (locs && locs.length && showLocs !== false) {
     var st2      = hostCall('status', key) || {};
     // A finished dungeon does NOT mark its lines cleared: only a location whose
@@ -2028,6 +2045,7 @@ window.dungeonCounts = function (key, force, allKeys) {
   // Chest tracking, so the quadrants, exist wherever the keys or the big key
   // are shuffled — which is what "keysanity or MCK" used to mean.
   if (!force && !(window.shuffleSmallKeys() || window.shuffleBigKey())) return null;
+  if (doorsOn()) return null;   // no per-chest logic to count with
   var locKey = locationKey(key);
   var locs   = locsFor(locKey);
   if (!locs.length) return null;
@@ -2118,7 +2136,7 @@ window.dungeonLocClass = function (key, loc) {
   // into the marker whose colour the host is holding (Chris, Sep 2026).
   var base  = (hostCall('status', locationKey(key)) || {}).cls || '';
   var rule  = (LOC_RULES[locKey] || {})[loc];
-  if (!rule) return base;
+  if (!rule || doorsOn()) return base;
   var res = rule(ruleContext(key, base));
   if (res === 'bossitem') res = 'unavail';
   if (!res) return base;
