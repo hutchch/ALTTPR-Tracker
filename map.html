@@ -737,6 +737,14 @@ body {
           </select>
         </div>
         <div class="set-row">
+          <label for="set-doorshuffle">Doors</label>
+          <select id="set-doorshuffle" class="tb-select">
+            <option value="none">None</option>
+            <option value="basic">Basic</option>
+            <option value="crossed">Crossed</option>
+          </select>
+        </div>
+        <div class="set-row">
           <label for="set-shopsanity"><input type="checkbox" id="set-shopsanity"> Shopsanity</label>
         </div>
         <div class="set-row">
@@ -9080,6 +9088,19 @@ if (document.readyState === 'loading') {
          : window.trackerSettings.enemyKeyDrop === 'yes' ? 'keys' : 'none');
     el.addEventListener('change', applyDropModes);
   });
+
+  // ── Door Shuffle ── same setting as the launcher's Other Settings; the item
+  // tracker is told so its counts switch over too.
+  var doorSel = document.getElementById('set-doorshuffle');
+  if (doorSel) {
+    doorSel.value = window.doorShuffleMode ? window.doorShuffleMode() : 'none';
+    doorSel.addEventListener('change', function() {
+      window.trackerSettings.doorShuffle = doorSel.value;
+      lsSet('alttp-door-shuffle', doorSel.value);
+      try { if (window._bc) window._bc.postMessage({ type: 'setting', key: 'alttp-door-shuffle', value: doorSel.value }); } catch (e) {}
+      if (typeof window.refreshMapLogic === 'function') window.refreshMapLogic();
+    });
+  }
 
   var gtSel = document.getElementById('set-gtcrystals');
   if (gtSel) {
