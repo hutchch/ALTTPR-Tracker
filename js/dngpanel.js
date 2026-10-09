@@ -26,7 +26,7 @@
 
 // Bumped with every change to this file. The map's gear menu shows it, so a
 // stale packaged build can be spotted without guessing (Chris, Sep 2026).
-window.DNGPANEL_BUILD = '1127q';
+window.DNGPANEL_BUILD = '1127r';
 
 // Door Shuffle (launcher → Other Settings): 'none', 'basic' or 'crossed'.
 // Basic shuffles the rooms inside each dungeon; Crossed mixes rooms between
@@ -37,7 +37,9 @@ window.doorShuffleMode = function () {
   if (!v) { try { v = localStorage.getItem('alttp-door-shuffle'); } catch (e) {} }
   return (v === 'basic' || v === 'crossed') ? v : 'none';
 };
-function doorsOn() { return window.doorShuffleMode() !== 'none'; }
+// Per-chest logic is off under Crossed only; Basic keeps the normal rules
+// (rooms stay in their own dungeon) — Chris, Oct 2026.
+function doorsOn() { return window.doorShuffleMode() === 'crossed'; }
 
 var DNG_PANEL_CSS = `
 /* ── Dungeon hover panel ── */
@@ -1956,9 +1958,9 @@ function buildDungeonPanelHTML(key, titlePrefix) {
   var locKey = dk;
   var locs   = locsFor(locKey);
   var showLocs = hostCall('locations', key);
-  if (doorsOn()) {
+  if (window.doorShuffleMode() !== 'none') {
     html += row('Door Shuffle', window.doorShuffleMode() === 'crossed' ? 'Crossed' : 'Basic', '');
-    showLocs = false;
+    if (doorsOn()) showLocs = false;
   }
   if (locs && locs.length && showLocs !== false) {
     var st2      = hostCall('status', key) || {};

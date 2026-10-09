@@ -20,7 +20,12 @@
   function canHitSwitch() { return items.bomb || melee_bow() || cane() || rod() || items.boomerang > 0 || items.hookshot; }
   function canHitRangedSwitch() { return items.bomb || items.bow > 0 || items.boomerang > 0 || items.somaria || rod(); }
   function activeFlute() { return items.flute > 1 || (items.flute > 0 && canReachLightWorld()); }
-  function activeFluteInverted() { return items.flute > 1 || (items.flute > 0 && canReachInvertedLightWorld()); }
+  // Inverted 2.0's flute arrives activated and its spots are in the Dark World,
+  // so holding it is enough (map.html fluteDW() says the same).
+  function activeFluteInverted() {
+    if ((window.trackerSettings || {}).inverted2 && items.flute > 0) return true;
+    return items.flute > 1 || (items.flute > 0 && canReachInvertedLightWorld());
+  }
 
   function pendantCheck(type) {
     var pendant_count = 0;
@@ -131,6 +136,9 @@
   var _LW_PASSTHROUGH_LABELS = ['sanc', 'link', 'mount'];
   function _isLwPassthroughLabel(text) {
     if (!text) return false;
+    // Inverted 2.0 starts you in the Bomb Shop and the Dark Sanctuary, both Dark
+    // World — a start label there leads nowhere near the Light World (Chris, Oct 2026).
+    if ((window.trackerSettings || {}).inverted2) return false;
     var lv = text.toLowerCase().trim();
     for (var _li = 0; _li < _LW_PASSTHROUGH_LABELS.length; _li++) {
       if (lv.indexOf(_LW_PASSTHROUGH_LABELS[_li]) === 0) return true;
@@ -337,9 +345,26 @@
     return false;
   }
 
-  // In inverted, the Dark World is the "home" world — always accessible
-  function canReachInvertedWestDarkWorld()     { return true; }
-  function canReachInvertedSouthDarkWorld()    { return true; }
+  // In inverted, the Dark World is the "home" world — always accessible.
+  // Except Inverted 2.0 with entrances shuffled: the start can be anywhere, so
+  // nothing is assumed — a region is home only once a label or connector puts
+  // you there (Chris, Oct 2026).
+  function inv2Shuffled() {
+    var s = window.trackerSettings || {};
+    return !!(s.inverted2 && s.entranceShuffle);
+  }
+  // Has anything been placed yet? Labels count only on real entrance markers.
+  function anchored() {
+    if ((window._entConnections || []).length) return true;
+    var labels = window._entLabels || {}, logic = window.logic_entrances || {};
+    return Object.keys(labels).some(function (n) { return !!logic[n]; });
+  }
+  function foundHome(open) {
+    var f = window._entSyntheticFoundRegions || [];
+    return f.indexOf(open) !== -1 || f.indexOf('Inverted ' + open) !== -1;
+  }
+  function canReachInvertedWestDarkWorld()  { return !inv2Shuffled() || foundHome('West Dark World')  || activeFluteInverted(); }
+  function canReachInvertedSouthDarkWorld() { return !inv2Shuffled() || foundHome('South Dark World') || activeFluteInverted(); }
 
   function canReachInvertedEastDarkWorld() {
     if (activeFluteInverted()) return true;
@@ -613,11 +638,24 @@
     // Open: always available; Inverted: canReach|Inverted Light World Bunny
 
     var def = logic[name];
+    // Inverted 2.0 + entrance shuffle: nothing is reachable until something is
+    // labelled or connected — the start could be any entrance.
+    // (The flute is the exception — in 2.0 it reaches the Dark World from anywhere.)
+    if (inv2Shuffled() && !anchored() && !activeFluteInverted()) return "unavailable";
     if (!def) return "available";
 
     // Pick Inverted or Open requirements based on current game mode
     var isInverted = !!(window.trackerSettings && window.trackerSettings.inverted);
     var requirements = isInverted ? (def.Inverted || def.Open) : (def.Open || def.Inverted);
+    // Same case: a rule that names no region took the home world for granted.
+    // Ask for the entrance's own region instead.
+    if (inv2Shuffled() && JSON.stringify(requirements || {}).indexOf('canReach|') === -1) {
+      var reg = (window._entEntranceRegion || {})[name];
+      if (reg) {
+        var invReg = (window._entOpenToInverted || {})[reg] || reg;
+        if (!stateOfEntrance('canReach|' + invReg)) return "unavailable";
+      }
+    }
     if (!requirements) return "available";
     return stateOfAllEntrance(requirements) ? "available" : "unavailable";
   }
@@ -626,5 +664,13 @@
     checkEntranceAvailability: checkEntranceAvailability,
     hasFoundLightWorldEntrance: hasFoundLightWorldEntrance,
     isKnownDWEntrance: function(name) { return !!DW_ENTRANCES[name]; },
+    // Inverted 2.0 + entrance shuffle with nothing placed yet: the start is unknown.
+    startUnknown: function() { return inv2Shuffled() && !anchored(); },
+    // One region's reachability, for checks that stand in a region rather
+    // than behind an entrance.
+    canReachRegion: function(region, itemsObj) {
+      items = itemsObj || {};
+      return !!stateOfEntrance('canReach|' + region);
+    },
   };
 })(window);

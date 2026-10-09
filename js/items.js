@@ -126,7 +126,7 @@ let previousSRAM = null;
 // Bumped with every change to this file, relayed in the broadcast snapshot so
 // the map's gear menu can show which build the ITEM TRACKER is running — the
 // two windows are packaged together but reload independently.
-window.ITEMS_BUILD = '1126w';
+window.ITEMS_BUILD = '1126z';
 let _bombClearTimer = null; // debounce: only clear bombs after sustained 0 reading
 
 const items = {
@@ -1615,6 +1615,23 @@ window.dungeonModeLabel = function () {
 // The four shuffle flags changed elsewhere (the map's settings menu). Held as
 // an override because the window's own query string would otherwise keep
 // winning for the rest of the session.
+// Door Shuffle changed from the map's settings. The counts restart from the
+// next room read: Crossed counts with the game's tallies and the other modes
+// with room bits, and each keeps a high-water mark the other would inherit.
+window.applyDoorShuffleChange = function(v) {
+    try { localStorage.setItem('alttp-door-shuffle', v); } catch (e) {}
+    if (window.trackerSettings) window.trackerSettings.doorShuffle = v;
+    if (deviceAttached) {
+        Object.keys(dungeons).forEach(function(k) { dungeons[k].itemCount = 0; });
+        if (window.trackerItems) window.trackerItems.ctItems = 0;
+    }
+    window.applyDungeonItemMaxes();
+    window.repaintAllDungeons();
+    if (window.updateCtKeyBox)  window.updateCtKeyBox();
+    if (window.updateCtItemBox) window.updateCtItemBox();
+    if (window.broadcastItemSnap) window.broadcastItemSnap();
+};
+
 window.applyDungeonShuffleChange = function(str) {
     if (str === null || str === undefined) return;
     window._dungeonShuffleOverride = str;
@@ -2969,6 +2986,8 @@ function _broadcastItemSnapNow() {
         snap[_k+'NonChestDone']  = _nc ? _nc.done  : null;
         snap[_k+'NonChestTotal'] = _nc ? _nc.total : null;
         if (_k === 'ct') window.ctDoorSnap(snap);
+        // HC's key total, for the map's Door Shuffle green (the dungeon loop skips HC).
+        if (_k === 'hc' && window.dungeons && window.dungeons.hc) snap.hcMaxSmallKeys = window.dungeons.hc.keysUnknown ? '?' : (window.dungeons.hc.maxSmallKeys || 0);
     });
     snap.epBigKey     = (window.trackerItems && window.trackerItems.epBigKey)     || 0;
     snap.dpBigKey     = (window.trackerItems && window.trackerItems.dpBigKey)     || 0;
@@ -3906,6 +3925,12 @@ function doorCrossedCounts(key, d, data) {
     var row = (window._seedCountRaw || {})[key];
     var total   = (itemsSeen && row && row.locations > 0 && row.locations < 400) ? row.locations : null;
     var keyMax  = (keysSeen && row && row.keys < 64) ? row.keys : null;
+    // Once shown, a total stays known: a save & quit clears the seen masks
+    // (and blanks the block for a poll or two), which put every dungeon back
+    // to '?' (Chris, Oct 2026). Cleared on New Game (resetItemTracker).
+    if (total  === null) total  = d.doorLocsSeen != null ? d.doorLocsSeen : null;
+    if (keyMax === null) keyMax = d.doorKeysSeen != null ? d.doorKeysSeen : null;
+    d.doorLocsSeen = total; d.doorKeysSeen = keyMax;
     // Keys in their own dungeon aren't items: take them off both sides, using
     // the keys-collected high-water so spending one doesn't put it back.
     if (!window.shuffleSmallKeys() && keyMax !== null) {
@@ -3937,6 +3962,10 @@ function doorCrossedCt(data) {
     var row = (window._seedCountRaw || {}).ct;
     var total  = (itemsSeen && row && row.locations > 0 && row.locations < 400) ? row.locations : null;
     var keyMax = (keysSeen && row && row.keys < 64) ? row.keys : null;
+    var seen = window._ctDoorSeen || (window._ctDoorSeen = {});   // sticky, as above
+    if (total  === null) total  = seen.locs != null ? seen.locs : null;
+    if (keyMax === null) keyMax = seen.keys != null ? seen.keys : null;
+    seen.locs = total; seen.keys = keyMax;
     if (!window.shuffleSmallKeys() && keyMax !== null) {
         done -= Math.min(ti.ctSmallKeysMax || ti.ctSmallKeys || 0, keyMax);
         if (total !== null) total -= keyMax;
@@ -4277,6 +4306,8 @@ function processInventoryData(data) {
             snap[_k+'NonChestDone']  = _nc2 ? _nc2.done  : null;
             snap[_k+'NonChestTotal'] = _nc2 ? _nc2.total : null;
             if (_k === 'ct') window.ctDoorSnap(snap);
+            // HC's key total, for the map's Door Shuffle green (the dungeon loop skips HC).
+            if (_k === 'hc' && window.dungeons && window.dungeons.hc) snap.hcMaxSmallKeys = window.dungeons.hc.keysUnknown ? '?' : (window.dungeons.hc.maxSmallKeys || 0);
         });
         snap.epBigKey     = (window.trackerItems && window.trackerItems.epBigKey)     || 0;
         snap.dpBigKey     = (window.trackerItems && window.trackerItems.dpBigKey)     || 0;
@@ -4581,6 +4612,7 @@ function updateItemState(itemKey, state) {
 }
 
 function resetItemTracker() {
+    window._ctDoorSeen = null; window._ctDoor = null;   // Crossed: CT's totals belong to the old seed
     window._currentWorld = null; if (window.setCurrentDungeon) window.setCurrentDungeon(null);
     // Clear the hover panel's per-location marks (js/dngpanel.js owns the store)
     if (window.dngLocClearedReset) window.dngLocClearedReset();
@@ -4627,6 +4659,7 @@ function resetItemTracker() {
         d.prizeState    = window.defaultPrizeIndex();
         d.bossState     = 0;
         d.otherCleared  = false;
+        d.doorLocsSeen = d.doorKeysSeen = d.doorTotal = d.doorKeys = null;   // Crossed totals: a new seed
         const slot = document.querySelector(`[data-dungeon-key="${key}"]`);
         if (!slot) return;
         // Reset prize image
@@ -4720,6 +4753,14 @@ function resetItemTracker() {
         Object.keys(VANILLA_BOSSES).forEach(function(key) {
             setBoss(key, VANILLA_BOSSES[key]);
         });
+    }
+
+    // Crossed totals were forgotten above; put every dungeon and CT back to '?'.
+    if (window.doorShuffleMode && window.doorShuffleMode() === 'crossed') {
+        window.applyDungeonItemMaxes();
+        window.repaintAllDungeons();
+        if (window.updateCtKeyBox)  window.updateCtKeyBox();
+        if (window.updateCtItemBox) window.updateCtItemBox();
     }
 
     // Broadcast reset to map (guard prevents infinite loop)
