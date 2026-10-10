@@ -26,7 +26,7 @@
 
 // Bumped with every change to this file. The map's gear menu shows it, so a
 // stale packaged build can be spotted without guessing (Chris, Sep 2026).
-window.DNGPANEL_BUILD = '1121f';
+window.DNGPANEL_BUILD = '1128a';
 
 // Door Shuffle (launcher → Other Settings): 'none', 'basic' or 'crossed'.
 // Basic shuffles the rooms inside each dungeon; Crossed mixes rooms between
