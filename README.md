@@ -24,7 +24,8 @@ This is as-is.  These files are to assist in the game, and provided to help othe
    - Open
    - Inverted
    - Retro (v1.1.17)
- - Entrance Door Shuffle - (v1.1.14)
+ - Entrance Shuffle - (v1.1.14)
+   - To be compliant, the entrances are manually marked.  See [Entrance Shuffle](https://github.com/hutchch/ALTTPR-Tracker/wiki/Entrance-Shuffle-Logic)
  - Boss Shuffle (Used to track dungeon bosses) - (v1.1.11)
  - Enemizer or normal mode
  - Sword or Swordless
