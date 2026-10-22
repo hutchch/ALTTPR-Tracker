@@ -4,6 +4,8 @@
 
 This is as-is.  These files are to assist in the game, and provided to help other out with their own projects, or to use for their games.  I will correct issues as I see them. Watch for release updates. 
 
+There is an issue with QUSB2SNES - When the auto dungeon prize marking was introduced, QUSB2SNES doesn't support the memory locations.  I am discontinuing support for QUSB2SNES.  Please use SNI going forward.
+
 ***
 [!["Join the Discord"](https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/62fddf0fde45a8baedcc7ee5_847541504914fd33810e70a0ea73177e%20(2)-1.png)](https://discord.gg/7WCjMehmyZ)   For questions or announcements join the [Discord](https://discord.gg/7WCjMehmyZ)
 ***
