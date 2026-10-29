@@ -126,7 +126,7 @@ let previousSRAM = null;
 // Bumped with every change to this file, relayed in the broadcast snapshot so
 // the map's gear menu can show which build the ITEM TRACKER is running — the
 // two windows are packaged together but reload independently.
-window.ITEMS_BUILD = '1126z';
+window.ITEMS_BUILD = '1136b';
 let _bombClearTimer = null; // debounce: only clear bombs after sustained 0 reading
 
 const items = {
@@ -2454,6 +2454,19 @@ function createTracker() {
                     const _ov0 = seedFlagOverlay(itemKey, items[itemKey].currentState);
                     if (_ov0) { img.src = _ov0.img; img.alt = _ov0.name; itemSlot.dataset.itemName = _ov0.name; }
                     itemSlot.appendChild(img);
+                    // Boomerangs: one square split on the diagonal, blue upper-left
+                    // and red lower-right, each with its own fill (Chris, Oct 2026).
+                    // The <img> above keeps the item's state for everything that
+                    // reads it, hidden; refreshItemFills paints the halves.
+                    if (itemKey === 'boomerang') {
+                        itemSlot.classList.add('boom-combo');
+                        ['blue', 'red'].forEach(function (c) {
+                            const half = document.createElement('div');
+                            half.className = 'boom-half boom-' + c;
+                            half.appendChild(document.createElement('img'));
+                            itemSlot.appendChild(half);
+                        });
+                    }
                     
                     // Add medallion label container for bombos, ether, quake
                     if (['bombos', 'ether', 'quake'].includes(itemKey)) {
@@ -2463,7 +2476,17 @@ function createTracker() {
                     }
                 }
                 
-                itemSlot.addEventListener('click', () => cycleItem(itemKey, itemSlot));
+                itemSlot.addEventListener('click', (e) => {
+                    // Boomerangs: the half you click toggles that boomerang —
+                    // blue upper-left, red lower-right (Chris, Oct 2026).
+                    if (itemKey === 'boomerang') {
+                        const r = itemSlot.getBoundingClientRect();
+                        const bit = ((e.clientX - r.left) / r.width + (e.clientY - r.top) / r.height) < 1 ? 1 : 2;
+                        updateItemState('boomerang', (items.boomerang.currentState || 0) ^ bit);
+                        return;
+                    }
+                    cycleItem(itemKey, itemSlot);
+                });
                 itemSlot.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     if (['bombos', 'ether', 'quake'].includes(itemKey)) {
@@ -3004,6 +3027,17 @@ function _broadcastItemSnapNow() {
     ['hc','ct'].forEach(function (_k) {
         snap[_k+'BigKey'] = ((window.dungeons && window.dungeons[_k]) || {}).bigkeyState || 0;
     });
+    // HC's chest count for the map's dungeon card (an HC-labelled entrance's
+    // hover read 0/6 without it). Only the count — HC has no slot elsewhere.
+    (function () {
+        var d = window.dungeons && window.dungeons.hc;
+        if (!d) return;
+        var eff = Math.max(0, (d.maxItems || 0) - (d.skipped || 0));
+        snap.hcChests    = Math.min(d.itemCount || 0, eff);
+        snap.hcMaxChests = d.totalUnknown ? '?' : eff;
+        snap.hcSkipped   = d.skipped || 0;
+        snap.hcMap       = d.mapState || 0;
+    })();
     snap.romName = window.ROM_NAME || '';
     snap.romIsDoor = !!window.ROM_IS_DOOR;
     snap.gomode = items['gomode'] ? items['gomode'].currentState : 0;
@@ -3053,6 +3087,7 @@ function _broadcastItemSnapNow() {
     snap.checks = parseInt((document.getElementById('toh-check-count')||{}).textContent||'0');
     snap.deaths = parseInt((document.getElementById('toh-death-count')||{}).textContent||'0');
     snap.bonks  = parseInt((document.getElementById('toh-bonk-count') ||{}).textContent||'0');
+    snap.revivals = parseInt((document.getElementById('toh-revival-count')||{}).textContent||'0');   // broadcast Modern v2 style
     snap.raceMode = !!window._raceMode;
     snap.currentDungeon = window._currentDungeon || null;
     snap.currentFloor   = window._currentDungeon ? (window._currentFloor || null) : null;
@@ -3124,6 +3159,7 @@ function connectWebSocket() {
         ws.binaryType = 'arraybuffer';
 
         ws.onopen = () => {
+            _reconnectTries = 0;
             console.log('WebSocket connected - requesting device list');
             updateConnectionStatus('Connecting');
             _stopReconnect();
@@ -3143,8 +3179,8 @@ function connectWebSocket() {
             _scheduleReconnect();
         };
 
-        ws.onclose = () => {
-            console.log('WebSocket disconnected');
+        ws.onclose = (ev) => {
+            console.log('WebSocket disconnected', ev && ev.code, ev && ev.reason);
             window._currentWorld = null; if (window.setCurrentDungeon) window.setCurrentDungeon(null);
             updateConnectionStatus('Disconnected');
             deviceAttached = false;
@@ -3166,13 +3202,17 @@ function _stopReconnect() {
     if (reconnectInterval) { clearTimeout(reconnectInterval); reconnectInterval = null; }
 }
 
+// Fast retries first: the tracker often opens before SNI is listening (the app
+// starts the built-in SNI at the same moment), and a flat 5 s meant waiting up
+// to 5 s past the moment it was ready. Then back off (Chris, Oct 2026).
+var _reconnectTries = 0;
 function _scheduleReconnect() {
     _stopReconnect(); // always reset — ensures a clean single timer
     reconnectInterval = setTimeout(() => {
         reconnectInterval = null;
         console.log('Attempting to reconnect...');
         connectWebSocket();
-    }, 5000);
+    }, _reconnectTries++ < 8 ? 750 : 5000);
 }
 
 function handleWebSocketMessage(event) {
@@ -3207,6 +3247,10 @@ function handleWebSocketMessage(event) {
                 }
                 return;
             }
+            // Data arriving is proof of a live connection, whatever the label
+            // last said. QUsb2Snes 0.7.3x left it on "Disconnected" while
+            // reads kept coming in (Chris, Oct 2026; SNI was fine).
+            if (_connStatus !== 'Connected') updateConnectionStatus('Connected');
             // Steady-state SRAM reads.  Discriminate by length: a 1-byte
             // response is the game-mode read we issue each cycle for the
             // timer window's benefit; everything else goes to processSRAMData.
@@ -3551,10 +3595,15 @@ window.dungeonCardState = function () {
     var _crossed = window.doorShuffleMode && window.doorShuffleMode() === 'crossed';
     return {
         id:         k,
-        // Crossed: room flags belong to whichever dungeon a room went to, so
-        // use the tracker's own counts (the game's tallies).
-        chests:     !_crossed ? c.opened : (k === 'ct' ? ((window.trackerItems || {}).ctItems || 0) : (d.itemCount || 0)),
-        maxChests:  !_crossed ? c.total  : (k === 'ct' ? window.ctItemMaxLabel() : (d.totalUnknown ? '?' : d.maxItems)),
+        // The tracker's own item count, the same one the dungeon box and the
+        // broadcast view show — it follows the seed's mode (keysanity adds the
+        // map, compass and keys; the boss item counts too). The room-flag chest
+        // count left those out: IP showed 7 of keysanity's 8 (Chris, Oct 2026).
+        // CT outside Crossed has no tracker count, so it keeps the chest flags.
+        chests:     k === 'ct' ? (!_crossed ? c.opened : ((window.trackerItems || {}).ctItems || 0))
+                  : d.maxItems === undefined ? c.opened : Math.min(d.itemCount || 0, Math.max(0, d.maxItems - (d.skipped || 0))),
+        maxChests:  k === 'ct' ? (!_crossed ? c.total : window.ctItemMaxLabel())
+                  : d.maxItems === undefined ? c.total : (d.totalUnknown ? '?' : Math.max(0, d.maxItems - (d.skipped || 0))),
         keys:       ti[k + 'SmallKeys'] || d.smallKeyCount || 0,
         maxKeys:    k === 'ct' ? window.ctKeyMaxLabel() : (d.keysUnknown ? '?' : (d.maxSmallKeys || 0)),
         // null = this dungeon has none (Agahnim's Tower has no map, compass or big key)
@@ -4794,7 +4843,9 @@ function ensureBottomBar() {
 // Keep alias for legacy calls
 function ensureReconnectButton() { ensureBottomBar(); }
 
+var _connStatus = null;   // last status shown, so data can correct a stale one
 function updateConnectionStatus(status) {
+    _connStatus = status;
     // Relay the SNI/autotracker connection status to the overlay WebSocket API
     // (main broadcasts it as the HoellTracker 'sni:connection-status' channel).
     // Sent before the UI-div guard so it always propagates.

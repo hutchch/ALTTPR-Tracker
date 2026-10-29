@@ -51,7 +51,7 @@ html[data-bg="transparent"] body::before {
 html[data-bg="transparent"] .bbg-bar {
   -webkit-app-region: drag;
   background: rgba(0,0,0,0.6) !important;
-  border-top-color: rgba(255,255,255,0.2) !important;
+  border-bottom-color: rgba(255,255,255,0.2) !important;
 }
 html[data-bg="transparent"] .bbg-bar * {
   -webkit-app-region: no-drag;
@@ -193,6 +193,23 @@ html[data-bg="transparent"] .bbg-bar * {
   pointer-events: none;
   border-radius: 3px;
 }
+/* Each half spans the whole square, so the fill triangles meet along the
+   diagonal with only a thin line between them, as in Modern v2 (Chris, Oct
+   2026); the pictures sit in their corners. */
+.bslot-combo .bcombo-img:first-child,
+.bslot-combo .bcombo-img:last-child { top: 0; left: 0; right: auto; bottom: auto; width: 100%; height: 100%; }
+.bslot-combo .bcombo-img:first-child { align-items: flex-start; justify-content: flex-start; padding: 3px; box-sizing: border-box; }
+.bslot-combo .bcombo-img:last-child  { align-items: flex-end;   justify-content: flex-end;   padding: 3px; box-sizing: border-box; }
+/* Room around each picture, off the diagonal. Height-led, so the tall boomerang
+   pictures (16×32) keep their shape instead of being squashed square. */
+.bslot-combo .bcombo-img img { width: auto; height: 19px; max-width: 19px; object-fit: contain; }
+/* The boomerangs, bigger and in toward the middle of each half (Chris, Oct
+   2026): their ">" points stay on their own side of the diagonal. */
+.bslot-combo.boom .bcombo-img img { height: 25px; max-width: 25px; }
+.bslot-combo.boom .bcombo-img:first-child { padding: 2px 0 0 5px; }
+.bslot-combo.boom .bcombo-img:last-child  { padding: 0 3px 0 0; }   /* red in its corner, a little in from the edge */
+.bslot-combo .bcombo-img:first-child::before { clip-path: polygon(0% 0%, 97% 0%, 0% 97%); }
+.bslot-combo .bcombo-img:last-child::before  { clip-path: polygon(100% 3%, 100% 100%, 3% 100%); }
 /* Upper-left triangle: top-left → top-right → bottom-left */
 .bcombo-img:first-child::before  { clip-path: polygon(0% 0%, 100% 0%, 0% 100%); }
 /* Lower-right triangle: top-right → bottom-right → bottom-left */
@@ -213,6 +230,100 @@ html[data-bg="transparent"] .bbg-bar * {
   transition: background 0.15s, color 0.15s;
 }
 .bgo-btn.on      { background: #2ecc71; color: #000; }
+/* ── Dungeon card (Chris, Oct 2026): while Link is in a dungeon, the dungeon
+   row (the last row) swaps with this card every few seconds (Broadcast
+   Settings → Dungeon Card); the items stay. The announce overlay's card on
+   one line, placed over the row and sized to it (placeDngCard). */
+#dng-card { position: fixed; display: none; flex-direction: column; align-items: center; justify-content: center;
+  gap: .15em; font-family: Arial, sans-serif; color: #fff; white-space: nowrap; pointer-events: none; }
+body.dng-phase #dng-card { display: flex; }
+/* !important and every child: Modern's key rows set visibility: visible inline, which a hidden parent can't override */
+body.dng-phase .dng-area, body.dng-phase .dng-area * { visibility: hidden !important; }
+#dng-card .dc-name, #dng-card .dc-row { display: flex; align-items: center; gap: .7em; }   /* name + prize; then the rest */
+#dng-card .dc-name { font-size: 1.1em; font-weight: bold; gap: .4em; }
+#dng-card .dc-floor { font-size: .5em; color: #aaa; margin-left: -.2em; align-self: flex-end; margin-bottom: .2em; }
+#dng-card .dc-name img { width: 1.2em; height: 1.2em; }
+#dng-card .dc-i { display: flex; align-items: center; gap: .25em; font-weight: bold; }
+#dng-card img { width: 1.5em; height: 1.5em; object-fit: contain; image-rendering: pixelated; display: block; }
+#dng-card .dc-i.dim img { opacity: .6; }
+#dng-card .full { color: #2ecc71; }
+#dng-card .dc-boss { display: flex; align-items: center; gap: .3em; font-size: .7em; color: #bbb;
+  border: 2px solid #444; border-radius: .4em; padding: .15em .6em; }
+#dng-card .dc-boss.beaten { color: #2ecc71; border-color: #2ecc71; }
+#dng-card .dc-boss img { width: 1.4em; height: 1.4em; }
+/* ── Modern v2 view style (Chris, Oct 2026): the race overlay's layout, filled in
+   live — a prize row on top (Agahnim, stat boxes, prize counts, GO), the two
+   item rows, then the dungeons with prize, map/compass/big key, keys, chests. */
+.rv { --cell: 44px; font-family: Arial, sans-serif; display: flex; flex-direction: column; gap: 6px; width: calc(var(--cell) * 14); }
+.rv-row { display: grid; grid-template-columns: repeat(14, 1fr); }
+/* The shovel / mushroom square: Classic's combo layout (.bcombo-img), in cells. */
+/* Each half spans the whole square, so the two fill triangles meet along the
+   diagonal with only a thin line between them (Chris, Oct 2026); the pictures
+   sit in their corners. */
+.rv .rv-combo .bcombo-img { top: 0; left: 0; right: auto; bottom: auto; width: 100%; height: 100%; }
+.rv .rv-combo .bcombo-img:first-child { align-items: flex-start; justify-content: flex-start; }
+.rv .rv-combo .bcombo-img:last-child  { align-items: flex-end;   justify-content: flex-end; }
+.rv .rv-combo .bcombo-img { padding: 3%; box-sizing: border-box; }
+.rv .rv-combo .bcombo-img img { width: 55%; height: 55%; }   /* a bit bigger (Chris, Oct 2026) */
+/* The boomerangs: the Modern / Classic sizing (25px tall in a 40px square,
+   blue 5px in from the left, red 3px in from the right), in proportion. */
+.rv .rv-combo.boom .bcombo-img img { width: auto; height: 62.5%; object-fit: contain; }
+.rv .rv-combo.boom .bcombo-img:first-child { padding: 5% 0 0 12.5%; }
+.rv .rv-combo.boom .bcombo-img:last-child  { padding: 0 7.5% 0 0; }
+.rv .rv-combo .bcombo-img:first-child::before { clip-path: polygon(0% 0%, 97% 0%, 0% 97%); }
+.rv .rv-combo .bcombo-img:last-child::before  { clip-path: polygon(100% 3%, 100% 100%, 3% 100%); }
+.rv-prizes + .rv-row { margin-top: calc(var(--cell) * .15); }   /* a little space under the top row (Chris, Oct 2026) */
+.rv-item { position: relative; aspect-ratio: 1; }
+.rv-item img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display: block; }
+/* Not found: the item's own greyed 0.png, as Modern shows it — no extra dimming
+   (it read darker than Modern, Chris Oct 2026). */
+/* Item fill: the cells are .bslot too, so Modern's fill (colours, effects,
+   Item Fill on/off) applies as is; only the fixed 40px sizes are undone. */
+.rv .rv-item.bslot { width: auto; height: auto; }
+.rv .rv-item.bslot > img, .rv .rv-item.bslot .rv-bottles { position: relative; z-index: 2; }
+.rv .rv-item.bslot img { width: 100%; height: 100%; }
+.rv-bottles { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; width: 100%; height: 100%; }
+.rv-bottles img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display: block; }
+.rv-item .rv-med { position: absolute; z-index: 3; bottom: 0; right: 1px; font-size: calc(var(--cell) * .24); font-weight: bold; color: #fff;
+  pointer-events: none; text-shadow: 0 0 3px #000, 0 0 3px #000, 1px 1px 0 #000; }
+.rv-prizes { display: flex; justify-content: space-between; align-items: center; }
+/* The prize row is a little taller than the item rows (Chris, Oct 2026), and
+   the four prize counts sit in a box like the stat boxes. */
+.rv-mid { display: flex; align-items: center; gap: calc(var(--cell) * .4); border: 1px solid #444; border-radius: 4px;
+  padding: calc(var(--cell) * .08) calc(var(--cell) * .25); }
+.rv-p { display: flex; align-items: center; gap: 4px; font-weight: bold; font-size: calc(var(--cell) * .58); color: #eee; }
+.rv-p img, .rv-aga { width: calc(var(--cell) * .92); height: calc(var(--cell) * .92); object-fit: contain; image-rendering: pixelated; }
+/* CHECKS, DEATHS, BONKS each in a box of their own (Chris, Oct 2026): label on
+   top, number underneath, in the Modern layout's colours (.bstat-*). */
+.rv-side { display: flex; align-items: center; gap: calc(var(--cell) * .2); }
+.rv-box { border: 1px solid #444; border-radius: 4px; padding: calc(var(--cell) * .06) 6px; min-width: calc(var(--cell) * 1.1);
+  display: flex; flex-direction: column; align-items: center; font-weight: bold; line-height: 1.05; }
+.rv-box .rv-box-l { font-size: calc(var(--cell) * .24); color: #888; letter-spacing: .3px; }
+.rv-box .rv-box-v { font-size: calc(var(--cell) * .52); }
+.rv-box .rv-revival { color: #9b59b6; }   /* the item tracker's REVIVALS colour */
+.rv .bgo-btn { width: calc(var(--cell) * .92); height: calc(var(--cell) * .92); font-size: calc(var(--cell) * .32); margin: 0; }
+.rv-dngs { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.rv-d { background: #141414; border: 1px solid #333; border-radius: 4px; padding: 2px; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+/* Dungeon fill, as Modern does it (.bdng-slot.*): all chests → the "chests"
+   colour, chests and boss → the "complete" colour, boss only → outline. */
+.rv-d.chests-done { background: color-mix(in srgb, var(--chests-color, #5a8eff) 35%, #000); border-color: var(--chests-color, #5a8eff); }
+.rv-d.prize-done  { background: color-mix(in srgb, var(--complete-color, #4dff88) 35%, #000); border-color: var(--complete-color, #4dff88); }
+.rv-d.prize-only  { border-color: var(--complete-color, #4dff88); }
+.rv-d .rv-lbl { font-size: calc(var(--cell) * .3); font-weight: bold; color: #ccc; }
+.rv-d img { image-rendering: pixelated; object-fit: contain; display: block; }
+.rv-d .rv-pz { width: 45%; aspect-ratio: 1; }
+.rv-d .rv-di { display: flex; gap: 0; width: 100%; justify-content: center; }
+.rv-d .rv-di img { width: 31%; aspect-ratio: 1; }
+.rv-d .rv-di img.off { opacity: .28; }
+.rv-d .rv-cnt { font-size: calc(var(--cell) * var(--cntf, .38)); font-weight: bold; line-height: 1.15; white-space: nowrap; color: #eee; }
+.rv-d .rv-cnt img { display: inline; width: calc(var(--cell) * .3); height: calc(var(--cell) * .3); vertical-align: -12%; margin-right: 1px; }
+.rv-d .rv-cnt.full { color: #2ecc71; }
+/* Keys smaller, the item count bigger (Chris, Oct 2026); its icon is smaller
+   and the digits a touch tighter so "15/15" still fits the box. */
+.rv-d .rv-keys { font-size: calc(var(--cell) * .3); }
+.rv-d .rv-keys img { width: calc(var(--cell) * .24); height: calc(var(--cell) * .24); }
+.rv-d .rv-chests { font-size: calc(var(--cell) * .46); letter-spacing: -.04em; }
+.rv-d .rv-chests img { width: calc(var(--cell) * .26); height: calc(var(--cell) * .26); }
 .bgo-btn.feeling { background: #eee600; color: #000; }
 
 /* Right-column: agahnim / gomode / stats — wider so they line up vertically */
@@ -333,55 +444,63 @@ html[data-bg="transparent"] .bbg-bar * {
   justify-content: center; gap: 2px;
 }
 
-/* Prize + big key row (under the label) */
+/* The prize, on its own under the label — larger, as in Modern v2 */
 .bdng-top img {
-  width: 12px; height: 12px;
+  width: 17px; height: 17px;
   image-rendering: pixelated;
 }
 
-/* Map + compass row */
+/* Map + compass + big key row */
 .bdng-icons img {
   width: 12px; height: 12px;
   image-rendering: pixelated;
 }
 
-/* Small keys / chests rows */
+
+/* Small keys / chests rows — bigger and bold, as in Modern v2 (Chris, Oct
+   2026); sized so "15/15" still fits the 46px slot. */
+.bdng-row { gap: 1px; }
 .bdng-row img {
   width: 10px; height: 10px;
   image-rendering: pixelated;
 }
 .bdng-row span {
-  font-family: Arial, sans-serif; font-size: 8px; color: #ccc;
-  line-height: 1;
+  font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: #eee;
+  line-height: 1.05; letter-spacing: -0.3px;
 }
+/* Keys smaller, the item count bigger (Chris, Oct 2026). */
+.bdng-keys-row img { width: 8px; height: 8px; }
+.bdng-row .bdng-keys { font-size: 10px; }
+.bdng-chests-row img { width: 9px; height: 9px; }
+.bdng-row .bdng-chests { font-size: 14px; letter-spacing: -0.6px; }
 .bdng-row .bdng-keys.full   { color: #2ecc71; }
 .bdng-row .bdng-chests.full { color: #2ecc71; }
 
-/* Bottom bar with Settings ---------------------------------------------- */
+/* Top bar (−/+), like the map's — keeps the bottom edge clean for OBS crops -- */
 .bbg-bar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 3px 8px;
+  display: flex; align-items: center; gap: 4px;
+  padding: 2px 6px;
   background: #111;
-  border-top: 1px solid #222;
+  border-bottom: 1px solid #222;
   flex-shrink: 0;
   position: relative; z-index: 30000;
   width: 100%;
 }
 .bsettings-btn {
-  font-family: Arial, sans-serif; font-size: 10px; color: #ccc;
+  font-family: Arial, sans-serif; font-size: 8px; color: #ccc;
   background: #1a1a1a; border: 1px solid #444; border-radius: 3px;
-  padding: 2px 8px; cursor: pointer; outline: none;
+  height: 13px; padding: 0 5px; cursor: pointer; outline: none;
   display: inline-flex; align-items: center; gap: 4px;
 }
 .bsettings-btn:hover { border-color: #4dff88; color: #fff; }
 .bsettings-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .bsettings-btn:disabled:hover { border-color: inherit; color: inherit; }
-.bsize-btn { padding: 2px 5px; min-width: 20px; justify-content: center; font-size: 13px; line-height: 1; }
+.bsize-btn { width: 12px; height: 12px; padding: 0; min-width: 12px; justify-content: center; font-size: 8px; font-weight: bold; line-height: 1; }
 
 /* ── Item Animation overlay ─────────────────────────────────────────────── */
 #item-anim-overlay {
   position: fixed; top: 0; left: 0; right: 0;
-  /* bottom is set dynamically in JS to stop above the bbg-bar */
+  /* top is set dynamically in JS to start below the bbg-bar */
   bottom: 0;
   display: flex; align-items: center; justify-content: center;
   z-index: 20000;
@@ -409,7 +528,7 @@ html[data-bg="transparent"] .bbg-bar * {
   display: none;
 }
 #item-anim-img {
-  width: 40px; height: 40px;
+  width: 40px; height: 40px; object-fit: contain;   /* tall pictures (the boomerangs) keep their shape */
   image-rendering: pixelated; image-rendering: crisp-edges;
   transform-origin: center center;
   position: relative; z-index: 2;
@@ -517,22 +636,96 @@ html[data-bg="transparent"] .bbg-bar * {
   padding: 2px 6px; cursor: pointer; outline: none;
 }
 
+
+/* ── Fill effects, as the item tracker has them (Chris, Oct 2026) ──
+   Every effect gets a shine: a white streak layered over the fill gradient,
+   parked off to the right (position 0%) and swept to the left while the effect
+   plays. Starburst fills from the centre out; Pulse flashes the fill, swells
+   the item twice and makes its outline sparkle. Shows even with the item
+   animation turned off. */
+.bslot.filled.fx-falling::before,
+.bslot-bottles.filled.fx-falling::before,
+.bright-slot.bslot-icon.filled.fx-falling::before,
+.bcombo-img.filled.fx-falling::before,
+.bslot.filled.fx-fade::before,
+.bslot-bottles.filled.fx-fade::before,
+.bright-slot.bslot-icon.filled.fx-fade::before,
+.bcombo-img.filled.fx-fade::before,
+.bslot.filled.fx-edges::before,
+.bslot-bottles.filled.fx-edges::before,
+.bright-slot.bslot-icon.filled.fx-edges::before,
+.bcombo-img.filled.fx-edges::before,
+.bslot.filled.fx-pulse::before,
+.bslot-bottles.filled.fx-pulse::before,
+.bright-slot.bslot-icon.filled.fx-pulse::before,
+.bcombo-img.filled.fx-pulse::before {
+  background:
+    linear-gradient(115deg, transparent 44%, rgba(255,255,255,0.9) 50%, transparent 56%) no-repeat,
+    linear-gradient(to bottom left, var(--item-fill-color, #2ecc71), var(--item-fill-color2, #b675ff));
+  background-size: 300% 100%, 100% 100%;   /* the streak sits fully off the square at rest */
+  background-position: 0% 0, 0 0;
+}
+.bslot.filled.fx-falling::before,
+.bslot-bottles.filled.fx-falling::before,
+.bright-slot.bslot-icon.filled.fx-falling::before,
+.bcombo-img.filled.fx-falling::before { animation: fx-falling 0.6s ease-out, fx-shine 0.9s ease-in-out 0.2s; }
+.bslot.filled.fx-fade::before,
+.bslot-bottles.filled.fx-fade::before,
+.bright-slot.bslot-icon.filled.fx-fade::before,
+.bcombo-img.filled.fx-fade::before { animation: fx-burst 0.6s ease-out, fx-shine 0.9s ease-in-out 0.45s;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 var(--burst-reveal, 100%), transparent calc(var(--burst-reveal, 100%) + 0.5%));
+          mask-image: radial-gradient(circle at 50% 50%, #000 var(--burst-reveal, 100%), transparent calc(var(--burst-reveal, 100%) + 0.5%)); }
+.bslot.filled.fx-edges::before,
+.bslot-bottles.filled.fx-edges::before,
+.bright-slot.bslot-icon.filled.fx-edges::before,
+.bcombo-img.filled.fx-edges::before { animation: fx-edges 1.0s ease-in, fx-shine 0.9s ease-in-out 0.3s; }
+.bslot.filled.fx-pulse::before,
+.bslot-bottles.filled.fx-pulse::before,
+.bright-slot.bslot-icon.filled.fx-pulse::before,
+.bcombo-img.filled.fx-pulse::before { animation: fx-pulse-fill 0.9s ease-in-out, fx-shine 0.9s ease-in-out; }
+.bslot.filled.fx-pulse > img,
+.bright-slot.bslot-icon.filled.fx-pulse img,
+.bslot-bottles.filled.fx-pulse img,
+.bcombo-img.filled.fx-pulse img { animation: fx-pulse 1.0s ease-in-out; }
+@property --burst-reveal { syntax: '<percentage>'; initial-value: 100%; inherits: false; }
+@keyframes fx-burst {
+  from { --burst-reveal: 0%;   opacity: 0.7; }
+  to   { --burst-reveal: 100%; opacity: 0.7; }
+}
+@keyframes fx-shine {
+  from { background-position: 0% 0, 0 0; }
+  to   { background-position: 100% 0, 0 0; }
+}
+@keyframes fx-pulse-fill {
+  0% { opacity: 0; } 25% { opacity: 1; } 50% { opacity: 0.45; } 75% { opacity: 0.95; } 100% { opacity: 0.7; }
+}
+@keyframes fx-pulse {
+  0%   { transform: scale(1);    filter: brightness(1)   drop-shadow(0 0 0   rgba(255,255,255,0))  drop-shadow(0 0 0   rgba(255,215,90,0)); }
+  12%  { transform: scale(1.15); filter: brightness(1.5) drop-shadow(0 0 2px rgba(255,255,255,1))  drop-shadow(0 0 6px rgba(255,215,90,1)); }
+  24%  { transform: scale(1.25); filter: brightness(1.2) drop-shadow(0 0 1px rgba(255,255,255,.2)) drop-shadow(0 0 2px rgba(255,215,90,.3)); }
+  36%  { transform: scale(1.1);  filter: brightness(1.5) drop-shadow(0 0 2px rgba(255,255,255,1))  drop-shadow(0 0 7px rgba(255,215,90,1)); }
+  50%  { transform: scale(1);    filter: brightness(1.1) drop-shadow(0 0 1px rgba(255,255,255,.2)) drop-shadow(0 0 2px rgba(255,215,90,.3)); }
+  62%  { transform: scale(1.1);  filter: brightness(1.4) drop-shadow(0 0 2px rgba(255,255,255,1))  drop-shadow(0 0 6px rgba(255,215,90,1)); }
+  75%  { transform: scale(1.15); filter: brightness(1.2) drop-shadow(0 0 1px rgba(255,255,255,.2)) drop-shadow(0 0 2px rgba(255,215,90,.3)); }
+  88%  { transform: scale(1.05); filter: brightness(1.2) drop-shadow(0 0 2px rgba(255,255,255,.9)) drop-shadow(0 0 5px rgba(255,215,90,.8)); }
+  100% { transform: scale(1);    filter: brightness(1)   drop-shadow(0 0 0   rgba(255,255,255,0))  drop-shadow(0 0 0   rgba(255,215,90,0)); }
+}
 </style>
 </head>
 <body>
+<div class="bbg-bar">
+  <button class="bsettings-btn bsize-btn" onclick="bcastSizeDown()">−</button>
+  <button class="bsettings-btn bsize-btn" onclick="bcastSizeUp()">+</button>
+  <button class="bsettings-btn bsize-btn" title="Settings" style="font-size:11px;font-weight:normal;" onclick="if(window.electronAPI&&window.electronAPI.openBcastSettings)window.electronAPI.openBcastSettings();else window.open('bcast-settings.html','alttp-settings','width=480,height=820,resizable=yes,scrollbars=yes');">&#9881;&#xFE0E;</button>
+</div>
 <div class="broadcast-container">
   <div class="bcast-row" id="row1"></div>
   <div class="bcast-row" id="row2"></div>
   <div class="bcast-row" id="row3"></div>
   <div class="bcast-row" id="row4"></div>
 </div>
-<div class="bbg-bar">
-  <button class="bsettings-btn bsize-btn" onclick="bcastSizeDown()">−</button>
-  <button class="bsettings-btn bsize-btn" onclick="bcastSizeUp()">+</button>
-  <button class="bsettings-btn" onclick="openSettingsPopout()">⚙ Settings</button>
-  <button class="bsettings-btn" id="item-sounds-btn" onclick="openItemSounds()">♪ Item Sounds</button>
-</div>
 
+<div id="dng-card"></div>
 <canvas id="gomode-spark-canvas"></canvas>
 
 <!-- Item animation overlay -->
@@ -576,8 +769,8 @@ function applyDungeonVisibility() {
     d.map.style.display     = SETTINGS.showMap     ? '' : 'none';
     d.compass.style.display = SETTINGS.showCompass ? '' : 'none';
     d.bigkey.style.display  = SETTINGS.showBigKey  ? '' : 'none';
-    // Hide the icons row entirely if both map AND compass are hidden
-    d.iconsRow.style.display = (SETTINGS.showMap || SETTINGS.showCompass) ? '' : 'none';
+    // Hide the icons row entirely if map, compass AND big key are all hidden
+    d.iconsRow.style.display = (SETTINGS.showMap || SETTINGS.showCompass || SETTINGS.showBigKey) ? '' : 'none';
     d.chestRow.style.display = SETTINGS.showChests ? '' : 'none';
     applyKeyRowDisplay(d);
   });
@@ -663,33 +856,7 @@ function applyBg(bg) {
   if (window.electronAPI && window.electronAPI.setBroadcastBg) window.electronAPI.setBroadcastBg(bg);
 }
 
-// Go Mode's sound now lives with the item sounds, so it follows the active
-// profile (and goes quiet on "No Sounds"). The old broadcast-settings sound is
-// still honoured when a profile has none of its own, so an existing setup keeps
-// working without being re-imported.
-// Per-sound volume, set in the Item Sounds window and stored beside the sound
-// (see bcast-sounds.html). Missing or unreadable = full volume.
-function soundVolume(storeKey) {
-  var v = parseInt(localStorage.getItem(storeKey + '-vol'), 10);
-  if (isNaN(v)) return 1;
-  return Math.max(0, Math.min(1, v / 100));
-}
-
-function playGomodeSound() {
-  if (RACE_MODE) return; // Race Mode: no Go Mode sound.
-  var p = parseInt(localStorage.getItem('alttp-sound-profile') || '1', 10);
-  if (p === 5) return;                                    // "No Sounds" profile
-  var pre = 'alttp-item-sound-' + ((p >= 2 && p <= 4) ? 'p' + p + '-' : '');
-  var dataUrl = localStorage.getItem(pre + 'gomode');
-  var vol = soundVolume(pre + 'gomode');
-  if (!dataUrl && SETTINGS.gomodeSoundEnabled) { dataUrl = SETTINGS.gomodeSoundData; vol = 1; }
-  if (!dataUrl) return;
-  try {
-    var audio = new Audio(dataUrl);
-    audio.volume = vol;
-    audio.play().catch(function() {});
-  } catch(e) {}
-}
+// Item and Go Mode sounds play from the Item Tracker now (js/item-sounds.js).
 
 var BASE = (function() {
   var p = new URLSearchParams(window.location.search);
@@ -817,6 +984,35 @@ var COMBO_SLOTS = {
   powmush:     { keys: ['powder','mushroom'] },
   fluteshovel: { keys: ['flute','shovel'] },
 };
+
+// Boomerangs (Chris, Oct 2026): one square split on the diagonal, blue upper-
+// left and red lower-right (boomerang1 / boomerang2, boomerang0 greyed when not
+// found), each half with its own fill. The item keeps a hidden <img> in
+// slotEls, so updateItem's animation, sound and state handling are unchanged;
+// paintBoom() draws the halves from state.boomerang (bit 1 blue, bit 2 red).
+var _boom = null;
+function buildBoomCombo(cls) {
+  var wrap = document.createElement('div'); wrap.className = cls;
+  _boom = {};
+  ['blue', 'red'].forEach(function(c) {
+    var cell = document.createElement('div'); cell.className = 'bcombo-img';
+    var i = document.createElement('img'); i.src = BASE + '/boomerang0.png'; i.draggable = false;
+    cell.appendChild(i); wrap.appendChild(cell);
+    _boom[c] = { cell: cell, img: i };
+  });
+  slotEls['boomerang'] = document.createElement('img');   // hidden state holder
+  paintBoom();
+  return wrap;
+}
+function paintBoom() {
+  if (!_boom) return;
+  var v = state.boomerang || 0;
+  [['blue', 1, 'boomerang1'], ['red', 2, 'boomerang2']].forEach(function(h) {
+    var got = !!(v & h[1]), want = BASE + '/' + (got ? h[2] : 'boomerang0') + '.png';
+    if (_boom[h[0]].img.getAttribute('src') !== want) _boom[h[0]].img.src = want;
+    applyFill('boomerang', _boom[h[0]].cell, isFilledFor('boomerang', got ? 1 : 0));
+  });
+}
 
 var slotEls = {};   // key -> img element (for items)
 var slotContainers = {}; // key -> the .bslot/.bslot-bottles wrapper that gets .filled
@@ -947,17 +1143,17 @@ function buildDungeonSlot(key) {
   var top = document.createElement('div'); top.className = 'bdng-top';
   var prizeImg  = document.createElement('img'); prizeImg.className  = 'bdng-prize';      prizeImg.src  = BASE+'/crystal0.png';
   var bigkeyImg = document.createElement('img'); bigkeyImg.className = 'bdng-bigkey-top'; bigkeyImg.src = BASE+'/bigkey0.png';
-  top.appendChild(prizeImg); top.appendChild(bigkeyImg);
+  // The prize on its own, then map / compass / big key, then the key and chest
+  // counts on lines of their own — Modern v2's original boxes (Chris, Oct 2026).
+  top.appendChild(prizeImg);
   slot.appendChild(top);
 
-  // Map / compass, centered
   var icons = document.createElement('div'); icons.className = 'bdng-icons';
   var mapImg     = document.createElement('img'); mapImg.src     = BASE+'/map0.png';
   var compassImg = document.createElement('img'); compassImg.src = BASE+'/compass0.png';
-  icons.appendChild(mapImg); icons.appendChild(compassImg);
+  icons.appendChild(mapImg); icons.appendChild(compassImg); icons.appendChild(bigkeyImg);
   slot.appendChild(icons);
 
-  // Small keys row
   var keyRow = document.createElement('div'); keyRow.className = 'bdng-row bdng-keys-row';
   var keyIcon  = document.createElement('img'); keyIcon.src = BASE+'/smallkey0.png';
   var keyVal   = document.createElement('span'); keyVal.className = 'bdng-keys'; keyVal.textContent = '0/0';
@@ -997,6 +1193,7 @@ function buildRows() {
       slotContainers['bottles'] = grid;
       rowEl.appendChild(grid); return;
     }
+    if (key === 'boomerang') { rowEl.appendChild(buildBoomCombo('bslot-combo boom')); return; }
     if (COMBO_SLOTS[key]) {
       var combo = COMBO_SLOTS[key];
       var wrap = document.createElement('div'); wrap.className = 'bslot-combo';
@@ -1044,7 +1241,8 @@ function buildRows() {
   var R = activeRows();
   var container = document.querySelector('.broadcast-container');
   // Strip any rows already in the container — needed for live view-style swap
-  container.querySelectorAll('.bcast-row').forEach(function(r) { r.remove(); });
+  container.querySelectorAll('.bcast-row, .rv').forEach(function(r) { r.remove(); });
+  if (SETTINGS.viewStyle === 'v2') { buildV2View(container); return; }
 
   var rowKeys = Object.keys(R).filter(function(k) { return /^row\d+$/.test(k); })
                               .sort(function(a, b) { return parseInt(a.slice(3)) - parseInt(b.slice(3)); });
@@ -1061,6 +1259,214 @@ function buildRows() {
       var isRight = !classic && lastInRow && (k === 'agahnim' || k === 'gomode' || k === 'stats');
       makeSlot(k, rowEl, isRight);
     });
+  });
+}
+
+// ── Modern v2 view style ─────────────────────────────────────────────────────────
+// The race overlay's layout (overlays/race.html), filled in live. Items, the
+// medallion labels, Agahnim, GO and the Items/Deaths numbers are registered in
+// slotEls under the same keys the Modern layout uses, so updateItem() and the
+// rest drive them — collect animations, sounds and Go Mode sparks included.
+// Bottles, the item dimming, the prize counts and the dungeons are drawn by
+// renderV2View() from the last snapshot.
+// Two rows of 14 (Chris, Oct 2026): the shovel and the mushroom share a square,
+// split on the diagonal with a fill per half, as Classic's combo squares.
+var RV_COMBO = { shovelmush: ['shovel', 'mushroom'] };
+var RV_ROW1 = ['bow','boomerang','hookshot','powder','firerod','icerod','bombos','ether','quake','moonpearl','flippers','sword','shield','tunic'];
+var RV_ROW2 = ['lamp','hammer','shovelmush','flute','net','book','bottles','somaria','byrna','cape','mirror','halfmagic','boots','gloves'];
+// GT left out so the ten boxes are wide enough for bigger key / chest counts (Chris, Oct 2026).
+var RV_DUNGEONS = ['ep','dp','toh','pod','sp','sw','tt','ip','mm','tr'];
+var RV_LABEL = { ep:'EP', dp:'DP', toh:'ToH', pod:'PoD', sp:'SP', sw:'SW', tt:'TT', ip:'IP', mm:'MM', tr:'TR', gt:'GT' };
+var _rv = null, _rvPrizes = {};
+function rvImg(src, cls) { var i = document.createElement('img'); i.src = src; if (cls) i.className = cls; i.draggable = false; return i; }
+function buildV2View(container) {
+  var root = document.createElement('div'); root.className = 'rv';
+  _rv = { items: {}, dngs: {} };
+  [RV_ROW1, RV_ROW2].forEach(function(row) {
+    var rowEl = document.createElement('div'); rowEl.className = 'rv-row';
+    row.forEach(function(k) {
+      var cell = document.createElement('div'); cell.className = 'rv-item bslot';
+      if (k === 'boomerang') { rowEl.appendChild(buildBoomCombo('rv-item rv-combo boom')); return; }
+      if (RV_COMBO[k]) {
+        // Upper-left / lower-right, each half its own fill container (.bcombo-img).
+        cell.className = 'rv-item rv-combo';
+        RV_COMBO[k].forEach(function(ck) {
+          var sub = document.createElement('div'); sub.className = 'bcombo-img';
+          var si = rvImg(imgSrc(ck, 0)); slotEls[ck] = si; sub.appendChild(si); cell.appendChild(sub);
+          slotContainers[ck] = sub;
+          _rv.items[ck] = { cell: sub, img: si };
+        });
+        rowEl.appendChild(cell); return;
+      }
+      slotContainers[k] = cell;   // item fill (applyFill / refreshAllFills)
+      var im;
+      if (k === 'bottles') {
+        // How many bottles, as one picture (bottle0–4.png), set in
+        // renderV2View (Chris, Oct 2026). The four bottle slots stay registered
+        // (not shown) so updateItem still animates and sounds a new bottle.
+        ['bottle1','bottle2','bottle3','bottle4'].forEach(function(bk) { slotEls[bk] = rvImg(imgSrc(bk, 0)); });
+        im = rvImg(BASE + '/bottle0.png');
+      } else {
+        im = rvImg(imgSrc(k, 0)); slotEls[k] = im;
+      }
+      cell.appendChild(im);
+      if (k === 'bombos' || k === 'ether' || k === 'quake') {
+        var lbl = document.createElement('div'); lbl.className = 'rv-med'; cell.appendChild(lbl);
+        slotEls[k + '_lbl'] = lbl;
+      }
+      _rv.items[k] = { cell: cell, img: im };
+      rowEl.appendChild(cell);
+    });
+    root.appendChild(rowEl);
+  });
+  var pz = document.createElement('div'); pz.className = 'rv-prizes';
+  function statBox(key, label, cls) {
+    var box = document.createElement('div'); box.className = 'rv-box';
+    var l = document.createElement('span'); l.className = 'rv-box-l'; l.textContent = label;
+    var v = document.createElement('span'); v.className = 'rv-box-v ' + cls; v.textContent = '0';
+    box.appendChild(l); box.appendChild(v); slotEls['stat_' + key] = v;
+    return box;
+  }
+  var left = document.createElement('div'); left.className = 'rv-side';
+  var aga = rvImg(imgSrc('agahnim', 0), 'rv-aga'); slotEls['agahnim'] = aga; left.appendChild(aga);
+  left.appendChild(statBox('check', 'CHECKS', 'bstat-check'));
+  left.appendChild(statBox('bonk', 'BONKS', 'bstat-bonk'));
+  pz.appendChild(left);
+  var mid = document.createElement('div'); mid.className = 'rv-mid';
+  _rv.counts = {};
+  [['crystal', 'crystal1'], ['redcrystal', 'redcrystal1'], ['pendant', 'pendant1'], ['greenpendant', 'greenpendant1']].forEach(function(p) {
+    var box = document.createElement('div'); box.className = 'rv-p';
+    box.appendChild(rvImg(BASE + '/' + p[1] + '.png'));
+    var n = document.createElement('span'); n.textContent = '0'; box.appendChild(n);
+    _rv.counts[p[0]] = n; mid.appendChild(box);
+  });
+  pz.appendChild(mid);
+  var right = document.createElement('div'); right.className = 'rv-side';
+  right.appendChild(statBox('death', 'DEATHS', 'bstat-death'));
+  right.appendChild(statBox('revival', 'REVIVALS', 'rv-revival'));
+  var go = document.createElement('div'); go.className = 'bgo-btn'; go.textContent = 'GO'; slotEls['gomode'] = go; right.appendChild(go);
+  pz.appendChild(right);
+  root.insertBefore(pz, root.firstChild);   // the prize row sits on top (Chris, Oct 2026)
+  var grid = document.createElement('div'); grid.className = 'rv-dngs';
+  RV_DUNGEONS.forEach(function(k) {
+    var box = document.createElement('div'); box.className = 'rv-d';
+    var lbl = document.createElement('div'); lbl.className = 'rv-lbl'; lbl.textContent = RV_LABEL[k]; box.appendChild(lbl);
+    // The prize; map, compass, big key; then keys and items as counts on lines
+    // of their own — the same boxes as the Modern view (Chris, Oct 2026).
+    var prize = rvImg(BASE + '/unknown0.png', 'rv-pz'); box.appendChild(prize);
+    var di = document.createElement('div'); di.className = 'rv-di';
+    var map = rvImg(BASE + '/map1.png'), comp = rvImg(BASE + '/compass1.png'), bk = rvImg(BASE + '/bigkey1.png');
+    di.appendChild(map); di.appendChild(comp); di.appendChild(bk); box.appendChild(di);
+    var keys = document.createElement('div'); keys.className = 'rv-cnt rv-keys';
+    keys.appendChild(rvImg(BASE + '/smallkey0.png')); var kt = document.createElement('span'); keys.appendChild(kt); box.appendChild(keys);
+    var ch = document.createElement('div'); ch.className = 'rv-cnt rv-chests';
+    ch.appendChild(rvImg(BASE + '/chest0.png')); var ct = document.createElement('span'); ch.appendChild(ct); box.appendChild(ch);
+    // No bosses in this style — too small to read (Chris, Oct 2026). GT has no
+    // prize; its space is kept so the row lines up.
+    if (k === 'gt') prize.style.visibility = 'hidden';
+    _rv.dngs[k] = { box: box, prize: prize, map: map, comp: comp, bk: bk, keys: keys, kt: kt, ch: ch, ct: ct };
+    grid.appendChild(box);
+  });
+  root.appendChild(grid);
+  container.appendChild(root);
+  // Detached Modern dungeon slots, never shown: applySnap's dungeon pass works
+  // on dngEls, and it's that pass that fires the prize / map / compass / big
+  // key animations. Without them Modern v2 skipped it, so none played (Chris,
+  // Oct 2026). Same trick as the hidden boomerang holder.
+  ROW4.forEach(function(k) { buildDungeonSlot(k); });
+  renderV2View();   // the empty state straight away, before the first snapshot
+  refreshAllFills();
+  fitV2View();
+  setTimeout(fitV2View, 300);   // the app window may still be settling its size
+  // and the pictures and fonts may still be loading (on the Mac the dungeons
+  // ended up under the bottom bar), so fit again once they have.
+  window.addEventListener('load', fitV2View);
+  setTimeout(fitV2View, 1000);
+}
+// Size Modern v2 to the window: one item is --cell wide and everything
+// scales with it, so measure the widest row (the top row's boxes can run
+// wider than the 14 item columns, depending on the font) and the height, and
+// rescale until it fits both ways (Chris, Oct 2026). The −/+ buttons then
+// shrink or grow it from there: _v2Scale, 100 = fits the window.
+var _v2Scale = parseInt(localStorage.getItem('bcast-v2-scale') || localStorage.getItem('bcast-race-scale') || '100', 10) || 100;
+function fitV2View() {
+  var root = document.querySelector('.rv'); if (!root) return;
+  var W = window.innerWidth - 2 * Math.max(8, root.getBoundingClientRect().left);   // the same margin both sides
+  // From the view's own top (already below the top bar) to the window bottom.
+  var H = window.innerHeight - root.getBoundingClientRect().top - 6;
+  var pz = root.querySelector('.rv-prizes');
+  var cell = 44;
+  for (var i = 0; i < 5; i++) {
+    root.style.setProperty('--cell', cell + 'px');
+    if (pz) pz.style.zoom = fitTopRow(root, pz);
+    var w = root.offsetWidth, h = root.offsetHeight;
+    if (!w || !h) return;
+    cell = Math.max(12, cell * Math.min(W / w, H / h));
+  }
+  cell = cell * 0.997 * _v2Scale / 100;   // a hair of margin against rounding (0.99 left a 10px gap on the right)
+  root.style.setProperty('--cell', Math.floor(cell * 100) / 100 + 'px');
+  if (pz) pz.style.zoom = fitTopRow(root, pz);
+}
+// The top row's boxes can come out wider than the 14 item columns (it depends
+// on the font) and pushed GO past the right edge of the rows below (Chris,
+// Oct 2026). Shrink just that row until it's exactly as wide as the grid.
+function fitTopRow(root, pz) {
+  pz.style.zoom = 1;
+  var need = pz.scrollWidth, have = root.clientWidth;
+  return (need > have && need > 0) ? Math.max(0.5, have / need) : 1;
+}
+window.addEventListener('resize', function () { if (SETTINGS.viewStyle === 'v2') fitV2View(); });
+function renderV2View() {
+  if (!_rv || SETTINGS.viewStyle !== 'v2') return;
+  var s = _bcastLastSnap || {};
+  // Dimmed until found; the tunic's first state is the green mail you start with.
+  Object.keys(_rv.items).forEach(function(k) {
+    var it = _rv.items[k];
+    if (k === 'bottles') {
+      var nb = ['bottle1','bottle2','bottle3','bottle4'].filter(function(b) { return (state[b] || 0) > 0; }).length;
+      var want = BASE + '/bottle' + nb + '.png';
+      if (it.img.getAttribute('src') !== want) it.img.src = want;
+      it.cell.classList.toggle('off', !nb);
+      return;
+    }
+    it.cell.classList.toggle('off', k !== 'tunic' && !(state[k] || 0));
+  });
+  // Each prize counted on its own: the tracker's crystal count includes the red
+  // ones and its pendant count the green one, so those come off (Chris, Oct 2026).
+  var red = s.redCrystal || 0, green = s.greenPendant || 0;
+  _rv.counts.crystal.textContent      = Math.max(0, (s.crystals || 0) - red);
+  _rv.counts.redcrystal.textContent   = red;
+  _rv.counts.pendant.textContent      = Math.max(0, (s.pendants || 0) - green);
+  _rv.counts.greenpendant.textContent = green;
+  // Revivals only come in the snapshot (the 'stats' message has checks, deaths, bonks).
+  if (slotEls['stat_revival']) slotEls['stat_revival'].textContent = s.revivals || 0;
+  RV_DUNGEONS.forEach(function(k) {
+    var d = _rv.dngs[k], p = _rvPrizes[k] || {};
+    var prizeName = p.name || s[k + 'Prize'] || 'unknown';
+    var beaten = !!(p.bossCleared || p.obtained || s[k + 'PrizeObtained']);
+    if (k !== 'gt') {
+      d.prize.src = BASE + '/' + prizeName + (beaten && prizeName !== 'unknown' ? '1' : '0') + '.png';
+    }
+    d.map.classList.toggle('off', !s[k + 'Map']);
+    d.comp.classList.toggle('off', !s[k + 'Compass']);
+    d.bk.classList.toggle('off', !s[k + 'BigKey']);
+    var sk = s[k + 'SmallKeys'] || 0, mk = s[k + 'MaxSmallKeys'];
+    if (mk === undefined) mk = 0;
+    d.kt.textContent = sk + '/' + mk;
+    d.keys.classList.toggle('full', mk !== '?' && mk > 0 && sk >= mk);
+    var c = s[k + 'Chests'] || 0, m = s[k + 'MaxChests'];
+    if (m === undefined) m = 0;
+    d.ct.textContent = c + '/' + m;
+    var chestsDone = m !== '?' && c >= m;
+    d.ch.classList.toggle('full', chestsDone);
+    // Dungeon fill — the same rules as Modern's (applySnap's completion block),
+    // and the same Dungeon Fill / Dungeon Box settings. GT has no prize, so its
+    // chests are the whole of it.
+    var done = beaten || k === 'gt';
+    var fillOn = SETTINGS.dungeonFillEnabled && SETTINGS.dungeonBoxEnabled;
+    d.box.classList.toggle('prize-done',  fillOn && chestsDone && done);
+    d.box.classList.toggle('chests-done', fillOn && chestsDone && !done);
+    d.box.classList.toggle('prize-only',  SETTINGS.dungeonBoxEnabled && beaten && !chestsDone);
   });
 }
 
@@ -1104,14 +1510,15 @@ function applyFill(key, container, isFilled) {
   if (isFilled === was) return;
   if (isFilled) {
     // Clear existing effect classes, then re-add to retrigger animation
-    container.classList.remove('fx-falling', 'fx-fade', 'fx-edges');
+    container.classList.remove('fx-falling', 'fx-fade', 'fx-edges', 'fx-pulse');
     container.classList.add('filled');
     // 'starburst' option uses the uniform fade-in; 'none' uses the edges-in mask.
     if (SETTINGS.fillEffect === 'falling')   void container.offsetWidth, container.classList.add('fx-falling');
     if (SETTINGS.fillEffect === 'starburst') void container.offsetWidth, container.classList.add('fx-fade');
     if (SETTINGS.fillEffect === 'none')      void container.offsetWidth, container.classList.add('fx-edges');
+    if (SETTINGS.fillEffect === 'pulse')     void container.offsetWidth, container.classList.add('fx-pulse');
   } else {
-    container.classList.remove('filled', 'fx-falling', 'fx-fade', 'fx-edges');
+    container.classList.remove('filled', 'fx-falling', 'fx-fade', 'fx-edges', 'fx-pulse');
   }
 }
 
@@ -1121,6 +1528,7 @@ function refreshAllFills() {
   var R = activeRows();
   var all = [];
   Object.keys(R).filter(function(k){ return /^row\d+$/.test(k); }).forEach(function(rk){ all = all.concat(R[rk]); });
+  paintBoom();
   all.forEach(function(key) {
     if (key === 'bottles') {
       var anyBottle = ['bottle1','bottle2','bottle3','bottle4'].some(function(b){ return (state[b]||0) > 0; });
@@ -1148,7 +1556,6 @@ function updateItem(key, val) {
     _appliedGomode = val;
     btn.className = 'bgo-btn' + (val === 1 ? ' on' : val === 2 ? ' feeling' : '');
     if (val === 1 && prev !== 1) {
-      playGomodeSound();
       if (SETTINGS.gomodeSparksEnabled) startGomodeSparks();
       if (SETTINGS.itemAnimEnabled && !_animSuppressNext) {
         queueItemAnim('gomode', imgSrc('gomode', 1), 'Go Mode !!');
@@ -1181,7 +1588,8 @@ function updateItem(key, val) {
     if (key === 'boomerang') {
       var gotBlue = (val & 1) && !(prevApplied & 1);
       var gotRed  = (val & 2) && !(prevApplied & 2);
-      animLabel = gotRed && !gotBlue ? 'Red Boomerang' : 'Blue Boomerang';
+      var _boomRed = gotRed && !gotBlue;
+      animLabel = _boomRed ? 'Red Boomerang' : 'Blue Boomerang';
     }
     if (val >= 1 && TIERED_ITEM_NAMES[key] && TIERED_ITEM_NAMES[key][val]) {
       animLabel = TIERED_ITEM_NAMES[key][val];
@@ -1191,11 +1599,13 @@ function updateItem(key, val) {
     if (key === 'gomode') {
       animLabel = val === 2 ? 'Go Mode Feeling!' : 'Go Mode!';
     }
-    queueItemAnim(key, imgSrc(key, val), animLabel);
-    // Per-item collect sound (not for bomb)
-    playItemSound(key, val);
+    // A boomerang animates with the one just found (boomerang1 / boomerang2),
+    // as its square shows it (Chris, Oct 2026).
+    var animSrc = key === 'boomerang' ? BASE + '/' + (_boomRed ? 'boomerang2' : 'boomerang1') + '.png' : imgSrc(key, val);
+    queueItemAnim(key, animSrc, animLabel);
   }
 
+  if (key === 'boomerang') { paintBoom(); return; }
   // Update fill — bottles key fill on parent container; combo sub-items each have their own container
   if (key === 'bottle1' || key === 'bottle2' || key === 'bottle3' || key === 'bottle4') {
     var anyBottle = ['bottle1','bottle2','bottle3','bottle4'].some(function(b){ return (state[b]||0) > 0; });
@@ -1324,7 +1734,6 @@ function applySnap(snap) {
       // Animate when the big key is newly obtained (not on the startup seed).
       if (bigkey && !prevBigkey && !_animSuppressNext && SETTINGS.itemAnimEnabled && SETTINGS.bigKeyAnimEnabled) {
         queueItemAnim('_bigkey_' + key, BASE + '/bigkey1.png', (DUNGEON_NAMES[key] || key.toUpperCase()) + ' Big Key');
-        playItemSound('bigkey');
       }
     }
     if (mapState     !== undefined && mapState     !== cache.map)     {
@@ -1332,7 +1741,6 @@ function applySnap(snap) {
       d.map.src     = BASE+'/map'     + (mapState     ? '1' : '0') + '.png'; cache.map     = mapState;
       if (mapState && !prevMap && !_animSuppressNext && SETTINGS.itemAnimEnabled && SETTINGS.mapAnimEnabled) {
         queueItemAnim('_map_' + key, BASE + '/map1.png', (DUNGEON_NAMES[key] || key.toUpperCase()) + ' Map');
-        playItemSound('map');
       }
     }
     if (compassState !== undefined && compassState !== cache.compass) {
@@ -1340,7 +1748,6 @@ function applySnap(snap) {
       d.compass.src = BASE+'/compass' + (compassState ? '1' : '0') + '.png'; cache.compass = compassState;
       if (compassState && !prevCompass && !_animSuppressNext && SETTINGS.itemAnimEnabled && SETTINGS.compassAnimEnabled) {
         queueItemAnim('_compass_' + key, BASE + '/compass1.png', (DUNGEON_NAMES[key] || key.toUpperCase()) + ' Compass');
-        playItemSound('compass');
       }
     }
     // Update the prize image only if the snap supplied prize info — some snaps
@@ -1384,7 +1791,6 @@ function applySnap(snap) {
     _appliedGtBigKey = snap.gtBigKey;
     if (snap.gtBigKey && !prevGtBk && !_animSuppressNext && SETTINGS.itemAnimEnabled && SETTINGS.bigKeyAnimEnabled) {
       queueItemAnim('_bigkey_gt', BASE + '/bigkey1.png', "Ganon's Tower Big Key");
-      playItemSound('bigkey');
     }
   }
 
@@ -1395,10 +1801,13 @@ function applySnap(snap) {
 }
 
 function resetAll() {
+  if (typeof _dc !== 'undefined') { _dc.card = null; updateDngCycle(); }   // new game: no dungeon card
   abortItemAnim();
   stopGomodeSparks();
   Object.keys(state).forEach(function(k){state[k]=0;});
   maxState = {};
+  _rvPrizes = {};
+  Object.keys(_bcastLastSnap).forEach(function(k){ delete _bcastLastSnap[k]; });   // Modern v2: no stale dungeon counts
   _animSuppressNext = true;      // next snap is the post-reset seed, not a new collect
   // Force every diff guard to "unknown" so resetAll cleanly re-writes every slot.
   _appliedItemState    = {};
@@ -1501,6 +1910,7 @@ function queueItemAnim(key, imgSrcUrl, label) {
   // pending items so we only show the most recent ones.
   if (_animQueue.length >= 3) _animQueue = _animQueue.slice(-2);
   _animQueue.push({ key: key, src: imgSrcUrl, label: label || '' });
+  if (typeof dngShowItems === 'function') dngShowItems();
   if (!_animRunning) _nextAnim();
 }
 
@@ -1539,10 +1949,10 @@ function _playItemAnim(src, label, done) {
   var canvas    = document.getElementById('item-anim-canvas');
   var container = document.querySelector('.broadcast-container');
 
-  // Clip overlay to stop above the bottom bar so it stays visible
+  // Start the overlay below the top bar so the bar stays visible
   var bar = document.querySelector('.bbg-bar');
   var barH = bar ? bar.getBoundingClientRect().height : 0;
-  overlay.style.bottom = barH + 'px';
+  overlay.style.top = barH + 'px';
 
   var overlayH = window.innerHeight - barH;
   canvas.width  = window.innerWidth;
@@ -2031,48 +2441,7 @@ function _hexToRgba(hex, alpha) {
   return 'rgba('+r+','+g+','+b+','+alpha.toFixed(3)+')';
 }
 
-// ── Per-item sounds ───────────────────────────────────────────────────────
-function playItemSound(key, val) {
-  if (RACE_MODE) return; // Race Mode: no item collect sounds.
-  try {
-    // Check level-specific sound first (e.g. 'sword-2' for Master Sword),
-    // then fall back to the base key sound (e.g. 'sword' for any sword).
-    // Sound profiles: profile 1 uses the original unprefixed keys, 2 and 3
-    // prefix theirs (see bcast-sounds.html). Read fresh each time so switching
-    // profiles takes effect without reopening the broadcast view.
-    var _p = parseInt(localStorage.getItem('alttp-sound-profile') || '1', 10);
-    if (_p === 5) return;                       // "No Sounds" profile
-    var _pre = 'alttp-item-sound-' + ((_p >= 2 && _p <= 4) ? 'p' + _p + '-' : '');
-    // Which entry answered matters now: the volume lives beside that sound.
-    var _sk = (val !== undefined && localStorage.getItem(_pre + key + '-' + val))
-            ? (_pre + key + '-' + val) : (_pre + key);
-    var dataUrl = localStorage.getItem(_sk);
-    if (!dataUrl) return;
-    var a = new Audio(dataUrl);
-    a.volume = soundVolume(_sk);
-    a.play().catch(function() {});
-  } catch(e) {}
-}
-
-function openItemSounds() {
-  if (RACE_MODE) return; // disabled in Race Mode
-  if (window.electronAPI && window.electronAPI.openBcastSounds) {
-    window.electronAPI.openBcastSounds();
-  } else {
-    window.open('bcast-sounds.html', 'alttp-bcast-sounds', 'width=480,height=620,resizable=yes');
-  }
-}
-
-// Open the broadcast settings popout (Electron native window, or a browser
-// window as fallback). The popout writes SETTINGS to localStorage and pings
-// this view via the 'bcast-settings-changed' BroadcastChannel message.
-function openSettingsPopout() {
-  if (window.electronAPI && window.electronAPI.openBcastSettings) {
-    window.electronAPI.openBcastSettings();
-  } else {
-    window.open('bcast-settings.html', 'alttp-bcast-settings', 'width=440,height=820,resizable=yes,scrollbars=yes');
-  }
-}
+// Broadcast settings: Item Tracker → Settings → Broadcast tab.
 
 // Reflect Race Mode in the UI: disable the Item Sounds button when racing.
 function updateRaceModeUI() {
@@ -2128,7 +2497,9 @@ function applyAllSettings() {
     applyDungeonBox();
     applyDungeonVisibility();
     refreshAllFills();
-    if (SETTINGS.viewStyle !== prevViewStyle) rebuildRows();
+    if (SETTINGS.viewStyle !== prevViewStyle) { rebuildRows(); _applyBcastScale(); }
+    renderV2View();   // Modern v2's dungeon fill follows the same settings
+    updateDngCycle();
   } catch (e) { console.error('applyAllSettings error:', e); }
 }
 
@@ -2288,16 +2659,123 @@ function stopGomodeSparks() {
   }
 }
 
+// ── Dungeon card cycle ──────────────────────────────────────────────────────
+// While Link is in a dungeon (snap.dungeonCard, the announce overlay's card),
+// swap the view between the items and the card every N seconds, card first.
+// Off outside dungeons, or with Broadcast Settings → Dungeon Card unticked.
+var DC_NAMES = { hc: 'Hyrule Castle', ct: "Agahnim's Tower", ep: 'Eastern Palace', dp: 'Desert Palace',
+  toh: 'Tower of Hera', pod: 'Palace of Darkness', sp: 'Swamp Palace', sw: 'Skull Woods', tt: "Thieves' Town",
+  ip: 'Ice Palace', mm: 'Misery Mire', tr: 'Turtle Rock', gt: "Ganon's Tower" };
+var _dc = { card: null, floor: null, timer: null, id: null };
+function dcCount(file, n, max) {
+  var full = max !== '?' && max > 0 && n >= max;
+  return '<span class="dc-i"><img src="' + BASE + '/' + file + '.png"><span' + (full ? ' class="full"' : '') + '>' + n + '/' + max + '</span></span>';
+}
+function dcIcon(file, got) {
+  return got === null ? '' : '<span class="dc-i' + (got ? '' : ' dim') + '"><img src="' + BASE + '/' + file + '.png"></span>';
+}
+function renderDngCard() {
+  var c = _dc.card, el = document.getElementById('dng-card');
+  if (!c || !el) return;
+  var h = '<div class="dc-name">' + (DC_NAMES[c.id] || c.id.toUpperCase()) +
+          (_dc.floor ? '<span class="dc-floor">' + _dc.floor + '</span>' : '') +
+          (c.prize ? dcIcon(c.prize + (c.prizeGot ? '1' : '0'), true) : '') + '</div><div class="dc-row">';
+  h += dcCount('chest0', c.chests, c.maxChests);
+  if (c.maxKeys === '?' || c.maxKeys > 0) h += dcCount('smallkey0', c.keys, c.maxKeys);
+  h += dcIcon('map' + (c.map ? 1 : 0), c.map) + dcIcon('compass' + (c.compass ? 1 : 0), c.compass) +
+       dcIcon('bigkey' + (c.bigKey ? 1 : 0), c.bigKey);   // the grey …0 pictures when missing, as announce does
+  if (c.bossBeaten !== null && c.bossBeaten !== undefined) {
+    h += '<div class="dc-boss' + (c.bossBeaten ? ' beaten' : '') + '">' +
+         (c.bossNum !== null && c.bossNum !== undefined ? '<img src="' + BASE.replace(/items$/, 'boss') + '/boss' + c.bossNum + '.png">' : '') +
+         (c.boss || 'Boss') + (c.bossBeaten ? ' ✓' : '') + '</div>';
+  }
+  el.innerHTML = h + '</div>';
+  placeDngCard();
+}
+// Where the card goes. Over the dungeons: Modern v2's dungeon boxes, otherwise
+// the last row with anything in it (Modern: the dungeons; Classic: PoD to TR
+// and GO). Over the items (Broadcast Settings → Dungeon Card, Chris, Oct 2026):
+// Modern v2's two item rows, otherwise every row above that last one.
+function dngArea() {
+  var items = SETTINGS.dngCardOver === 'items';
+  if (SETTINGS.viewStyle === 'v2') return [].slice.call(document.querySelectorAll(items ? '.rv .rv-row' : '.rv-dngs'));
+  var rows = [].filter.call(document.querySelectorAll('.broadcast-container .bcast-row'), function (r) { return r.children.length; });
+  return items ? rows.slice(0, -1) : rows.slice(-1);
+}
+// Put the card over that area and size its text to fill it.
+function placeDngCard() {
+  var el = document.getElementById('dng-card'), a = dngArea();
+  document.querySelectorAll('.dng-area').forEach(function (x) { if (a.indexOf(x) === -1) x.classList.remove('dng-area'); });
+  if (!el || !a.length || !document.body.classList.contains('dng-phase')) return;
+  a.forEach(function (x) { x.classList.add('dng-area'); });
+  var rs = a.map(function (x) { return x.getBoundingClientRect(); });
+  var top = Math.min.apply(null, rs.map(function (q) { return q.top; })), bot = Math.max.apply(null, rs.map(function (q) { return q.bottom; }));
+  var lft = Math.min.apply(null, rs.map(function (q) { return q.left; })), rgt = Math.max.apply(null, rs.map(function (q) { return q.right; }));
+  var r = { left: lft, top: top, width: rgt - lft, height: bot - top };
+  var f = r.height / 3.4;   // two lines: the name (1.1em, its prize 1.5em) and the icons (1.5em)
+  el.style.fontSize = f + 'px'; el.style.width = 'max-content';
+  var need = el.offsetWidth;   // the card's natural width at that size
+  if (need > r.width * 0.96) el.style.fontSize = (f * r.width * 0.96 / need) + 'px';
+  el.style.left = r.left + 'px'; el.style.top = r.top + 'px'; el.style.width = r.width + 'px'; el.style.height = r.height + 'px';
+}
+window.addEventListener('resize', placeDngCard);
+// Card first, then items/card for their own times (Broadcast Settings → Dungeon Card).
+function updateDngCycle() {
+  var c = _dc.card;
+  // Hyrule Castle is walked through all game long; once its chests are all
+  // found, the card has nothing left to say there (Chris, Oct 2026).
+  var hcDone = c && c.id === 'hc' && c.maxChests !== '?' && c.maxChests > 0 && c.chests >= c.maxChests;
+  var on = SETTINGS.dngCycleEnabled && !!c && !hcDone;
+  if (!on || _dc.card.id !== _dc.id) {   // stop, or start over in a new dungeon
+    clearTimeout(_dc.timer); _dc.timer = null;
+    document.body.classList.remove('dng-phase');
+  }
+  if (!on) { _dc.id = null; return; }
+  renderDngCard();
+  if (!_dc.timer) { _dc.id = _dc.card.id; dngPhase(true); }
+}
+function dngPhase(card) {
+  clearTimeout(_dc.timer);
+  document.body.classList.toggle('dng-phase', card);
+  placeDngCard();
+  var secs = card ? SETTINGS.dngCardSecs : SETTINGS.dngItemsSecs;
+  _dc.timer = setTimeout(function () { dngPhase(!card); }, Math.max(1, secs || (card ? 5 : 10)) * 1000);
+}
+// An item animation: back to the items, with their full time (Chris, Oct 2026).
+function dngShowItems() { if (_dc.timer) dngPhase(false); }
+
+// Modern v2: repaint after every snapshot and prize update. Wrapped once here
+// so every caller of applySnap / applyPrizes is covered.
+(function () {
+  var _snap = applySnap, _prizes = applyPrizes;
+  applySnap = function (s) {
+    _snap(s); renderV2View();
+    if (s && 'dungeonCard' in s) { _dc.card = s.dungeonCard || null; _dc.floor = s.currentFloor || null; updateDngCycle(); }
+  };
+  applyPrizes = function (p) {
+    if (p) Object.keys(p).forEach(function (k) { _rvPrizes[k] = p[k]; });
+    _prizes(p); renderV2View();
+  };
+})();
+
 // ── Broadcast scale ──────────────────────────────────────────────────────
 var _bcastScale = parseInt(localStorage.getItem('bcast-scale') || '100', 10);
 function _applyBcastScale() {
   var el = document.querySelector('.broadcast-container');
   if (!el) return;
   el.style.transformOrigin = 'top left';
+  // Modern v2 sizes itself (fitV2View, with its own −/+ scale), so no transform here.
+  if (SETTINGS.viewStyle === 'v2') { el.style.transform = ''; return; }
   el.style.transform = (_bcastScale === 100) ? '' : 'scale(' + (_bcastScale / 100).toFixed(2) + ')';
 }
-function bcastSizeDown() { _bcastScale = Math.max(10, _bcastScale - 2); localStorage.setItem('bcast-scale', _bcastScale); _applyBcastScale(); }
-function bcastSizeUp()   { _bcastScale = Math.min(300, _bcastScale + 2); localStorage.setItem('bcast-scale', _bcastScale); _applyBcastScale(); }
+function bcastSizeDown() {
+  if (SETTINGS.viewStyle === 'v2') { _v2Scale = Math.max(30, _v2Scale - 2); localStorage.setItem('bcast-v2-scale', _v2Scale); fitV2View(); return; }
+  _bcastScale = Math.max(10, _bcastScale - 2); localStorage.setItem('bcast-scale', _bcastScale); _applyBcastScale();
+}
+function bcastSizeUp() {
+  if (SETTINGS.viewStyle === 'v2') { _v2Scale = Math.min(300, _v2Scale + 2); localStorage.setItem('bcast-v2-scale', _v2Scale); fitV2View(); return; }
+  _bcastScale = Math.min(300, _bcastScale + 2); localStorage.setItem('bcast-scale', _bcastScale); _applyBcastScale();
+}
 
 // ── Init ─────────────────────────────────────────────────────────────────
 function _init() {

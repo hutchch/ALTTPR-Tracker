@@ -69,6 +69,13 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer;
 }
 .mini-launch:hover { background: #3b7cf0; }
+/* Auto Entrance, to the right of Entrance Shuffle where OnlyADKD used to be.
+   Its name runs to two lines. Not race legal: Race Mode turns it off and locks it. */
+.autotrack-group { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.autotrack-text { font-size: 10px; color: #aaa; line-height: 1.1; text-align: right; white-space: nowrap; }
+.autotrack-sub { display: block; font-size: 9px; color: #d08a4a; }
+.autotrack-group.locked { opacity: .4; }
+.autotrack-group.locked .toggle-slider { cursor: not-allowed; }
 /* Toggle rows use a narrower label column than the dropdown rows above — they
    sit beside the Preset panel, so 152px would squeeze it. 96px clears the
    longest label ("Entrance Shuffle" at ~88.5px) and lines every slider up. */
@@ -356,6 +363,23 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
 }
 #apply-patch-btn:hover { background: #24402a; }
 #apply-patch-btn:disabled { opacity: 0.5; cursor: default; }
+#sni-restart-btn {
+  margin-left: auto; padding: 4px 10px; font-size: 11px; cursor: pointer;
+  background: #1a2e4a; color: #7ab8f5; border: 1px solid #2a4e7a; border-radius: 4px;
+}
+#sni-restart-btn:hover { background: #2a4a6a; }
+#sni-restart-btn:disabled { opacity: 0.5; cursor: default; }
+/* SNI status along the bottom of the launcher */
+#sni-bar {
+  display: none; position: fixed; left: 0; right: 0; bottom: 0; height: 22px;
+  align-items: center; gap: 6px; padding: 0 12px; box-sizing: border-box;
+  background: #0d0d0d; border-top: 1px solid #222; font-size: 11px; color: #888;
+}
+#sni-bar.visible { display: flex; }
+#sni-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+#sni-bar.ok .dot   { background: #4dff88; }
+#sni-bar.bad .dot  { background: #ff5555; }
+#sni-bar.busy .dot { background: #f39c12; }
 /* Two buttons share the row now — keep each label on one line. */
 #check-update-btn, #apply-patch-btn { white-space: nowrap; padding: 6px 6px; font-size: 11px; }
 #update-panel-status {
@@ -427,6 +451,12 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
     <input id="ws-port" type="text" value="23074" placeholder="23074">
   </div>
   <div class="app-settings-info">QUSB2SNES / SNI — default port 23074</div>
+  <div class="app-settings-row" id="sni-row" style="display:none">
+    <label>Start SNI</label>
+    <input id="sni-autostart" type="checkbox" checked>
+    <button id="sni-restart-btn" type="button" title="Close SNI and start it again">↻ Restart SNI</button>
+  </div>
+  <div class="app-settings-info" id="sni-status"></div>
 
   <hr class="app-settings-divider">
   <div class="app-settings-section-label">Items API</div>
@@ -453,6 +483,8 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   </div>
 </div>
 
+<!-- SNI status along the bottom (fixed) -->
+<div id="sni-bar"><span class="dot"></span><span id="sni-bar-msg"></span></div>
 <!-- Update notification bar (shown when update available/ready) -->
 <div id="update-bar">
   <span id="update-bar-msg">Checking for updates…</span>
@@ -669,9 +701,13 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
       <span class="toggle-slider"></span>
       </label>
       <span class="toggle-label-text" id="entranceshuffle-toggle-label">No</span>
-      <button type="button" id="onlyadkd-launch" class="mini-launch"
-              onclick="launchOnlyAdkd()"
-              title="Set every OnlyADKD option and open the Item Tracker and Map">OnlyADKD</button>
+      <span class="autotrack-group" title="Marks entrances on the map as you go through them. Not race legal: Race Mode turns it off.">
+      <span class="autotrack-text">Auto Entrance<span class="autotrack-sub">Not Race Legal</span></span>
+      <label class="toggle-switch">
+      <input type="checkbox" id="entautotrack-toggle">
+      <span class="toggle-slider"></span>
+      </label>
+      </span>
       </div>
       <div class="row toggle-row">
       <label>Boss Shuffle</label>
@@ -680,6 +716,9 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
       <span class="toggle-slider"></span>
       </label>
       <span class="toggle-label-text" id="bossshuffle-toggle-label">Yes</span>
+      <button type="button" id="onlyadkd-launch" class="mini-launch"
+              onclick="launchOnlyAdkd()"
+              title="Set every OnlyADKD option and open the Item Tracker and Map">OnlyADKD</button>
       </div>
       <div class="row toggle-row">
       <label>Enemizer</label>
@@ -833,6 +872,51 @@ var IS_ELECTRON = !!(window.electronAPI && window.electronAPI.isElectron);
   }).catch(function() { /* keep the fallback text */ });
 })();
 
+// ── Bundled SNI (main.js starts it; this is the switch and a status line) ────
+(function () {
+  var api = window.electronAPI;
+  if (!api || !api.sniStatus) return;
+  var row = document.getElementById('sni-row'), box = document.getElementById('sni-autostart'),
+      msg = document.getElementById('sni-status');
+  var btn = document.getElementById('sni-restart-btn'),
+      bar = document.getElementById('sni-bar'), barMsg = document.getElementById('sni-bar-msg');
+  var busy = false;
+  function setBar(cls, text) { bar.className = 'visible ' + cls; barMsg.textContent = text; }
+  function show(st) {
+    row.style.display = '';
+    box.checked = !!st.autoStart;
+    btn.disabled = busy || !st.bundled;
+    msg.textContent = !st.bundled ? 'SNI is not included in this build.'
+      : st.ours ? 'Built-in SNI is running.'
+      : st.listening ? 'Using the SNI / QUsb2Snes already running.'
+      : st.autoStart ? 'Built-in SNI is not running.' : 'Built-in SNI is off.';
+    if (busy) return;
+    // The bar answers "can the trackers connect?" — anything on 23074 will do.
+    if (st.ours && st.listening)  setBar('ok', 'SNI: running (built-in) — port 23074');
+    else if (st.ours)             setBar('busy', 'SNI: starting…');
+    else if (st.listening)        setBar('ok', 'SNI / QUsb2Snes: running (your own) — port 23074');
+    else if (!st.bundled)         setBar('bad', 'SNI: not running — start SNI or QUsb2Snes');
+    else if (st.autoStart)        setBar('bad', 'SNI: not running — App Settings → Restart SNI');
+    else                          setBar('', 'SNI: off (App Settings → Start SNI)');
+  }
+  function refresh() { Promise.resolve(api.sniStatus()).then(show).catch(function () {}); }
+  box.addEventListener('change', function () {
+    Promise.resolve(api.sniSetAutoStart(box.checked)).then(function () { setTimeout(refresh, 800); });
+  });
+  btn.addEventListener('click', function () {
+    if (busy || !api.sniRestart) return;
+    busy = true; btn.disabled = true; setBar('busy', 'SNI: restarting…');
+    Promise.resolve(api.sniRestart()).then(function (r) {
+      busy = false;
+      if (r && !r.ok) { setBar('bad', 'SNI: ' + (r.error || 'restart failed')); btn.disabled = false; setTimeout(refresh, 4000); }
+      else setTimeout(refresh, 800);
+    }).catch(function () { busy = false; refresh(); });
+  });
+  refresh();
+  setTimeout(refresh, 1500);   // main starts it alongside this window
+  setInterval(refresh, 5000);  // keep the bottom bar current (SNI closed from its tray, etc.)
+})();
+
 // Wire a checkbox-toggle to its adjacent Yes/No text label.
 function wireToggleLabel(toggleId, labelId) {
   var toggle = document.getElementById(toggleId);
@@ -842,9 +926,34 @@ function wireToggleLabel(toggleId, labelId) {
   toggle.addEventListener('change', sync);
   sync();
 }
-['entranceshuffle','bossshuffle','enemizer','universalkeys','keydropall','keydrop','enemykeydrop','swordless','pseudoboots','mirrorscroll','shopsanity','bonkshuffle','racemode'].forEach(function(name) {
+['entranceshuffle','bossshuffle','enemizer','universalkeys','keydropall','keydrop','enemykeydrop','swordless','pseudoboots','mirrorscroll','shopsanity','bonkshuffle','racemode','entautotrack'].forEach(function(name) {
   wireToggleLabel(name + '-toggle', name + '-toggle-label');
 });
+
+// Entrance Autotrack isn't race legal: Race Mode forces it off and locks it.
+function syncAutotrackLock() {
+  var rm = document.getElementById('racemode-toggle');
+  var at = document.getElementById('entautotrack-toggle');
+  if (!rm || !at) return;
+  var race = rm.checked;
+  if (race) at.checked = false;
+  at.disabled = race;
+  var g = at.closest('.autotrack-group');
+  if (g) g.classList.toggle('locked', race);
+  // Only shown while Entrance Shuffle is on; off whenever it's hidden.
+  var es = document.getElementById('entranceshuffle-toggle');
+  var esOn = !!(es && es.checked);
+  if (!esOn) at.checked = false;
+  if (g) g.style.display = esOn ? '' : 'none';
+  var l = document.getElementById('entautotrack-toggle-label');
+  if (l) l.textContent = at.checked ? 'Yes' : 'No';
+}
+(function () {
+  var rm = document.getElementById('racemode-toggle');
+  if (rm) rm.addEventListener('change', syncAutotrackLock);
+  var es = document.getElementById('entranceshuffle-toggle');
+  if (es) es.addEventListener('change', syncAutotrackLock);
+})();
 
 // ── Seed link → settings ──────────────────────────────────────────────────────
 // Reads a seed's metadata from alttpr.com and fills in the settings form. It
@@ -928,7 +1037,7 @@ function parseSeedSource(raw) {
 // Second entry per item is the file in items/, or null where we have no
 // picture — those fall back to their name.
 var HASH_ICONS = [
-  ['Bow','bow02.png'],            ['Boomerang','boomerang10.png'],
+  ['Bow','bow02.png'],            ['Boomerang','boomerang1.png'], 
   ['Hookshot','hookshot1.png'],   ['Bomb','bomb10.png'],
   ['Mushroom','mushroom1.png'],   ['Powder','powder10.png'],
   ['Ice Rod','icerod1.png'],      ['Green Pendant','greenpendant1.png'],
@@ -1154,7 +1263,16 @@ function doorMetaToAlttpr(g) {
   return m;
 }
 
+// Auto Entrance is off unless the player turns it on for this run: the launcher
+// opens with it off, and reading a seed or applying a preset turns it off again
+// (Chris, Oct 2026 — a new seed's settings kept it on).
+function autotrackOff() {
+  var at = document.getElementById('entautotrack-toggle');
+  if (at) at.checked = false;
+}
+
 function applySeedMeta(meta) {
+  autotrackOff();
   var applied = [], skipped = [];
 
   // Dungeon Item Shuffle — translated through DUNGEON_ITEMS_MAP.
@@ -1353,11 +1471,12 @@ function applySeedMeta(meta) {
   }
 
   // Re-sync the Yes/No labels and persist, same as applyPresetSettings does.
-  ['entranceshuffle','bossshuffle','enemizer','universalkeys','keydropall','keydrop','enemykeydrop','swordless','pseudoboots','mirrorscroll','shopsanity','bonkshuffle','racemode'].forEach(function(name) {
+  ['entranceshuffle','bossshuffle','enemizer','universalkeys','keydropall','keydrop','enemykeydrop','swordless','pseudoboots','mirrorscroll','shopsanity','bonkshuffle','racemode','entautotrack'].forEach(function(name) {
     var t = document.getElementById(name + '-toggle');
     var l = document.getElementById(name + '-toggle-label');
     if (t && l) l.textContent = t.checked ? 'Yes' : 'No';
   });
+  syncAutotrackLock();
   // The Other Settings button shows a summary of the boxes inside its panel,
   // and that summary is driven by their `change` events — which don't fire when
   // the boxes are set from code. applyPresetSettings already calls this; a seed
@@ -1536,6 +1655,7 @@ function getSettings() {
     doorShuffle: doorShuffleValue(),
     entranceShuffle: esToggle && esToggle.checked ? 'on' : 'none',
     raceMode:   document.getElementById('racemode-toggle') && document.getElementById('racemode-toggle').checked ? 'yes' : 'no',
+    entAutotrack: document.getElementById('entautotrack-toggle') && document.getElementById('entautotrack-toggle').checked && !(document.getElementById('racemode-toggle') || {}).checked ? 'yes' : 'no',
     apiEnabled: document.getElementById('api-enabled') && document.getElementById('api-enabled').checked ? 'yes' : 'no',
     apiHost:    document.getElementById('api-host') ? (document.getElementById('api-host').value || '127.0.0.1') : '127.0.0.1',
     apiPort:    document.getElementById('api-port') ? (document.getElementById('api-port').value || '8720') : '8720',
@@ -1582,6 +1702,7 @@ function save() {
   localStorage.setItem('alttp-entrance-shuffle', s.entranceShuffle === 'none' ? 'no' : 'yes');
   localStorage.setItem('alttp-entrance-shuffle-mode', s.entranceShuffle);
   localStorage.setItem('alttp-race-mode', s.raceMode);
+  localStorage.setItem('alttp-ent-autotrack', s.entAutotrack);
   localStorage.setItem('alttp-api-enabled', s.apiEnabled);
   localStorage.setItem('alttp-api-host', s.apiHost);
   localStorage.setItem('alttp-api-port', s.apiPort);
@@ -1842,11 +1963,12 @@ window.addEventListener('DOMContentLoaded', async function() {
   if (esToggleEl) esToggleEl.checked = (esVal !== 'none');
 
   // Re-sync the Yes/No text labels now that toggle states were restored.
-  ['entranceshuffle','bossshuffle','enemizer','universalkeys','keydropall','keydrop','enemykeydrop','swordless','pseudoboots','mirrorscroll','shopsanity','bonkshuffle','racemode'].forEach(function(name) {
+  ['entranceshuffle','bossshuffle','enemizer','universalkeys','keydropall','keydrop','enemykeydrop','swordless','pseudoboots','mirrorscroll','shopsanity','bonkshuffle','racemode','entautotrack'].forEach(function(name) {
     var t = document.getElementById(name + '-toggle');
     var l = document.getElementById(name + '-toggle-label');
     if (t && l) l.textContent = t.checked ? 'Yes' : 'No';
   });
+  syncAutotrackLock();
 
   updateOtherSettingsSummary();
 
@@ -2025,7 +2147,7 @@ document.addEventListener('click', function(e) {
   var panelStatus = document.getElementById('update-panel-status');
   var checkBtn   = document.getElementById('check-update-btn');
 
-  function setBar(msg, type, showInstall) {
+  function setBar(msg, type, showInstall, label, onClick) {
     bar.className = 'visible' + (type === 'error' ? ' error' : '');
     barMsg.textContent = msg;
     // Remove any existing install button
@@ -2034,10 +2156,22 @@ document.addEventListener('click', function(e) {
     if (showInstall) {
       var btn = document.createElement('button');
       btn.id = 'install-update-btn';
-      btn.textContent = '↓ Download';
-      btn.onclick = function() { window.electronAPI.installUpdate(); };
+      btn.textContent = label || '↓ Download';
+      btn.onclick = onClick || function() { window.electronAPI.installUpdate(); };
       bar.appendChild(btn);
     }
+  }
+
+  // A signed patch from the patch repo: main.js downloads, checks and applies it.
+  function installPatch() {
+    var b = document.getElementById('install-update-btn');
+    if (b) { b.disabled = true; b.textContent = 'Installing…'; }
+    window.electronAPI.installPatch().then(function (r) {
+      if (b) { b.disabled = false; b.textContent = '↓ Install'; }
+      if (!r || r.canceled) return;
+      if (!r.ok) { setBar(r.error, 'error', false); return; }
+      setBar(r.upToDate ? 'Already up to date.' : 'Patch installed — restart to load it.', 'info', false);
+    }, function (e) { setBar('Patch failed: ' + e, 'error', false); });
   }
 
   function hideBar() {
@@ -2060,6 +2194,12 @@ document.addEventListener('click', function(e) {
     else if (status === 'up-to-date') {
       hideBar();
       setPanelStatus('You\'re up to date.', '#4dff88');
+      checkBtn.disabled = false;
+    }
+    else if (status === 'patch-available' && window.electronAPI.installPatch) {
+      var pv = info && info.version ? ' ' + info.version : '';
+      setBar('Patch' + pv + ' available' + (info && info.notes ? ' — ' + info.notes : '') + '.', 'info', true, '↓ Install', installPatch);
+      setPanelStatus('Patch' + pv + ' available.', '#7ab8f5');
       checkBtn.disabled = false;
     }
     else if (status === 'available') {
@@ -2759,6 +2899,7 @@ function dshufWire() {
 // Apply a settings object to the actual form controls on the page.
 function applyPresetSettings(cfg) {
   if (!cfg) return;
+  autotrackOff();
   var disel = document.getElementById('dungeonitems-select');
   if (disel && cfg.dungeonItems !== undefined) {
     disel.value = cfg.dungeonItems;
@@ -2819,11 +2960,12 @@ function applyPresetSettings(cfg) {
   if (dsSel) dsSel.value = cfg.doorShuffle || 'none';   // same rule: unnamed means off
 
   // Re-sync the Yes/No text labels and persist the now-applied settings.
-  ['entranceshuffle','bossshuffle','enemizer','universalkeys','keydropall','keydrop','enemykeydrop','swordless','pseudoboots','mirrorscroll','shopsanity','bonkshuffle','racemode'].forEach(function(name) {
+  ['entranceshuffle','bossshuffle','enemizer','universalkeys','keydropall','keydrop','enemykeydrop','swordless','pseudoboots','mirrorscroll','shopsanity','bonkshuffle','racemode','entautotrack'].forEach(function(name) {
     var t = document.getElementById(name + '-toggle');
     var l = document.getElementById(name + '-toggle-label');
     if (t && l) l.textContent = t.checked ? 'Yes' : 'No';
   });
+  syncAutotrackLock();
   // The Other Settings popup has its own derived state — the dimming of the two
   // key-drop halves under the master, and the summary line that reports what is
   // on without opening it. Neither redraws itself, so a preset that changes a
