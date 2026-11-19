@@ -126,7 +126,7 @@ let previousSRAM = null;
 // Bumped with every change to this file, relayed in the broadcast snapshot so
 // the map's gear menu can show which build the ITEM TRACKER is running — the
 // two windows are packaged together but reload independently.
-window.ITEMS_BUILD = '1136j';
+window.ITEMS_BUILD = '1159k';
 let _bombClearTimer = null; // debounce: only clear bombs after sustained 0 reading
 
 const items = {

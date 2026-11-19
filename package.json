@@ -44,7 +44,7 @@
       "bcast-sounds.html",
       "itemtracker-settings.html",
       "mobile.html",
-      "announce/**/*",
+      "patch-public-key.pem",
       "entrances_data.json",
       "onlyadkd.json",
       "logic/**/*",
