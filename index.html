@@ -269,6 +269,10 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
   box-shadow: 0 6px 18px rgba(0,0,0,0.7);
 }
 #other-settings-panel.open { display: block; }
+/* At least as wide as its button, wider when a row needs it: "Master Sword
+   Pedestal" in the Goal list ran 24px past the edge (Nov 2026). It floats over
+   the next column, so the extra width costs nothing. */
+#other-settings-panel { right: auto; min-width: 100%; width: max-content; box-sizing: border-box; }
 #other-settings-panel .check-row { display: flex; margin: 5px 0; }
 /* Key Drop covers both halves, so the two specific flags are disabled while it
    is on — dimmed rather than hidden, so it's clear what it stands for. */
@@ -659,6 +663,19 @@ input:focus, select:focus { outline: none; border-color: #4dff88; }
       <span id="other-settings-summary">None</span><span class="osb-caret">&#9660;</span>
       </button>
       <div id="other-settings-panel">
+      <label class="check-row select-row">
+      <span>Goal</span>
+      <select id="goal-select">
+      <option value="ganon" selected>Defeat Ganon</option>
+      <option value="pedestal">Master Sword Pedestal</option>
+      <option value="dungeons">All Dungeons</option>
+      <option value="triforcehunt">Triforce Hunt</option>
+      <option value="trinity">Trinity</option>
+      <option value="crystals">Crystals</option>
+      <option value="ganonhunt">Ganonhunt</option>
+      <option value="completionist">Completionist</option>
+      </select>
+      </label>
       <label class="check-row">
       <input type="checkbox" id="universalkeys-toggle">
       <span>Universal Keys</span>
@@ -1037,7 +1054,7 @@ function parseSeedSource(raw) {
 // Second entry per item is the file in items/, or null where we have no
 // picture — those fall back to their name.
 var HASH_ICONS = [
-  ['Bow','bow02.png'],            ['Boomerang','boomerang1.png'], 
+  ['Bow','bow11.png'],            ['Boomerang','boomerang1.png'], 
   ['Hookshot','hookshot1.png'],   ['Bomb','bomb10.png'],
   ['Mushroom','mushroom1.png'],   ['Powder','powder10.png'],
   ['Ice Rod','icerod1.png'],      ['Green Pendant','greenpendant1.png'],
@@ -1319,6 +1336,23 @@ function applySeedMeta(meta) {
       applied.push('GT ' + gtStr);
     } else {
       skipped.push('GT requirement "' + gtStr + '"');
+    }
+  }
+
+  // Goal — the alttpr meta token is not confirmed against a real seed yet.
+  // Unknown tokens are reported as skipped, not applied.
+  var GOAL_TOKENS = { ganon: 'ganon', dungeons: 'dungeons', pedestal: 'pedestal',
+    triforce_hunt: 'triforcehunt', triforcehunt: 'triforcehunt', trinity: 'trinity', crystals: 'crystals',
+    ganonhunt: 'ganonhunt', completionist: 'completionist' };
+  var goalTok = metaValue(meta, 'goal');
+  if (goalTok !== undefined && goalTok !== null) {
+    var goalStr = String(goalTok).trim().toLowerCase();
+    var goalSelR = document.getElementById('goal-select');
+    if (goalSelR && GOAL_TOKENS[goalStr]) {
+      goalSelR.value = GOAL_TOKENS[goalStr];
+      applied.push('goal ' + goalSelR.options[goalSelR.selectedIndex].text);
+    } else {
+      skipped.push('goal "' + goalStr + '"');
     }
   }
 
@@ -1621,6 +1655,7 @@ function getSettings() {
     enemizer:   document.getElementById('enemizer-toggle') && document.getElementById('enemizer-toggle').checked ? 'yes' : 'no',
     bossshuffle: document.getElementById('bossshuffle-toggle') && document.getElementById('bossshuffle-toggle').checked ? 'yes' : 'no',
     gtCrystals: document.getElementById('gt-crystals').value || '7',
+    goal:       (document.getElementById('goal-select') || {}).value || 'ganon',
     gamemode:      document.getElementById('gamemode-select') ? document.getElementById('gamemode-select').value : 'standard',
     dungeonItems:  (function () {
       var el = document.getElementById('dungeonitems-select');
@@ -1672,6 +1707,7 @@ function save() {
   localStorage.setItem('alttp-enemizer',    s.enemizer);
   localStorage.setItem('alttp-bossshuffle', s.bossshuffle);
   localStorage.setItem('alttp-gt-crystals', s.gtCrystals);
+  localStorage.setItem('alttp-goal', s.goal);
   localStorage.setItem('alttp-gamemode', s.gamemode);
   localStorage.setItem('alttp-dungeon-items', s.dungeonItems);
   localStorage.setItem('alttp-dungeon-shuffle', s.dungeonShuffle || '');
@@ -1911,6 +1947,9 @@ window.addEventListener('DOMContentLoaded', async function() {
     if (el) el.checked = (v === 'yes');
   });
 
+  // Goal is restored on its own; a preset sets it when applied (applyPresetSettings).
+  var goalSel = document.getElementById('goal-select');
+  if (goalSel) goalSel.value = localStorage.getItem('alttp-goal') || 'ganon';
   var logicVal = saved.logicMode || localStorage.getItem('alttp-logic-mode') || 'noglitches';
   var logicSel = document.getElementById('logicmode-select');
   if (logicSel) logicSel.value = logicVal;
@@ -2217,6 +2256,7 @@ var PRESET_STORAGE_KEY = 'alttp-custom-presets'; // { name: settingsObj }
 var BUILTIN_PRESETS = {
   lordseed: {
     label: 'Lord Seed',
+    goal: 'ganon',
     dungeonItems: 'standard',
     gtCrystals: '7',
     gamemode: 'standard',
@@ -2230,6 +2270,7 @@ var BUILTIN_PRESETS = {
   },
   standard: {
     label: 'Standard',
+    goal: 'ganon',
     dungeonItems: 'standard',
     gtCrystals: '7',
     gamemode: 'standard',
@@ -2243,6 +2284,7 @@ var BUILTIN_PRESETS = {
   },
   openstandard: {
     label: 'Open Standard',
+    goal: 'ganon',
     dungeonItems: 'standard',
     gtCrystals: '7',
     gamemode: 'open',
@@ -2256,6 +2298,7 @@ var BUILTIN_PRESETS = {
   },
   standardkeysanity: {
     label: 'Standard KeySanity',
+    goal: 'ganon',
     dungeonItems: 'keysanity',
     gtCrystals: '7',
     gamemode: 'standard',
@@ -2269,6 +2312,7 @@ var BUILTIN_PRESETS = {
   },
   openkeysanity: {
     label: 'Open KeySanity',
+    goal: 'ganon',
     dungeonItems: 'keysanity',
     dungeonShuffle: 'mcbk',
     gtCrystals: '7',
@@ -2284,11 +2328,11 @@ var BUILTIN_PRESETS = {
   // ── Community presets, taken from the reference tracker's own definitions ──
   // Read straight out of its bundle (Sep 2026), so the settings are its, not a
   // guess. Everything it varies that the tracker doesn't model is dropped,
-  // because none of it changes logic or counts: the goal (Ganon / fast Ganon /
-  // All Dungeons / hunts), starting items and assured swords, activated flute,
+  // because none of it changes logic or counts: starting items and assured swords, activated flute,
   // ambrosia, follower and bonk shuffle, door and overworld shuffle.
   cabookey: {
     label: 'Cabookey',
+    goal: 'dungeons',
     dungeonItems: 'keysanity',
     dungeonShuffle: 'mcbk',
     gtCrystals: '7',
@@ -2303,6 +2347,7 @@ var BUILTIN_PRESETS = {
   },
   cabookeydrop: {
     label: 'Cabookeydrop',
+    goal: 'dungeons',
     dungeonItems: 'keysanity',
     dungeonShuffle: 'mcbk',
     gtCrystals: '7',
@@ -2317,6 +2362,7 @@ var BUILTIN_PRESETS = {
   },
   adenemizer: {
     label: 'AD Enemizer',
+    goal: 'dungeons',
     dungeonItems: 'standard',
     dungeonShuffle: '',
     gtCrystals: '7',
@@ -2331,6 +2377,7 @@ var BUILTIN_PRESETS = {
   },
   adkeysanity: {
     label: 'AD Keysanity',
+    goal: 'dungeons',
     dungeonItems: 'keysanity',
     dungeonShuffle: 'mcbk',
     gtCrystals: '7',
@@ -2345,6 +2392,7 @@ var BUILTIN_PRESETS = {
   },
   adkeydropshop: {
     label: 'AD Keydrop Shop',
+    goal: 'dungeons',
     dungeonItems: 'keysanity',
     dungeonShuffle: 'mcbk',
     gtCrystals: '7',
@@ -2360,6 +2408,7 @@ var BUILTIN_PRESETS = {
   },
   open47keys: {
     label: '4/7 Open Keys',
+    goal: 'ganon',
     dungeonItems: 'keysanity',
     dungeonShuffle: 'mcbk',
     gtCrystals: '4',
@@ -2374,6 +2423,7 @@ var BUILTIN_PRESETS = {
   },
   mcshuffle: {
     label: 'MC Shuffle',
+    goal: 'ganon',
     dungeonItems: 'mapcompass',
     dungeonShuffle: 'mc',
     gtCrystals: '7',
@@ -2900,6 +2950,8 @@ function dshufWire() {
 function applyPresetSettings(cfg) {
   if (!cfg) return;
   autotrackOff();
+  var goalEl = document.getElementById('goal-select');
+  if (goalEl && cfg.goal !== undefined) goalEl.value = cfg.goal;   // presets without one leave it alone
   var disel = document.getElementById('dungeonitems-select');
   if (disel && cfg.dungeonItems !== undefined) {
     disel.value = cfg.dungeonItems;
@@ -2997,6 +3049,7 @@ function captureCurrentSettings() {
     pottery:      potteryValue(),
     enemyDrop:    enemyDropValue(),
     logicMode:    (document.getElementById('logicmode-select') || {}).value || 'noglitches',
+    goal:         (document.getElementById('goal-select') || {}).value || 'ganon',
   };
   // The Other Settings menu, from the one list that defines it — so adding a
   // seventh flag there carries it into custom presets for free.

@@ -14,8 +14,8 @@
   <div class="size-group">
     <button class="size-btn" onclick="changeTrackerScale(-0.05)">&#8722;</button>
     <button class="size-btn" onclick="changeTrackerScale(0.05)">+</button>
-    <button class="item-settings-btn" id="item-settings-btn" title="Settings" onclick="openItemSettings()">⚙&#xFE0E; Settings</button>
-<button class="item-settings-btn" id="item-broadcast-btn" title="Open Broadcast View" onclick="(function(){ var bg=localStorage.getItem('alttp-tracker-bg')||'black'; if(window.electronAPI&&window.electronAPI.launch){ window.electronAPI.launch({which:'broadcast',trackerBg:bg}); } else { window.open('broadcast.html?bg='+bg,'alttp-broadcast','width=500,height=230,resizable=yes'); } })()" style="background:#1a2e4a;color:#7ab8f5;border:1px solid #2a4e7a;">📡 Broadcast</button>
+    <button class="item-settings-btn" id="item-settings-btn" title="Settings" onclick="openItemSettings()">⚙&#xFE0E;<span class="btn-text"> Settings</span></button>
+<button class="item-settings-btn" id="item-broadcast-btn" title="Open Broadcast View" onclick="(function(){ var bg=localStorage.getItem('alttp-tracker-bg')||'black'; if(window.electronAPI&&window.electronAPI.launch){ window.electronAPI.launch({which:'broadcast',trackerBg:bg}); } else { window.open('broadcast.html?bg='+bg,'alttp-broadcast','width=500,height=230,resizable=yes'); } })()" style="background:#1a2e4a;color:#7ab8f5;border:1px solid #2a4e7a;">📡<span class="btn-text"> Broadcast</span></button>
   </div>
   <div class="connection-status" id="item-conn-status">○ Disconnected</div>
   <span class="race-label" id="item-race-label"></span>
@@ -52,10 +52,10 @@ window.ensurePotLocations = function() {
   });
 })();
 </script>
-<script src="js/item-settings.js?v=5"></script>
-<script src="js/yitem.js?v=2"></script>
-<script src="js/items.js?v=1137k"></script>
-<script src="js/item-sounds.js?v=4"></script>
+<script src="js/item-settings.js?v=8"></script>
+<script src="js/yitem.js?v=3"></script>
+<script src="js/items.js?v=1158k"></script>
+<script src="js/item-sounds.js?v=5"></script>
 <script>
 // ── Dungeon hover panel (js/dngpanel.js, shared with the map) ─────────────────
 // The item tracker knows the real dungeon state — counts, map/compass/big key,
@@ -249,6 +249,8 @@ try {
         window.applyRandomPrizeChange(_v);
       } else if (_k === 'alttp-door-shuffle' && typeof window.applyDoorShuffleChange === 'function') {
         window.applyDoorShuffleChange(_v);
+      } else if (_k === 'alttp-goal') {
+        window.applyGoalChange(_v);
       }
       return;
     }
@@ -316,6 +318,10 @@ try {
       });
     });
   }
+
+  // The goal is shown on the map's toolbar (Nov 2026). The item tracker only
+  // stores a change relayed to it.
+  window.applyGoalChange = function (v) { try { localStorage.setItem('alttp-goal', v); } catch (e) {} };
 
   // Set mode label in bottom bar
   document.addEventListener('DOMContentLoaded', function() {

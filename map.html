@@ -58,6 +58,12 @@ body {
 
 /* ── Settings menu (gear → dropdown panel) ── */
 #settings-wrap { position: relative; margin-left: auto; }
+/* The seed goal, left of Settings (moved from the item tracker, Nov 2026). It
+   takes the push to the right, so Settings sits right beside it. */
+#goal-label { margin-left: auto; margin-right: 10px; color: #888; font-size: 11px; font-weight: bold; letter-spacing: .5px; }
+#goal-label:empty { display: none; }
+#goal-label:not(:empty) ~ #settings-wrap { margin-left: 0; }
+#topbar.ent-rows #goal-label { order: 1; }
 #settings-btn {
   background: #1a1a1a; color: #ccc; border: 1px solid #333;
   border-radius: 3px; padding: 0 8px; font-size: 11px; line-height: 1.7;
@@ -126,7 +132,7 @@ body {
    Chris, Oct 2026). CSS zoom rather than width/height: one rule covers every
    marker type and everything drawn inside them, and they stay centred on
    their spot. */
-.dot, .dng, .shop-marker, .bonk-dot, .ent-marker, .ent-label { zoom: var(--mk, 1); }
+.dot, .dng, .shop-marker, .flute-spot, .bonk-dot, .ent-marker, .ent-label { zoom: var(--mk, 1); }
 .dot {
   position: absolute;
   width: 18px; height: 18px;
@@ -172,6 +178,16 @@ body {
   transition: transform 0.08s;
 }
 .shop-marker:hover { transform: translate(-50%,-50%) scale(1.6); z-index: 21; }
+/* Flute spot (Kakariko): red with no flute, green once it is held, cleared once
+   it is activated (flute >= 2). */
+.flute-spot { position: absolute; width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid #000; transform: translate(-50%, -50%); z-index: 25; cursor: pointer;
+  background: #ff4444; display: flex; align-items: center; justify-content: center; }
+.flute-spot:hover { transform: translate(-50%,-50%) scale(1.3); }
+.flute-spot.available { background: #4dff88; }
+.flute-spot.cleared   { background: rgba(40,40,40,0.85); border-color: #555; }
+.flute-spot img { width: 10px; height: 10px; image-rendering: pixelated; pointer-events: none; }
+.flute-spot.cleared img { opacity: 0.35; }
 /* Same five states as the check dots, so a shop that mirrors a check reads
    identically to it — including purple for out-of-logic. */
 .shop-marker.available { background: #4dff88; }
@@ -662,6 +678,7 @@ body {
   <button class="zoom-btn" id="checklist-btn" style="font-size:11px;padding:0 8px;" onclick="openCheckList()">☑ Checks</button>
 
   <span class="tb-break"></span>
+  <span id="goal-label" title="Seed goal (Settings → Goal)"></span>
   <div id="settings-wrap">
     <button id="settings-btn" type="button" title="Map settings">&#9881; Settings</button>
     <div id="settings-panel">
@@ -717,6 +734,21 @@ body {
             <option value="2">2 Crystals</option>
             <option value="1">1 Crystal</option>
             <option value="0">Open (0 Crystals)</option>
+          </select>
+        </div>
+      </div>
+      <div class="set-group">
+        <div class="set-group-title">Goal</div>
+        <div class="set-row">
+          <select id="set-goal" class="tb-select">
+            <option value="ganon">Defeat Ganon</option>
+            <option value="pedestal">Master Sword Pedestal</option>
+            <option value="dungeons">All Dungeons</option>
+            <option value="triforcehunt">Triforce Hunt</option>
+            <option value="trinity">Trinity</option>
+            <option value="crystals">Crystals</option>
+            <option value="ganonhunt">Ganonhunt</option>
+            <option value="completionist">Completionist</option>
           </select>
         </div>
       </div>
@@ -6903,6 +6935,7 @@ window.refreshMapLogic = function() {
   // Shopsanity markers and bonk checks (defined later in the file — guarded
   // for load order)
   if (window.refreshShopMarkers) window.refreshShopMarkers();
+  if (window.refreshFluteSpot) window.refreshFluteSpot();
   if (window.refreshBonkChecks) window.refreshBonkChecks();
   if (window.refreshRetroDoors) window.refreshRetroDoors();
   // Broadcast check colors to checklist window
@@ -7185,26 +7218,16 @@ var POT_PLACE_USE_CHECK = {
   'Superbunny Cave (Bottom)': 1
 };
 
-// Doors the entrance graph is stricter about than the pots actually are,
-// because the table models the entrance-shuffle route rather than the walk-in
-// one: Death Mountain Return Cave's West door is listed as
-// mirror-from-Bumper-Cave, when on a vanilla seed you walk in from the ledge
-// exactly as you do at Old Man House's top door.
-//
-// Applied only while entrance shuffle is OFF — with it on, "can I get to that
-// door" really is the question the table answers, and a found entrance is the
-// whole point.
-var POT_REACH_VIA = {
-  'Death Mountain Return Cave (West)': 'Old Man House (Top)'
-};
-
 // Doors that take a check's colour outright, purple included. Fairy
 // Ascension is the same stretch of east Death Mountain as Paradox Cave; the
 // entrance graph made it wait on the flute when west DM access was enough
 // (Chris, Sep 2026).
 var POT_REACH_CHECK = {
   'Fairy Ascension Cave (Top)':    17,   // Paradox Cave
-  'Fairy Ascension Cave (Bottom)': 17
+  'Fairy Ascension Cave (Bottom)': 17,
+  // Paradox Cave's Bomb Area and Front pots open through this door; the entrance
+  // graph wants the flute, but the cave's own checks say available (Chris, Nov 2026).
+  'Paradox Cave (Bottom)':         17
 };
 var POT_UNREACH = { word: 'unavailable', cls: 'unavail' };
 
@@ -7217,10 +7240,20 @@ function potReachStatus(name) {
   return potEntranceReachable(name) ? { word: 'available', cls: 'available' } : POT_UNREACH;
 }
 
+// With entrance shuffle off, the Old Man doors are reached the way the map reaches
+// Death Mountain everywhere else: gloves climb it (open world), or a flute.
+// The entrance graph only knows the flute, so these pots read red with gloves and a lamp.
+var POT_DM_DOOR = { 'Old Man House (Bottom)': 1, 'Old Man House (Top)': 1, 'Old Man Cave (East)': 1,
+  'Death Mountain Return Cave (East)': 1, 'Death Mountain Return Cave (West)': 1,
+  'Hookshot Fairy': 1 };
+
 function potEntranceReachable(name) {
   if (!(window.trackerSettings && window.trackerSettings.entranceShuffle)) {
     if (POT_REACH_CHECK[name] !== undefined) return potReachStatus(name).cls !== 'unavail';
-    name = POT_REACH_VIA[name] || name;
+    if (POT_DM_DOOR[name]) {
+      var dmIt = window.trackerItems || {};
+      return !!((dmIt.gloves >= 1 && window.gloveClimbsDM()) || dmIt.flute >= 2 || window.fluteToDDM());
+    }
   }
   if (_potReachCache[name] !== undefined) return _potReachCache[name];
   return (_potReachCache[name] = _potEntranceReachable(name));
@@ -8757,6 +8790,46 @@ if (document.readyState === 'loading') {
 </script>
 
 <script>
+// Flute spot (Kakariko): red with no flute, green once the flute is held,
+// cleared once it is activated (flute >= 2, the same test the logic uses).
+(function () {
+  var FLUTE_SPOT = [13.00, 48.10];   // % of the Light World map, beside the Bottle Merchant (65)
+  var lwEl = document.getElementById('lw');
+  if (!lwEl) return;
+  var el = document.createElement('div');
+  el.className = 'flute-spot';
+  el.style.left = FLUTE_SPOT[0] + '%';
+  el.style.top  = FLUTE_SPOT[1] + '%';
+  el.dataset.fluteSpot = '1';
+  var icon = document.createElement('img');
+  icon.src = 'items/flute00.png';
+  icon.alt = '';
+  el.appendChild(icon);
+  // Same card as a check dot (js/dngpanel.js), so the hover reads like the rest of the map.
+  el.addEventListener('mouseenter', function () {
+    var flute = (window.trackerItems || {}).flute || 0;
+    var color = flute >= 2 ? null : flute >= 1 ? 'green' : 'red';
+    var status = flute >= 2 ? { word: 'cleared', cls: 'cleared' } : window.dngStatusFromColor(color);
+    if (typeof window.showCheckPanel === 'function') window.showCheckPanel({ title: 'Flute Spot', status: status, rows: [] }, el);
+    else if (typeof showTipAt === 'function') showTipAt('Flute Spot', el);
+  });
+  el.addEventListener('mouseleave', function () { if (typeof hideDungeonPanel === 'function') hideDungeonPanel(); if (typeof hideTip === 'function') hideTip(); });
+  lwEl.appendChild(el);
+
+  function refreshFluteSpot() {
+    var flute = (window.trackerItems || {}).flute || 0;
+    el.className = 'flute-spot' + (flute >= 2 ? ' cleared' : flute >= 1 ? ' available' : '');
+    // Red: flute00 (no flute). Green: flute10 (held). Cleared keeps flute10, dimmed.
+    icon.src = flute >= 1 ? 'items/flute10.png' : 'items/flute00.png';
+    // Inverted 2.0 has no flute spot on this map.
+    el.style.display = (window.trackerSettings && window.trackerSettings.inverted2) ? 'none' : '';
+  }
+  window.refreshFluteSpot = refreshFluteSpot;
+  refreshFluteSpot();
+})();
+</script>
+
+<script>
 // ── Retro-mode door checks ────────────────────────────────────────────────────
 //
 // Retro sells items from take-any caves, fairies, gambles and hints as well as
@@ -9235,6 +9308,31 @@ if (document.readyState === 'loading') {
   }
   window.applyGtCrystals = applyGtCrystals;
 
+  // ── Goal ──
+  // Launcher and map share 'alttp-goal'. Shown in the toolbar, left of Settings.
+  function updateGoalLabel() {
+    var el = document.getElementById('goal-label'), sel = document.getElementById('set-goal');
+    if (!el || !sel) return;
+    var v = localStorage.getItem('alttp-goal') || 'ganon';
+    var opt = sel.querySelector('option[value="' + v + '"]');
+    el.textContent = 'GOAL: ' + (opt ? opt.textContent : 'Defeat Ganon').toUpperCase();
+  }
+  window.updateGoalLabel = updateGoalLabel;
+  function applyGoal(v) {
+    window.trackerSettings.goal = v;
+    lsSet('alttp-goal', v);
+    if (window._bc) window._bc.postMessage({ type: 'setting', key: 'alttp-goal', value: v });
+    updateGoalLabel();
+  }
+  // A goal picked in the launcher reaches this window through storage.
+  window.addEventListener('storage', function (e) {
+    if (e.key !== 'alttp-goal') return;
+    var sel = document.getElementById('set-goal');
+    if (sel && e.newValue) { sel.value = e.newValue; window.trackerSettings.goal = e.newValue; }
+    updateGoalLabel();
+  });
+  window.applyGoal = applyGoal;
+
   // ── Simple boolean seed flags ──
   // settingsKey: property on window.trackerSettings
   // storageKey:  localStorage key shared with index.html
@@ -9395,6 +9493,14 @@ if (document.readyState === 'loading') {
       try { if (window._bc) window._bc.postMessage({ type: 'setting', key: 'alttp-door-shuffle', value: doorSel.value }); } catch (e) {}
       if (typeof window.refreshMapLogic === 'function') window.refreshMapLogic();
     });
+  }
+
+  var goalSel = document.getElementById('set-goal');
+  if (goalSel) {
+    goalSel.value = localStorage.getItem('alttp-goal') || 'ganon';
+    window.trackerSettings.goal = goalSel.value;
+    goalSel.addEventListener('change', function() { applyGoal(goalSel.value); });
+    updateGoalLabel();
   }
 
   var gtSel = document.getElementById('set-gtcrystals');

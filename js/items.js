@@ -1808,6 +1808,7 @@ function _resetKeyDropTallies() {
         if (typeof deviceAttached !== 'undefined' && deviceAttached) {
             dungeons[k].chestsMax = 0;
             dungeons[k].chestBits = 0;   // travels with chestsMax — see below
+            dungeons[k]._keysPrev = 0; dungeons[k]._holdUntil = 0;
             dungeons[k].itemCount = 0;
         }
     });
@@ -3646,6 +3647,26 @@ function processFloor(b) {
     if (window.broadcastItemSnap) window.broadcastItemSnap();
 }
 
+// The room and inventory reads come back as separate responses, and the dungeon
+// count uses both. A small key ticks in the inventory read a poll before the
+// chest it came from shows in the room read, so the count dipped and recovered.
+// Process the two as a pair, inventory first, so both move in the same update.
+// A read with no partner still goes through after 1.5 s.
+var _pendRoom = null, _pendInv = null, _pendTimer = null;
+function _queueRead(kind, data) {
+    if (kind === 'inv') _pendInv = data; else _pendRoom = data;
+    if (_pendInv && _pendRoom) return _flushReads();
+    clearTimeout(_pendTimer);
+    _pendTimer = setTimeout(_flushReads, 1500);
+}
+function _flushReads() {
+    clearTimeout(_pendTimer); _pendTimer = null;
+    var inv = _pendInv, room = _pendRoom;
+    _pendInv = _pendRoom = null;
+    if (inv) processInventoryData(inv);
+    if (room) processRoomData(room);
+}
+
 function processSRAMData(data) {
     if (data.length === 0x01) {
         _currentGamemode = data[0];
@@ -3657,7 +3678,7 @@ function processSRAMData(data) {
     } else if (data.length === 0x04) {
         processWorld(data[0]);
     } else if (data.length === 0x1ae) {
-        processInventoryData(data);
+        _queueRead('inv', data);
     } else if (data.length === 0x280) {
         const now = Date.now();
         if (roomChunk1 === null || (now - roomChunk1Time) > 1500) {
@@ -3671,7 +3692,7 @@ function processSRAMData(data) {
             merged.set(data, 0x280);
             roomChunk1 = null;
             roomChunk1Time = 0;
-            processRoomData(merged);
+            _queueRead('room', merged);
         }
     } else if (data.length === KEYDROP_LEN) {
         processKeyDropData(data);
@@ -3682,7 +3703,7 @@ function processSRAMData(data) {
     } else if (data.length === ROM_PRIZE_LEN) {
         takePrizeTable(data);
     } else if (data.length === 0x400 || data.length === 0x420 || data.length === 0x500) {
-        processRoomData(data);
+        _queueRead('room', data);
     }
 }
 
@@ -3871,6 +3892,9 @@ function processRoomData(data) {
             }
 
             // High-water mark: chest count never goes down (handles flickering SRAM on BizHawk etc.)
+            // A real new chest raises the count above its high-water mark. Returning
+            // to the dungeon restores the mark, which is not a chest (see keys below).
+            const _maxBefore = dungeons[key].chestsMax || 0;
             chestsOpened = Math.max(chestsOpened, dungeons[key].chestsMax || 0);
             dungeons[key].chestsMax = chestsOpened;
             
@@ -3897,6 +3921,16 @@ function processRoomData(data) {
             // item UNLESS it held one of this dungeon's own unshuffled items.
             // `slots` says whether the dungeon HAS each one; the state says
             // whether it has been found yet. Both are needed.
+            // Every key held is subtracted, whenever it arrived (the rule before Nov 2026).
+            // Crediting only keys that came with a chest (1144k-1151k) depended on the
+            // game's timing, which varies: a torch key lands 2-4 s before its flag, a boss
+            // key 16-19 s before. Each gap overcounted. A pot or enemy key can still dip the
+            // count by one until the dungeon is done; an overcount is worse.
+            // keyRise/chestRise feed the boss-key hold below.
+            const keysHeld = Math.max(dungeon.smallKeyMax || 0, dungeon.smallKeyCount || 0);
+            const _chestRise = chestsOpened - _maxBefore;
+            const _keyRise = keysHeld - (dungeon._keysPrev || 0);
+            dungeon._keysPrev = keysHeld;
             let items = chestsOpened;
             if (!diFlags.map     && slots.map     && dungeon.mapState     > 0) items--;
             if (!diFlags.compass && slots.compass && dungeon.compassState > 0) items--;
@@ -3907,7 +3941,7 @@ function processRoomData(data) {
                 // at maxSmallKeys: the floor item (0x04) also ticks the SRAM key
                 // counter. HC's key is a floor/enemy drop in the sewers rather than
                 // one of its counted chests, so it is never subtracted.
-                const smallKeys = dungeon.smallKeyMax || dungeon.smallKeyCount;
+                const smallKeys = keysHeld;
                 items -= dungeon.keysNotInChests ? 0 : Math.min(smallKeys, dungeon.maxSmallKeys);
             }
             if (items < 0) items = 0;
@@ -3923,7 +3957,29 @@ function processRoomData(data) {
             // when the boss-defeat location, or a map/compass bit, is read a frame
             // before its paired chest/prize bit registers. Reset to 0 on New Game
             // (resetItemTracker), so a fresh file still recounts from scratch.
-            items = Math.max(items, dungeon.itemCount || 0);
+            // A key picked up changes the subtraction, so the old high-water would hold
+            // the count from before it. On a read where the key count moved, let the
+            // fresh count stand; the high-water still guards every other read.
+            const keysNow = Math.max(dungeon.smallKeyMax || 0, dungeon.smallKeyCount || 0);
+            // Boss-key hold (display only). A key with no chest is usually the boss's:
+            // picked up after the kill, while the boss flag lands ~15 s later, after the
+            // prize (MM, Nov 2026: count 1/2 -> 0/2 -> 1/2). Hold the shown count until a
+            // location lands or 30 s pass, then let the fresh count stand. A key within
+            // 1.5 s of a chest is that chest's key and applies at once. Pot and enemy keys
+            // never reach this counter in standard seeds, so they can't start a hold.
+            const _nowHold = Date.now();
+            if (_chestRise > 0) dungeon._lastChestAt = _nowHold;
+            let _release = false;
+            if (_keyRise > 0 && _chestRise === 0 &&
+                !(dungeon._lastChestAt && _nowHold - dungeon._lastChestAt <= 1500)) {
+                dungeon._holdUntil = _nowHold + 30000;
+            } else if (dungeon._holdUntil && (_chestRise > 0 || _nowHold >= dungeon._holdUntil)) {
+                dungeon._holdUntil = 0;
+                _release = true;
+            }
+            if (dungeon._holdUntil) items = Math.max(items, dungeon.itemCount || 0);
+            else if (!_release && dungeon._keysSeen === keysNow) items = Math.max(items, dungeon.itemCount || 0);
+            dungeon._keysSeen = keysNow;
 
             // Update if changed
             if (items !== dungeon.itemCount) {
@@ -4702,6 +4758,7 @@ function resetItemTracker() {
         d.itemCount     = 0;
         d.chestsMax     = 0;
         d.chestBits     = 0;
+        d._keysPrev = 0; d._holdUntil = 0;
         d.skipped       = 0;
         d.bigkeyState   = 0;
         d.compassState  = 0;
@@ -4947,19 +5004,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Green dot on the dungeon Link is in (item tracker only). Default on, off in race mode.
+// The dungeon Link is in: its label takes the chosen colour (item tracker only).
+// Replaced the green dot, Nov 2026. Off by default, always off in race mode. The setting
+// keeps its old 'dng-dot' storage key so an earlier choice carries over.
 (function () {
-  function dotOn() {
+  function hereOn() {
     if (window._raceMode) return false;
     var v = localStorage.getItem('alttp-itemtracker-dng-dot');
-    return v === null ? true : v === 'true';
+    return v === 'true';
   }
   setInterval(function () {
-    document.querySelectorAll('.dng-here-dot').forEach(function (d) { d.remove(); });
+    var col = localStorage.getItem('alttp-itemtracker-dng-color') || '#3ddc5a';
+    document.documentElement.style.setProperty('--dng-here-color', col);
+    // The Y Item box's colour rides along (items.css .yitem-equipped).
+    document.documentElement.style.setProperty('--yitem-color',
+      localStorage.getItem('alttp-itemtracker-yitem-color') || '#ffd54a');
     var key = window._currentDungeon;
-    if (!key || key === 'hc' || key === 'ct' || !dotOn()) return;   // HC and CT have no dungeon box
-    var slot = document.querySelector('.dungeon-slot[data-dungeon-key="' + key + '"]');
-    if (slot) { var d = document.createElement('span'); d.className = 'dng-here-dot'; slot.appendChild(d); }
+    if (!key || key === 'hc' || key === 'ct' || !hereOn()) key = null;   // HC and CT left out (Nov 2026)
+    document.querySelectorAll('.dungeon-slot').forEach(function (slot) {
+      var lbl = slot.querySelector('.dungeon-label');
+      if (lbl) lbl.classList.toggle('dng-here', slot.getAttribute('data-dungeon-key') === key);
+    });
   }, 500);
 })();
 

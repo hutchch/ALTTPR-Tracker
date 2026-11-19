@@ -774,6 +774,21 @@ function applyDungeonVisibility() {
     d.chestRow.style.display = SETTINGS.showChests ? '' : 'none';
     applyKeyRowDisplay(d);
   });
+  // Modern v2 draws its own dungeon boxes (dngEls are hidden copies there), so
+  // the toggles have to reach those too (Chris, Nov 2026).
+  if (typeof _rv !== 'undefined' && _rv && _rv.dngs) {
+    var anyIcon = SETTINGS.showMap || SETTINGS.showCompass || SETTINGS.showBigKey;
+    Object.keys(_rv.dngs).forEach(function(key) {
+      var v = _rv.dngs[key];
+      v.map.style.display  = SETTINGS.showMap     ? '' : 'none';
+      v.comp.style.display = SETTINGS.showCompass ? '' : 'none';
+      v.bk.style.display   = SETTINGS.showBigKey  ? '' : 'none';
+      v.map.parentNode.style.display = anyIcon ? '' : 'none';   // the .rv-di row
+      v.keys.style.display = SETTINGS.showSmallKeys ? '' : 'none';
+      v.ch.style.display   = SETTINGS.showChests    ? '' : 'none';
+    });
+    if (SETTINGS.viewStyle === 'v2' && typeof fitV2View === 'function') fitV2View();   // fewer rows, new size
+  }
 }
 
 // Toggle the default container (background + border) on every dungeon slot.
@@ -1376,6 +1391,7 @@ function buildV2View(container) {
   ROW4.forEach(function(k) { buildDungeonSlot(k); });
   renderV2View();   // the empty state straight away, before the first snapshot
   refreshAllFills();
+  applyDungeonVisibility();   // the Show toggles, on the v2 boxes as well
   fitV2View();
   setTimeout(fitV2View, 300);   // the app window may still be settling its size
   // and the pictures and fonts may still be loading (on the Mac the dungeons
